@@ -49,15 +49,13 @@ pub struct Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.token_type {
-            TokenType::EOF => write!(f, "(EOF)"),
-
             TokenType::Number         => write!(f, "(Number '{}')",         self.string),
             TokenType::String         => write!(f, "(String '{}')",         self.string),
             TokenType::Name           => write!(f, "(Name '{}')",           self.string),
             TokenType::UnaryOperator  => write!(f, "(UnaryOperator '{}')",  self.string),
             TokenType::BinaryOperator => write!(f, "(BinaryOperator '{}')", self.string),
 
-            _ => write!(f, "({:?} '{}')", self.token_type, self.string),
+            _ => write!(f, "({:?})", self.token_type),
         }
     }
 }
@@ -303,7 +301,7 @@ impl<'a> Lexer<'a> {
             },
             None => {
                 if let Some(result) = self.chars_iter.next() {
-                    result.expect("test")
+                    result.expect("Could not read from source stream")
                 } else {
                     self.at_end = true;
 

@@ -7,7 +7,7 @@ fn test_eof() {
 
 #[test]
 fn test_skip_whitespace() {
-    assert_eq!("(Number '12') (NewLine '\n') (EOF)", lex("   \t 12 \n "));
+    assert_eq!("(Number '12') (NewLine) (EOF)", lex("   \t 12 \n "));
 }
 
 #[test]
@@ -20,8 +20,8 @@ fn test_inline_comments() {
 #[test]
 fn test_simple_tokens() {
     assert_eq!(
-        "(OpenParen '(') (CloseParen ')') (OpenBracket '[') (CloseBracket ']') (Comma ',') \
-         (Dot '.') (Colon ':') (Number '12345') (String 'test') (NewLine '\n') (Name 'doend') (EOF)",
+        "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) \
+         (Dot) (Colon) (Number '12345') (String 'test') (NewLine) (Name 'doend') (EOF)",
         lex("()[],.:12345\"test\"\ndoend")
     );
 }
@@ -34,9 +34,9 @@ fn test_numbers() {
 
 #[test]
 fn test_calls_on_literals() {
-    assert_eq!("(Number '42.2') (Dot '.') (Name 'abs') (EOF)", lex("42.2.abs"));
+    assert_eq!("(Number '42.2') (Dot) (Name 'abs') (EOF)", lex("42.2.abs"));
     assert_eq!(
-        "(String 'test') (Dot '.') (Name 'length') (Number '3') (EOF)",
+        "(String 'test') (Dot) (Name 'length') (Number '3') (EOF)",
         lex("\"test\".length 3")
     );
 }
@@ -44,8 +44,7 @@ fn test_calls_on_literals() {
 #[test]
 fn test_keywords() {
     assert_eq!(
-        "(Do 'do') (End 'end') (If 'if') (Elsif 'elsif') (Else 'else') (While 'while') \
-         (Def 'def') (EOF)",
+        "(Do) (End) (If) (Elsif) (Else) (While) (Def) (EOF)",
         lex("do end if elsif else while def")
     );
 }
@@ -72,7 +71,7 @@ fn test_error_on_unknown_token() {
 
 #[test]
 fn test_braces() {
-    assert_eq!("(OpenBrace '{') (CloseBrace '}') (EOF)", lex("{}"));
+    assert_eq!("(OpenBrace) (CloseBrace) (EOF)", lex("{}"));
 }
 
 #[test]
