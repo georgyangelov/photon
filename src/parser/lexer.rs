@@ -42,8 +42,8 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub string: String,
-    // line: u32,
-    // column: u32,
+    pub line: u32,
+    pub column: u32,
 }
 
 impl fmt::Display for Token {
@@ -74,6 +74,9 @@ pub struct Lexer<'a> {
     at_start: bool,
     at_end: bool,
 
+    line: u32,
+    column: u32,
+
     chars_iter: Chars<&'a mut io::Read>
 }
 
@@ -81,11 +84,17 @@ impl<'a> Lexer<'a> {
     pub fn new(file_name: &str, source: &'a mut io::Read) -> Lexer<'a> {
         Lexer {
             file_name: String::from(file_name),
-            at_start: true,
-            at_end: false,
+
             c: '\0',
             put_back_char: None,
-            chars_iter: source.chars()
+
+            at_start: true,
+            at_end: false,
+
+            line: 1,
+            column: 0,
+
+            chars_iter: source.chars(),
         }
     }
 
@@ -103,8 +112,16 @@ impl<'a> Lexer<'a> {
 
         self.skip_whitespace_and_comments();
 
+        let line = self.line;
+        let column = self.column;
+
         if self.at_end {
-            return Ok(Token { token_type: TokenType::EOF, string: String::from("EOF") });
+            return Ok(Token {
+                token_type: TokenType::EOF,
+                string: String::from("EOF"),
+                line: line,
+                column: column
+            });
         }
 
         let token_type = match self.c {
@@ -126,7 +143,9 @@ impl<'a> Lexer<'a> {
 
             return Ok(Token {
                 token_type: token_type,
-                string: string
+                string: string,
+                line: line,
+                column: column
             });
         }
 
@@ -140,13 +159,17 @@ impl<'a> Lexer<'a> {
 
                 return Ok(Token {
                     token_type: TokenType::BinaryOperator,
-                    string: string
+                    string: string,
+                    line: line,
+                    column: column
                 });
             },
             '"' => {
                 return Ok(Token {
                     token_type: TokenType::String,
-                    string: self.read_string()
+                    string: self.read_string(),
+                    line: line,
+                    column: column
                 });
             },
             '!' => {
@@ -157,13 +180,17 @@ impl<'a> Lexer<'a> {
 
                     return Ok(Token {
                         token_type: TokenType::BinaryOperator,
-                        string: string
+                        string: string,
+                        line: line,
+                        column: column
                     });
                 }
 
                 return Ok(Token {
                     token_type: TokenType::UnaryOperator,
-                    string: string
+                    string: string,
+                    line: line,
+                    column: column
                 });
             },
             _ => ()
@@ -172,7 +199,9 @@ impl<'a> Lexer<'a> {
         if self.c.is_digit(10) {
             return Ok(Token {
                 token_type: TokenType::Number,
-                string: self.read_number()
+                string: self.read_number(),
+                line: line,
+                column: column
             });
         }
 
@@ -198,12 +227,14 @@ impl<'a> Lexer<'a> {
 
             return Ok(Token {
                 token_type: token_type,
-                string: string
+                string: string,
+                line: line,
+                column: column
             });
         }
 
         Err(LexerError {
-            message: format!("Could not lex token {}", self.c)
+            message: format!("Could not lex token '{}' at {}:{}:{}", self.c, self.file_name(), self.line, self.column)
         })
     }
 
@@ -309,6 +340,13 @@ impl<'a> Lexer<'a> {
                 }
             }
         };
+
+        if self.c == '\n' {
+            self.line += 1;
+            self.column = 0;
+        } else {
+            self.column += 1;
+        }
 
         old_c
     }
