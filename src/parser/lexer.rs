@@ -213,16 +213,15 @@ impl<'a> Lexer<'a> {
             }
 
             let token_type = match string.as_str() {
-                "do"    => TokenType::Do,
-                "if"    => TokenType::If,
-                "else"  => TokenType::Else,
-                "elsif" => TokenType::Elsif,
-                "end"   => TokenType::End,
-                "while" => TokenType::While,
-                "def"   => TokenType::Def,
-                "and"   => TokenType::BinaryOperator,
-                "or"    => TokenType::BinaryOperator,
-                _       => TokenType::Name
+                "do"         => TokenType::Do,
+                "if"         => TokenType::If,
+                "else"       => TokenType::Else,
+                "elsif"      => TokenType::Elsif,
+                "end"        => TokenType::End,
+                "while"      => TokenType::While,
+                "def"        => TokenType::Def,
+                "and" | "or" => TokenType::BinaryOperator,
+                _            => TokenType::Name
             };
 
             return Ok(Token {
