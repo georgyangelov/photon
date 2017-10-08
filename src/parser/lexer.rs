@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Read;
 use std::fmt;
+use std::io::Chars;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -68,24 +69,25 @@ pub struct LexerError {
 
 pub struct Lexer<'a> {
     file_name: String,
-    source: &'a mut io::Read,
 
     c: char,
     put_back_char: Option<char>,
 
     at_start: bool,
     at_end: bool,
+
+    chars_iter: Chars<&'a mut io::Read>
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(file_name: &str, source: &'a mut io::Read) -> Lexer<'a> {
         Lexer {
             file_name: String::from(file_name),
-            source: source,
             at_start: true,
             at_end: false,
             c: '\0',
-            put_back_char: None
+            put_back_char: None,
+            chars_iter: source.chars()
         }
     }
 
@@ -94,7 +96,6 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next_token(&mut self) -> Result<Token, LexerError> {
-        // TODO: Extract this for performance
         let mut string = String::new();
 
         if self.at_start {
@@ -209,7 +210,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn read_number(&mut self) -> String {
-        let mut string = String::with_capacity(20);
+        let mut string = String::new();
 
         while self.c.is_digit(10) {
             string.push(self.next());
@@ -301,10 +302,7 @@ impl<'a> Lexer<'a> {
                 c
             },
             None => {
-                // TODO: Extract the iterator for performance
-                let mut chars = self.source.chars();
-
-                if let Some(result) = chars.next() {
+                if let Some(result) = self.chars_iter.next() {
                     result.expect("test")
                 } else {
                     self.at_end = true;
