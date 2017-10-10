@@ -3,7 +3,9 @@ use std::io::Read;
 use std::fmt;
 use std::io::Chars;
 
-#[derive(Debug, PartialEq)]
+use super::ParseError;
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     EOF,
     NewLine,
@@ -38,7 +40,7 @@ pub enum TokenType {
     End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub string: String,
@@ -58,11 +60,6 @@ impl fmt::Display for Token {
             _ => write!(f, "({:?})", self.token_type),
         }
     }
-}
-
-#[derive(Debug)]
-pub struct LexerError {
-    pub message: String,
 }
 
 pub struct Lexer<'a> {
@@ -102,7 +99,7 @@ impl<'a> Lexer<'a> {
         &self.file_name
     }
 
-    pub fn next_token(&mut self) -> Result<Token, LexerError> {
+    pub fn next_token(&mut self) -> Result<Token, ParseError> {
         let mut string = String::new();
 
         if self.at_start {
@@ -232,8 +229,8 @@ impl<'a> Lexer<'a> {
             });
         }
 
-        Err(LexerError {
-            message: format!("Could not lex token '{}' at {}:{}:{}", self.c, self.file_name(), self.line, self.column)
+        Err(ParseError {
+            message: format!("Unexpected token '{}' at {}:{}:{}", self.c, self.file_name(), self.line, self.column)
         })
     }
 
