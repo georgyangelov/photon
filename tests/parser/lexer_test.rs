@@ -20,10 +20,17 @@ fn test_inline_comments() {
 #[test]
 fn test_simple_tokens() {
     assert_eq!(
-        "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) \
+        "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) (Pipe) \
          (Dot) (Colon) (Number '12345') (String 'test') (NewLine) (Name 'doend') (EOF)",
-        lex("()[],.:12345\"test\"\ndoend")
+        lex("()[],|.:12345\"test\"\ndoend")
     );
+}
+
+#[test]
+fn test_single_quote_strings() {
+    assert_eq!("(String 'test') (EOF)", lex("'test'"));
+    assert_eq!("(String 'te\\ns\\t') (EOF)", lex("'te\\ns\\t'"));
+    assert_eq!("(String 'te'st\\') (EOF)", lex("'te\\'st\\\\'"));
 }
 
 #[test]
@@ -33,8 +40,16 @@ fn test_numbers() {
 }
 
 #[test]
+fn test_literals() {
+    assert_eq!("(Nil) (EOF)", lex("nil"));
+    assert_eq!("(Bool 'true') (EOF)", lex("true"));
+    assert_eq!("(Bool 'false') (EOF)", lex("false"));
+}
+
+#[test]
 fn test_calls_on_literals() {
     assert_eq!("(Number '42.2') (Dot) (Name 'abs') (EOF)", lex("42.2.abs"));
+    assert_eq!("(Number '42') (Dot) (Name 'abs') (EOF)", lex("42.abs"));
     assert_eq!(
         "(String 'test') (Dot) (Name 'length') (Number '3') (EOF)",
         lex("\"test\".length 3")
@@ -44,8 +59,8 @@ fn test_calls_on_literals() {
 #[test]
 fn test_keywords() {
     assert_eq!(
-        "(Do) (End) (If) (Elsif) (Else) (While) (Def) (EOF)",
-        lex("do end if elsif else while def")
+        "(Begin) (Do) (End) (If) (Elsif) (Else) (While) (Def) (Catch) (EOF)",
+        lex("begin do end if elsif else while def catch")
     );
 }
 
@@ -62,6 +77,17 @@ fn test_unicode() {
 #[test]
 fn test_underscores_in_names() {
     assert_eq!("(Name '_this_is_a_valid_name') (EOF)", lex(" _this_is_a_valid_name "));
+}
+
+#[test]
+fn test_special_symbols_in_names() {
+    assert_eq!("(Name '@an_instance_variable') (EOF)", lex("@an_instance_variable"));
+    assert_eq!("(Name 'valid_name?') (Name 'valid_name!') (EOF)", lex("valid_name? valid_name!"));
+
+    assert_eq!(
+        "(Name 'invalid_nam!') (Name 'e') (Name 'invalid_n?') (Name 'ame') (EOF)",
+        lex("invalid_nam!e invalid_n?ame")
+    );
 }
 
 #[test]

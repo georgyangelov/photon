@@ -15,6 +15,17 @@ fn test_negative_number_literals() {
 }
 
 #[test]
+fn test_constant_object_literals() {
+    assert_eq!("true", parse("true"));
+    assert_eq!("false", parse("false"));
+    assert_eq!("nil", parse("nil"));
+
+    parse_error("true = 5");
+    parse_error("false = 5");
+    parse_error("nil = 5");
+}
+
+#[test]
 fn test_negating_expressions() {
     assert_eq!("(- test)", parse("-test"));
     assert_eq!("(+ -5 5)", parse("-   5 + 5"));
@@ -47,6 +58,7 @@ fn test_loops() {
     assert_eq!("(loop a { b c })", parse("while a\n b\n c end"));
     assert_eq!("(loop a { (b self c) })", parse("while a\n b c end"));
     assert_eq!("(loop a { (c b) })", parse("while a\n b.c end"));
+    assert_eq!("(loop (< a 1) { b })", parse("while a < 1\n b end"));
 }
 
 #[test]
@@ -55,7 +67,16 @@ fn test_infix_operators() {
     assert_eq!("(* (* (* 1 2) 3) 4)", parse("1 * 2 * 3 * 4"));
     assert_eq!("(- (- (- 1 2) 3) 4)", parse("1 - 2 - 3 - 4"));
     assert_eq!("(/ (/ (/ 1 2) 3) 4)", parse("1 / 2 / 3 / 4"));
+    assert_eq!("(or (or 1 (and 2 3)) 4)", parse("1 or 2 and 3 or 4"));
+}
+
+#[test]
+fn test_assignment() {
     assert_eq!("(= a 15)", parse("a = 15"));
+    assert_eq!("(= a (* 5 5))", parse("a = 5 * 5"));
+
+    parse_error("3 = 5");
+    parse_error("a + b = 5");
 }
 
 #[test]
@@ -77,8 +98,6 @@ fn test_operator_precedence() {
     assert_eq!("(> 1 (+ (* 2 2) 3))", parse("1 > 2 * 2 + 3"));
 
     assert_eq!("(+ (- 1 (* (/ 2 3) 4)) 5)", parse("1 - 2 / 3 * 4 + 5"));
-
-    assert_eq!("(= a (* 5 5))", parse("a = 5 * 5"));
 }
 
 #[test]
@@ -107,6 +126,7 @@ fn test_newlines_in_expressions() {
 #[test]
 fn test_names() {
     assert_eq!("test test_two test3", parse("test \n test_two \n test3"));
+    assert_eq!("@test @test_two @test3", parse("@test \n @test_two \n @test3"));
 }
 
 #[test]
@@ -115,6 +135,9 @@ fn test_method_calls() {
     assert_eq!("(method self)", parse("method()"));
     assert_eq!("(method target)", parse("target.method"));
     assert_eq!("(method target)", parse("target.method()"));
+
+    assert_eq!("(a self (new Array 1))", parse("a [1]"));
+    assert_eq!("(a self)", parse("a()"));
 }
 
 #[test]
@@ -134,6 +157,17 @@ fn test_method_calls_with_arguments() {
 
     assert_eq!("(method target a b c)", parse("target.method(a, b, c)"));
     assert_eq!("(method target a b c)", parse("target.method a, b, c"));
+
+    assert_eq!("(puts self (new Array 1 2 3))", parse("puts [1, 2, 3]"));
+}
+
+#[test]
+fn test_method_chaining() {
+    assert_eq!("(c (b a))", parse("a.b.c"));
+    assert_eq!("(d (c (b a)) e)", parse("a.b.c.d e"));
+    assert_eq!("(c (b a 1))", parse("a.b(1).c"));
+    assert_eq!("(c (b a 1) 2 3)", parse("a.b(1).c 2, 3"));
+    assert_eq!("(c (b a 1) (d 2) (d self 3 4))", parse("a.b(1).c 2.d, d(3, 4)"));
 }
 
 #[test]
@@ -161,6 +195,66 @@ fn test_method_call_priority() {
 fn test_method_call_line_completeness() {
     parse_error("call 1234 b");
     parse_error("call \"test\" b");
+}
+
+#[test]
+fn test_simple_method_definitions() {
+    assert_eq!("(def method [] { a })", parse("def method\na end"));
+    assert_eq!("(def method:Int [] { a b })", parse("def method:Int\na \n b end"));
+    assert_eq!(
+        "(def method:Int [] { (= a b) (+ a b) })",
+        parse("def method:Int\n a = b\n a + b end")
+    );
+}
+
+#[test]
+fn test_method_definitions_with_params() {
+    assert_eq!(
+        "(def method:Int [(param a:Int) (param b:String)] { a b })",
+        parse("def method(a:Int, b:String):Int\na \n b\n end")
+    );
+}
+
+#[test]
+fn test_standalone_blocks() {
+    assert_eq!("{ a b }", parse("begin a\n b end"));
+}
+
+#[test]
+fn test_catches() {
+    assert_eq!(
+        "{ a b (catch Error { b }) }",
+        parse("begin a\n b catch Error\n b end")
+    );
+
+    assert_eq!(
+        "{ a (catch A { b }) (catch Error { c }) }",
+        parse("begin a catch A\n b\n catch Error\n c end")
+    );
+
+    assert_eq!(
+        "{ a (catch A { b }) (catch Error { c }) }",
+        parse("begin a catch A\n b\n catch\n c end")
+    );
+
+    assert_eq!(
+        "{ a (catch ex:A { b }) (catch ex2:Error { c }) }",
+        parse("begin a catch ex:A\n b\n catch ex2\n c end")
+    );
+}
+
+#[test]
+fn test_lambdas() {
+    assert_eq!("(lambda [] { a b })", parse("do a\n b\n end"));
+    assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("do |a:Int, b:Int| a\n b\n end"));
+    assert_eq!("(lambda [] { a b })", parse("{ a\n b\n }"));
+    assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("{ |a:Int, b:Int| a\n b\n }"));
+    assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
+}
+
+#[test]
+fn test_array_literals() {
+    assert_eq!("(new Array a b c d)", parse("[a, b\n,\n c,\n d]"));
 }
 
 fn parse(source: &str) -> String {

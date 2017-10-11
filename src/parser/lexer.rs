@@ -22,22 +22,27 @@ pub enum TokenType {
     Comma,
     Dot,
     Colon,
+    Pipe,
 
     UnaryOperator,
     BinaryOperator,
 
     Name,
 
+    Nil,
     Number,
     String,
+    Bool,
 
     If,
     Else,
     Elsif,
-    Do,
     While,
     Def,
     End,
+    Begin,
+    Catch,
+    Do,
 }
 
 #[derive(Debug, Clone)]
@@ -46,11 +51,13 @@ pub struct Token {
     pub string: String,
     pub line: u32,
     pub column: u32,
+    pub had_whitespace_before: bool,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.token_type {
+            TokenType::Bool           => write!(f, "(Bool '{}')",           self.string),
             TokenType::Number         => write!(f, "(Number '{}')",         self.string),
             TokenType::String         => write!(f, "(String '{}')",         self.string),
             TokenType::Name           => write!(f, "(Name '{}')",           self.string),
@@ -107,7 +114,7 @@ impl<'a> Lexer<'a> {
             self.next();
         }
 
-        self.skip_whitespace_and_comments();
+        let had_whitespace = self.skip_whitespace_and_comments();
 
         let line = self.line;
         let column = self.column;
@@ -117,7 +124,8 @@ impl<'a> Lexer<'a> {
                 token_type: TokenType::EOF,
                 string: String::from("EOF"),
                 line: line,
-                column: column
+                column: column,
+                had_whitespace_before: had_whitespace
             });
         }
 
@@ -132,6 +140,7 @@ impl<'a> Lexer<'a> {
             ','  => Some(TokenType::Comma),
             '.'  => Some(TokenType::Dot),
             ':'  => Some(TokenType::Colon),
+            '|'  => Some(TokenType::Pipe),
             _    => None
         };
 
@@ -142,7 +151,8 @@ impl<'a> Lexer<'a> {
                 token_type: token_type,
                 string: string,
                 line: line,
-                column: column
+                column: column,
+                had_whitespace_before: had_whitespace
             });
         }
 
@@ -158,15 +168,26 @@ impl<'a> Lexer<'a> {
                     token_type: TokenType::BinaryOperator,
                     string: string,
                     line: line,
-                    column: column
+                    column: column,
+                    had_whitespace_before: had_whitespace
                 });
             },
             '"' => {
                 return Ok(Token {
                     token_type: TokenType::String,
-                    string: self.read_string(),
+                    string: self.read_string(true),
                     line: line,
-                    column: column
+                    column: column,
+                    had_whitespace_before: had_whitespace
+                });
+            },
+            '\'' => {
+                return Ok(Token {
+                    token_type: TokenType::String,
+                    string: self.read_string(false),
+                    line: line,
+                    column: column,
+                    had_whitespace_before: had_whitespace
                 });
             },
             '!' => {
@@ -179,7 +200,8 @@ impl<'a> Lexer<'a> {
                         token_type: TokenType::BinaryOperator,
                         string: string,
                         line: line,
-                        column: column
+                        column: column,
+                        had_whitespace_before: had_whitespace
                     });
                 }
 
@@ -187,7 +209,8 @@ impl<'a> Lexer<'a> {
                     token_type: TokenType::UnaryOperator,
                     string: string,
                     line: line,
-                    column: column
+                    column: column,
+                    had_whitespace_before: had_whitespace
                 });
             },
             _ => ()
@@ -198,34 +221,44 @@ impl<'a> Lexer<'a> {
                 token_type: TokenType::Number,
                 string: self.read_number(),
                 line: line,
-                column: column
+                column: column,
+                had_whitespace_before: had_whitespace
             });
         }
 
-        if self.c.is_alphabetic() || self.c == '_' {
+        if self.c.is_alphabetic() || self.c == '_' || self.c == '@' {
             string.push(self.next());
 
-            while self.c.is_alphanumeric() || self.c == '_' {
+            while self.c.is_alphanumeric() || self.c == '_' || self.c == '@' {
+                string.push(self.next());
+            }
+
+            if self.c == '!' || self.c == '?' {
                 string.push(self.next());
             }
 
             let token_type = match string.as_str() {
-                "do"         => TokenType::Do,
-                "if"         => TokenType::If,
-                "else"       => TokenType::Else,
-                "elsif"      => TokenType::Elsif,
-                "end"        => TokenType::End,
-                "while"      => TokenType::While,
-                "def"        => TokenType::Def,
-                "and" | "or" => TokenType::BinaryOperator,
-                _            => TokenType::Name
+                "do"             => TokenType::Do,
+                "if"             => TokenType::If,
+                "else"           => TokenType::Else,
+                "elsif"          => TokenType::Elsif,
+                "end"            => TokenType::End,
+                "while"          => TokenType::While,
+                "def"            => TokenType::Def,
+                "and" | "or"     => TokenType::BinaryOperator,
+                "nil"            => TokenType::Nil,
+                "true" | "false" => TokenType::Bool,
+                "catch"          => TokenType::Catch,
+                "begin"          => TokenType::Begin,
+                _                => TokenType::Name
             };
 
             return Ok(Token {
                 token_type: token_type,
                 string: string,
                 line: line,
-                column: column
+                column: column,
+                had_whitespace_before: had_whitespace
             });
         }
 
@@ -251,23 +284,35 @@ impl<'a> Lexer<'a> {
                     string.push(self.next());
                 }
             } else {
-                self.put_back_char = Some('.');
+                self.put_back_char = Some(self.c);
+                self.c = '.';
             }
         }
 
         string
     }
 
-    fn read_string(&mut self) -> String {
+    fn read_string(&mut self, with_escape_sequences: bool) -> String {
         let mut string = String::new();
         let mut in_escape_sequence = false;
 
-        self.next(); // "
+        let quote = self.c;
 
-        while in_escape_sequence || self.c != '"' {
+        self.next(); // " | '
+
+        while in_escape_sequence || self.c != quote {
             if in_escape_sequence {
                 in_escape_sequence = false;
-                string.push(Lexer::escape_sequence(self.next()));
+
+                if with_escape_sequences {
+                    string.push(Lexer::escape_sequence(self.next()));
+                } else {
+                    if self.c != quote && self.c != '\\' {
+                        string.push('\\');
+                    }
+
+                    string.push(self.next());
+                }
             } else if self.c == '\\' {
                 in_escape_sequence = true;
                 self.next(); // \
@@ -276,7 +321,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        self.next(); // "
+        self.next(); // " | '
 
         string
     }
@@ -291,8 +336,9 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn skip_whitespace_and_comments(&mut self) {
+    fn skip_whitespace_and_comments(&mut self) -> bool {
         let mut in_comment = false;
+        let mut had_whitespace = false;
 
         loop {
             if self.at_end {
@@ -314,7 +360,11 @@ impl<'a> Lexer<'a> {
                     break;
                 }
             }
+
+            had_whitespace = true;
         }
+
+        had_whitespace
     }
 
     fn next(&mut self) -> char {
