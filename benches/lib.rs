@@ -9,7 +9,7 @@ use test::Bencher;
 #[bench]
 fn bench_simple_lex(b: &mut Bencher) {
     b.iter(|| lex("
-        def fib(n)
+        def fib(n: Int)
           if n <= 2
             n
           else
@@ -27,7 +27,7 @@ fn bench_simple_lex(b: &mut Bencher) {
 #[bench]
 fn bench_simple_parse(b: &mut Bencher) {
     b.iter(|| parse_all("
-        def fib(n)
+        def fib(n: Int)
           if n <= 2
             n
           else

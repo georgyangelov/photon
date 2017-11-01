@@ -1,5 +1,12 @@
 use super::*;
 
+pub struct MethodDefAST {
+    pub name: String,
+    pub return_kind: Option<String>,
+    pub params: Vec<MethodParam>,
+    pub body: Box<AST>
+}
+
 pub enum AST {
     NilLiteral,
     BoolLiteral   { value: bool },
@@ -42,12 +49,7 @@ pub enum AST {
         body: Box<AST>
     },
 
-    MethodDef {
-        name: String,
-        return_kind: Option<String>,
-        params: Vec<MethodParam>,
-        body: Box<AST>
-    },
+    MethodDef(MethodDefAST),
 }
 
 pub struct MethodParam {
@@ -297,12 +299,12 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // end
 
-        Ok(AST::MethodDef {
+        Ok(AST::MethodDef(MethodDefAST {
             name: name,
             params: params,
             return_kind: return_kind,
             body: Box::new(body)
-        })
+        }))
     }
 
     fn parse_params(&mut self) -> Result<Vec<MethodParam>, ParseError> {

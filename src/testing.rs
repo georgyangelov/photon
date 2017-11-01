@@ -117,16 +117,16 @@ impl fmt::Debug for AST {
 
             &AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
-            &AST::MethodDef { ref name, ref params, ref return_kind, ref body } => {
-                write!(f, "(def {}", name)?;
+            &AST::MethodDef(ref method) => {
+                write!(f, "(def {}", method.name)?;
 
-                if let &Some(ref kind) = return_kind {
+                if let Some(ref kind) = method.return_kind {
                     write!(f, ":{}", kind)?;
                 }
 
                 write!(f, " [")?;
 
-                for (i, param) in params.iter().enumerate() {
+                for (i, param) in method.params.iter().enumerate() {
                     if i > 0 {
                         write!(f, " ")?;
                     }
@@ -135,7 +135,7 @@ impl fmt::Debug for AST {
                 }
 
                 write!(f, "] ")?;
-                write!(f, "{:?}", body)?;
+                write!(f, "{:?}", method.body)?;
 
                 write!(f, ")")
             }
