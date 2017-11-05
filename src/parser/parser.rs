@@ -2,7 +2,7 @@ use super::*;
 
 pub struct MethodDefAST {
     pub name: String,
-    pub return_kind: Option<String>,
+    pub return_kind: Kind,
     pub params: Vec<MethodParam>,
     pub body: Box<AST>
 }
@@ -52,13 +52,22 @@ pub enum AST {
     MethodDef(MethodDefAST),
 }
 
+#[derive(Debug)]
+pub enum Kind {
+    Nil,
+    Int,
+    Float,
+    String,
+    Error
+}
+
 pub struct MethodParam {
     pub name: String,
-    pub kind: String
+    pub kind: Kind
 }
 
 pub struct Catch {
-    pub kind: String,
+    pub kind: Kind,
     pub name: Option<String>,
     pub body: AST
 }
@@ -172,23 +181,23 @@ impl<'a> Parser<'a> {
 
     fn parse_method_target(&mut self) -> Result<AST, ParseError> {
         match self.token().token_type {
-            TokenType::Nil    => {
+            TokenType::Nil => {
                 self.read()?;
 
                 Ok(AST::NilLiteral)
             },
-            TokenType::Bool   => self.parse_bool(),
-            TokenType::Number => self.parse_number(),
-            TokenType::String => Ok(AST::StringLiteral { value: self.read()?.string }),
-            TokenType::Name   => Ok(AST::Name { name: self.read()?.string }),
-            TokenType::If     => self.parse_if(),
-            TokenType::While  => self.parse_loop(),
-            TokenType::Def    => self.parse_def(),
-            TokenType::Begin  => self.parse_standalone_block(),
+            TokenType::Bool        => self.parse_bool(),
+            TokenType::Number      => self.parse_number(),
+            TokenType::String      => Ok(AST::StringLiteral { value: self.read()?.string }),
+            TokenType::Name        => Ok(AST::Name { name: self.read()?.string }),
+            TokenType::If          => self.parse_if(),
+            TokenType::While       => self.parse_loop(),
+            TokenType::Def         => self.parse_def(),
+            TokenType::Begin       => self.parse_standalone_block(),
             TokenType::OpenBracket => self.parse_array_literal(),
 
             TokenType::OpenBrace |
-            TokenType::Do => self.parse_lambda(),
+            TokenType::Do          => self.parse_lambda(),
 
             TokenType::UnaryOperator => Ok(AST::MethodCall {
                 name: self.read()?.string,
@@ -287,9 +296,9 @@ impl<'a> Parser<'a> {
                 return Err(self.parse_error());
             }
 
-            Some(self.read()?.string)
+            self.read()?.string
         } else {
-            None
+            String::from("Nil")
         };
 
         let body = self.parse_block(false)?;
@@ -302,7 +311,7 @@ impl<'a> Parser<'a> {
         Ok(AST::MethodDef(MethodDefAST {
             name: name,
             params: params,
-            return_kind: return_kind,
+            return_kind: self.parse_kind(&return_kind)?,
             body: Box::new(body)
         }))
     }
@@ -341,8 +350,22 @@ impl<'a> Parser<'a> {
 
         Ok(MethodParam {
             name: name,
-            kind: kind
+            kind: self.parse_kind(&kind)?
         })
+    }
+
+    fn parse_kind(&self, name: &str) -> Result<Kind, ParseError> {
+        match name {
+            "Nil"    => Ok(Kind::Nil),
+            "Int"    => Ok(Kind::Int),
+            "Float"  => Ok(Kind::Float),
+            "Error"  => Ok(Kind::Error),
+            "String" => Ok(Kind::String),
+
+            _ => Err(ParseError {
+                message: format!("Unknown built-in type {}", name)
+            })
+        }
     }
 
     fn parse_if(&mut self) -> Result<AST, ParseError> {
@@ -456,7 +479,7 @@ impl<'a> Parser<'a> {
 
         Ok(Catch {
             name: name,
-            kind: kind,
+            kind: self.parse_kind(&kind)?,
             body: body
         })
     }

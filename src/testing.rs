@@ -118,12 +118,7 @@ impl fmt::Debug for AST {
             &AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
             &AST::MethodDef(ref method) => {
-                write!(f, "(def {}", method.name)?;
-
-                if let Some(ref kind) = method.return_kind {
-                    write!(f, ":{}", kind)?;
-                }
-
+                write!(f, "(def {}:{:?}", method.name, method.return_kind)?;
                 write!(f, " [")?;
 
                 for (i, param) in method.params.iter().enumerate() {
@@ -145,7 +140,7 @@ impl fmt::Debug for AST {
 
 impl fmt::Debug for MethodParam {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(param {}:{})", self.name, self.kind)
+        write!(f, "(param {}:{:?})", self.name, self.kind)
     }
 }
 
@@ -157,6 +152,18 @@ impl fmt::Debug for Catch {
             write!(f, "{}:", name)?;
         }
 
-        write!(f, "{} {:?})", self.kind, self.body)
+        write!(f, "{:?} {:?})", self.kind, self.body)
     }
 }
+
+// impl fmt::Debug for Kind {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//         let name = match self {
+//             &Kind::Nil   => "Nil",
+//             &Kind::Int   => "Int",
+//             &Kind::Float => "Float",
+//         };
+//
+//         write!(f, "{}", name)
+//     }
+// }

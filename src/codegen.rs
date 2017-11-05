@@ -47,12 +47,12 @@ impl RootEnv {
 
     pub fn generate(&self, ast: AST) {
         match ast {
-            MethodDef(ref method) => self.gen_method(method),
+            AST::MethodDef(ref method) => self.gen_method(method),
             _ => panic!("Unsupported AST type for code generation")
         }
     }
 
     fn gen_method(&self, method: &MethodDefAST) {
-        // TODO
+
     }
 }
