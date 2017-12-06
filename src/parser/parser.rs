@@ -1,12 +1,5 @@
 use super::*;
 
-pub struct MethodDefAST {
-    pub name: String,
-    pub return_kind: Kind,
-    pub params: Vec<MethodParam>,
-    pub body: Box<AST>
-}
-
 pub enum AST {
     NilLiteral,
     BoolLiteral   { value: bool },
@@ -21,10 +14,7 @@ pub enum AST {
         expr: Box<AST>
     },
 
-    Block {
-        exprs: Vec<AST>,
-        catches: Vec<Catch>
-    },
+    Block(BlockAST),
 
     MethodCall {
         target: Box<AST>,
@@ -35,21 +25,33 @@ pub enum AST {
 
     Branch {
         condition: Box<AST>,
-        true_branch: Box<AST>,
-        false_branch: Box<AST>
+        true_branch: BlockAST,
+        false_branch: BlockAST
     },
 
     Loop {
         condition: Box<AST>,
-        body: Box<AST>
+        body: BlockAST
     },
 
     Lambda {
         params: Vec<MethodParam>,
-        body: Box<AST>
+        body: BlockAST
     },
 
     MethodDef(MethodDefAST),
+}
+
+pub struct MethodDefAST {
+    pub name: String,
+    pub return_kind: Kind,
+    pub params: Vec<MethodParam>,
+    pub body: BlockAST
+}
+
+pub struct BlockAST {
+    pub exprs: Vec<AST>,
+    pub catches: Vec<Catch>
 }
 
 #[derive(Debug)]
@@ -69,7 +71,7 @@ pub struct MethodParam {
 pub struct Catch {
     pub kind: Kind,
     pub name: Option<String>,
-    pub body: AST
+    pub body: BlockAST
 }
 
 pub struct Parser<'a> {
@@ -249,7 +251,7 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // end or }
 
-        Ok(AST::Lambda { params: params, body: Box::new(body) })
+        Ok(AST::Lambda { params: params, body: body })
     }
 
     fn parse_standalone_block(&mut self) -> Result<AST, ParseError> {
@@ -263,7 +265,7 @@ impl<'a> Parser<'a> {
 
         self.read()?; // end
 
-        Ok(block)
+        Ok(AST::Block(block))
     }
 
     fn parse_def(&mut self) -> Result<AST, ParseError> {
@@ -312,7 +314,7 @@ impl<'a> Parser<'a> {
             name: name,
             params: params,
             return_kind: self.parse_kind(&return_kind)?,
-            body: Box::new(body)
+            body: body
         }))
     }
 
@@ -378,7 +380,7 @@ impl<'a> Parser<'a> {
         }
 
         let true_branch = self.parse_block(false)?;
-        let mut false_branch = AST::Block { exprs: vec![], catches: vec![] };
+        let mut false_branch = BlockAST { exprs: vec![], catches: vec![] };
 
         if self.token().token_type == TokenType::Else {
             self.read()?; // else
@@ -390,7 +392,7 @@ impl<'a> Parser<'a> {
 
             self.read()?; // end
         } else if self.token().token_type == TokenType::Elsif {
-            false_branch = AST::Block {
+            false_branch = BlockAST {
                 exprs: vec![self.parse_if()?],
                 catches: vec![]
             };
@@ -404,8 +406,8 @@ impl<'a> Parser<'a> {
 
         Ok(AST::Branch {
             condition: Box::new(condition),
-            true_branch: Box::new(true_branch),
-            false_branch: Box::new(false_branch)
+            true_branch: true_branch,
+            false_branch: false_branch
         })
     }
 
@@ -428,11 +430,11 @@ impl<'a> Parser<'a> {
 
         Ok(AST::Loop {
             condition: Box::new(condition),
-            body: Box::new(body)
+            body: body
         })
     }
 
-    fn parse_block(&mut self, skip_catch: bool) -> Result<AST, ParseError> {
+    fn parse_block(&mut self, skip_catch: bool) -> Result<BlockAST, ParseError> {
         let mut exprs = Vec::<AST>::new();
         let mut catches = Vec::<Catch>::new();
 
@@ -446,7 +448,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(AST::Block {
+        Ok(BlockAST {
             exprs: exprs,
             catches: catches
         })

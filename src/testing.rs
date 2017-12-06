@@ -70,18 +70,8 @@ impl fmt::Debug for AST {
                 write!(f, ")")
             },
 
-            &AST::Block { ref exprs, ref catches } => {
-                write!(f, "{{")?;
-
-                for expr in exprs {
-                    write!(f, " {:?}", expr)?;
-                }
-
-                for catch in catches {
-                    write!(f, " {:?}", catch)?;
-                }
-
-                write!(f, " }}")
+            &AST::Block(ref block) => {
+                block.fmt(f)
             },
 
             &AST::Lambda { ref params, ref body } => {
@@ -104,11 +94,7 @@ impl fmt::Debug for AST {
             &AST::Branch { ref condition, ref true_branch, ref false_branch } => {
                 write!(f, "(if {:?} {:?}", condition, true_branch)?;
 
-                if let &box AST::Block { ref exprs, .. } = false_branch {
-                    if exprs.len() > 0 {
-                        write!(f, " {:?}", false_branch)?;
-                    }
-                } else {
+                if false_branch.exprs.len() > 0 {
                     write!(f, " {:?}", false_branch)?;
                 }
 
@@ -153,6 +139,22 @@ impl fmt::Debug for Catch {
         }
 
         write!(f, "{:?} {:?})", self.kind, self.body)
+    }
+}
+
+impl fmt::Debug for BlockAST {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{{")?;
+
+        for expr in self.exprs {
+            write!(f, " {:?}", expr)?;
+        }
+
+        for catch in self.catches {
+            write!(f, " {:?}", catch)?;
+        }
+
+        write!(f, " }}")
     }
 }
 
