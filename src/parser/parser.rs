@@ -694,6 +694,10 @@ impl<'a> Parser<'a> {
         self.t.as_ref().expect("First token not initialized")
     }
 
+    // fn expect_token() -> Option<Token> {
+    //
+    // }
+
     // TODO: Figure out a way to not clone the result
     fn read(&mut self) -> Result<Token, ParseError> {
         let old_token = self.t.clone();

@@ -146,11 +146,11 @@ impl fmt::Debug for BlockAST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{{")?;
 
-        for expr in self.exprs {
+        for ref expr in self.exprs {
             write!(f, " {:?}", expr)?;
         }
 
-        for catch in self.catches {
+        for ref catch in self.catches {
             write!(f, " {:?}", catch)?;
         }
 

@@ -108,26 +108,26 @@ impl Compiler {
 
             LLVMPositionBuilderAtEnd(builder, entry);
 
-            let return_value = self.build_block(builder, &method.body);
+            // let return_value = self.build_block(builder, &method.body);
 
-            LLVMBuildRet(builder, return_value);
+            // LLVMBuildRet(builder, return_value);
             LLVMDisposeBuilder(builder);
 
             CompiledMethod { compiler: self, llvm_ref: function }
         }
     }
 
-    unsafe fn build_block(&self, builder: LLVMBuilderRef, block: &BlockAST) -> LLVMValueRef {
-        for ref expr in block.exprs {
-            self.build_expr(builder, &expr);
-        }
-    }
+    // unsafe fn build_block(&self, builder: LLVMBuilderRef, block: &BlockAST) -> LLVMValueRef {
+    //     for ref expr in block.exprs {
+    //         self.build_expr(builder, &expr);
+    //     }
+    // }
 
-    unsafe fn build_expr(&self, builder: LLVMBuilderRef, ast: &AST) -> LLVMValueRef {
-        match ast {
-            // TODO
-        }
-    }
+    // unsafe fn build_expr(&self, builder: LLVMBuilderRef, ast: &AST) -> LLVMValueRef {
+    //     match ast {
+    //         // TODO
+    //     }
+    // }
 
     fn llvm_type(&self, kind: &Kind) -> LLVMTypeRef {
         unsafe {
@@ -146,11 +146,11 @@ pub struct CompiledMethod<'a> {
     llvm_ref: LLVMValueRef
 }
 
-impl<'a> CompiledMethod<'a> {
-    pub fn run<T>(&self, args: &[i64]) -> i64 {
-        let fn: T = std::mem::transmute()
-    }
-}
+// impl<'a> CompiledMethod<'a> {
+//     pub fn run<T>(&self, args: &[i64]) -> i64 {
+//         let fn: T = std::mem::transmute()
+//     }
+// }
 
 fn llvm_bool(value: bool) -> LLVMBool {
     if value {
@@ -164,7 +164,7 @@ unsafe fn llvm_str(str: &str) -> *const i8 {
     str.as_ptr() as *const i8
 }
 
-fn llvm_init_jit() {
+unsafe fn llvm_init_jit() {
     LLVMLinkInMCJIT();
     LLVM_InitializeNativeTarget();
     LLVM_InitializeNativeAsmPrinter();
