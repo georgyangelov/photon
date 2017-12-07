@@ -60,19 +60,9 @@ impl fmt::Debug for AST {
 
             &AST::Assignment { ref name, ref expr } => write!(f, "(= {} {:?})", name, expr),
 
-            &AST::MethodCall { ref target, ref name, ref args, .. } => {
-                write!(f, "({} {:?}", name, target)?;
+            &AST::MethodCall(ref method_call) => method_call.fmt(f),
 
-                for arg in args {
-                    write!(f, " {:?}", arg)?;
-                }
-
-                write!(f, ")")
-            },
-
-            &AST::Block(ref block) => {
-                block.fmt(f)
-            },
+            &AST::Block(ref block) => block.fmt(f),
 
             &AST::Lambda { ref params, ref body } => {
                 write!(f, "(lambda [")?;
@@ -146,11 +136,11 @@ impl fmt::Debug for BlockAST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{{")?;
 
-        for ref expr in self.exprs {
+        for ref expr in &self.exprs {
             write!(f, " {:?}", expr)?;
         }
 
-        for ref catch in self.catches {
+        for ref catch in &self.catches {
             write!(f, " {:?}", catch)?;
         }
 
@@ -158,14 +148,14 @@ impl fmt::Debug for BlockAST {
     }
 }
 
-// impl fmt::Debug for Kind {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-//         let name = match self {
-//             &Kind::Nil   => "Nil",
-//             &Kind::Int   => "Int",
-//             &Kind::Float => "Float",
-//         };
-//
-//         write!(f, "{}", name)
-//     }
-// }
+impl fmt::Debug for MethodCallAST {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "({} {:?}", self.name, self.target)?;
+
+        for arg in &self.args {
+            write!(f, " {:?}", arg)?;
+        }
+
+        write!(f, ")")
+    }
+}

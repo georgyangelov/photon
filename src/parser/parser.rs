@@ -16,12 +16,7 @@ pub enum AST {
 
     Block(BlockAST),
 
-    MethodCall {
-        target: Box<AST>,
-        name: String,
-        args: Vec<AST>,
-        may_be_var_call: bool
-    },
+    MethodCall(MethodCallAST),
 
     Branch {
         condition: Box<AST>,
@@ -49,14 +44,22 @@ pub struct MethodDefAST {
     pub body: BlockAST
 }
 
+pub struct MethodCallAST {
+    pub target: Box<AST>,
+    pub name: String,
+    pub args: Vec<AST>,
+    pub may_be_var_call: bool
+}
+
 pub struct BlockAST {
     pub exprs: Vec<AST>,
     pub catches: Vec<Catch>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Kind {
     Nil,
+    Bool,
     Int,
     Float,
     String,
@@ -137,12 +140,12 @@ impl<'a> Parser<'a> {
                     return Err(self.parse_error());
                 }
             } else {
-                AST::MethodCall {
+                AST::MethodCall(MethodCallAST {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
                     may_be_var_call: false
-                }
+                })
             }
         }
     }
@@ -155,12 +158,12 @@ impl<'a> Parser<'a> {
             let expression = match expression {
                 AST::IntLiteral { value } => AST::IntLiteral { value: -value },
                 AST::FloatLiteral { value } => AST::FloatLiteral { value: -value },
-                _ => AST::MethodCall {
+                _ => AST::MethodCall(MethodCallAST {
                     name: String::from("-"),
                     target: Box::new(expression),
                     args: vec![],
                     may_be_var_call: false
-                }
+                })
             };
 
             return Ok(expression);
@@ -201,12 +204,12 @@ impl<'a> Parser<'a> {
             TokenType::OpenBrace |
             TokenType::Do          => self.parse_lambda(),
 
-            TokenType::UnaryOperator => Ok(AST::MethodCall {
+            TokenType::UnaryOperator => Ok(AST::MethodCall(MethodCallAST {
                 name: self.read()?.string,
                 target: Box::new(self.parse_primary()?),
                 args: vec![],
                 may_be_var_call: false
-            }),
+            })),
 
             TokenType::OpenParen => {
                 self.read()?; // (
@@ -498,12 +501,12 @@ impl<'a> Parser<'a> {
             let name = self.read()?;
             let args = self.parse_arguments()?;
 
-            return Ok(AST::MethodCall {
+            return Ok(AST::MethodCall(MethodCallAST {
                 name: name.string,
                 target: Box::new(target),
                 args: args,
                 may_be_var_call: false
-            });
+            }));
         }
 
         // name a
@@ -512,12 +515,12 @@ impl<'a> Parser<'a> {
             if !self.current_expression_may_end() {
                 let args = self.parse_arguments()?;
 
-                return Ok(AST::MethodCall {
+                return Ok(AST::MethodCall(MethodCallAST {
                     name: name.clone(),
                     target: Box::new(AST::Name { name: String::from("self") }),
                     args: args,
                     may_be_var_call: true
-                });
+                }));
             }
 
         // expression( ... )
@@ -535,12 +538,12 @@ impl<'a> Parser<'a> {
             }
             self.read()?; // )
 
-            return Ok(AST::MethodCall {
+            return Ok(AST::MethodCall(MethodCallAST {
                 name: String::from("call"),
                 target: Box::new(target),
                 args: args,
                 may_be_var_call: false
-            });
+            }));
         }
 
         Ok(target)
@@ -555,12 +558,12 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // ]
 
-        Ok(AST::MethodCall {
+        Ok(AST::MethodCall(MethodCallAST {
             name: String::from("new"),
             target: Box::new(AST::Name { name: String::from("Array") }),
             args: elements,
             may_be_var_call: false
-        })
+        }))
     }
 
     fn parse_ast_list(&mut self) -> Result<Vec<AST>, ParseError> {
