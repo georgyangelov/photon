@@ -200,36 +200,6 @@ impl Compiler {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum NativeValue {
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-}
-
-impl NativeValue {
-    unsafe fn to_llvm_value(self, compiler: &Compiler) -> LLVMGenericValueRef {
-        match self {
-            NativeValue::Bool(value) => LLVMCreateGenericValueOfInt(
-                compiler.llvm_type(Kind::Bool),
-                if value { 1 } else { 0 },
-                llvm_bool(false)
-            ),
-
-            NativeValue::Int(value) => LLVMCreateGenericValueOfInt(
-                compiler.llvm_type(Kind::Int),
-                mem::transmute(value),
-                llvm_bool(true)
-            ),
-
-            NativeValue::Float(value) => LLVMCreateGenericValueOfFloat(
-                compiler.llvm_type(Kind::Float),
-                value
-            )
-        }
-    }
-}
-
 pub struct CompiledMethod<'a> {
     compiler: &'a Compiler,
     name: String,
@@ -276,71 +246,6 @@ impl<'a> CompiledMethod<'a> {
         );
 
         function_address as *const ()
-    }
-    // pub fn call(&self, args: &[NativeValue]) -> GenericValue {
-    //     if args.len() != self.num_args {
-    //         panic!(format!(
-    //             "Function expected {} arguments but you tried to call it with {}",
-    //             self.num_args,
-    //             args.len()
-    //         ));
-    //     }
-
-    //     unsafe {
-    //         let mut args: Vec<LLVMGenericValueRef> = args.iter()
-    //             .map( |value| value.to_llvm_value(self.compiler) )
-    //             .collect();
-
-    //         let llvm_return_value = LLVMRunFunction(
-    //             self.compiler.execution_engine,
-    //             self.llvm_ref,
-    //             self.num_args as u32,
-    //             args.as_mut_ptr()
-    //         );
-
-    //         for arg in args {
-    //             LLVMDisposeGenericValue(arg);
-    //         }
-
-    //         GenericValue { compiler: self.compiler, llvm_value: llvm_return_value }
-    //     }
-    // }
-}
-
-pub struct GenericValue<'a> {
-    compiler: &'a Compiler,
-    llvm_value: LLVMGenericValueRef
-}
-
-impl<'a> GenericValue<'a> {
-    pub fn as_i64(self) -> i64 {
-        unsafe {
-            mem::transmute(LLVMGenericValueToInt(
-                self.llvm_value,
-                llvm_bool(true)
-            ))
-        }
-    }
-
-    pub fn as_f64(self) -> f64 {
-        unsafe {
-            LLVMGenericValueToFloat(
-                self.compiler.llvm_type(Kind::Float),
-                self.llvm_value
-            )
-        }
-    }
-
-    pub fn as_bool(self) -> bool {
-        self.as_i64() != 0
-    }
-}
-
-impl<'a> Drop for GenericValue<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            LLVMDisposeGenericValue(self.llvm_value);
-        }
     }
 }
 
