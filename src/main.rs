@@ -15,17 +15,23 @@ fn main() {
     println!("{:?}", token);
     println!();
 
-    let mut compiler = Compiler::new();
+    let compiler = Compiler::new();
 
     if let AST::MethodDef(ref method_ast) = token {
-        compiler.compile_method(method_ast);
+        let method = compiler.compile_method(method_ast);
+
+        if let Err(reason) = compiler.verify_module() {
+            panic!(format!("Module is not valid: {}", reason));
+        }
+
+        compiler.print_ir();
+
+        unsafe {
+            let return_value: i64 = method.call_2(5, 2);
+
+            println!("Return value: {}", return_value);
+        }
     } else {
         panic!(format!("Expected token was MethodDef, got {:?}", token));
     }
-
-    if let Err(reason) = compiler.verify_module() {
-        panic!(format!("Module is not valid: {}", reason));
-    }
-
-    compiler.print_ir();
 }

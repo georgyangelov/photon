@@ -91,7 +91,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile_method(&mut self, method: &MethodDefAST) -> CompiledMethod {
+    pub fn compile_method(&self, method: &MethodDefAST) -> CompiledMethod {
         let mut param_types = method.params.iter()
             .map( |param| self.llvm_type(param.kind) )
             .collect::<Vec<LLVMTypeRef>>();
@@ -120,7 +120,12 @@ impl Compiler {
             LLVMBuildRet(builder, return_value);
             LLVMDisposeBuilder(builder);
 
-            CompiledMethod { compiler: self, llvm_ref: function }
+            CompiledMethod {
+                compiler: self,
+                name: method.name.clone(),
+                llvm_ref: function,
+                num_args: method.params.len()
+            }
         }
     }
 
@@ -155,7 +160,6 @@ impl Compiler {
 
             &AST::Block(ref block) => self.build_block(builder, block),
 
-            // TODO: Support simple method calls (+, -, *, /)
             &AST::MethodCall(ref method_call) => self.build_method_call(builder, method_call),
 
             _ => panic!(format!("Unsupported AST type {:?} for build_expr", ast))
@@ -196,16 +200,149 @@ impl Compiler {
     }
 }
 
-pub struct CompiledMethod<'a> {
-    compiler: &'a Compiler,
-    llvm_ref: LLVMValueRef
+#[derive(Debug, Clone, Copy)]
+pub enum NativeValue {
+    Bool(bool),
+    Int(i64),
+    Float(f64),
 }
 
-// impl<'a> CompiledMethod<'a> {
-//     pub fn run<T>(&self, args: &[i64]) -> i64 {
-//         let fn: T = std::mem::transmute()
-//     }
-// }
+impl NativeValue {
+    unsafe fn to_llvm_value(self, compiler: &Compiler) -> LLVMGenericValueRef {
+        match self {
+            NativeValue::Bool(value) => LLVMCreateGenericValueOfInt(
+                compiler.llvm_type(Kind::Bool),
+                if value { 1 } else { 0 },
+                llvm_bool(false)
+            ),
+
+            NativeValue::Int(value) => LLVMCreateGenericValueOfInt(
+                compiler.llvm_type(Kind::Int),
+                mem::transmute(value),
+                llvm_bool(true)
+            ),
+
+            NativeValue::Float(value) => LLVMCreateGenericValueOfFloat(
+                compiler.llvm_type(Kind::Float),
+                value
+            )
+        }
+    }
+}
+
+pub struct CompiledMethod<'a> {
+    compiler: &'a Compiler,
+    name: String,
+    llvm_ref: LLVMValueRef,
+    num_args: usize
+}
+
+impl<'a> CompiledMethod<'a> {
+    pub unsafe fn call_1<T1, R>(&self, a1: T1) -> R {
+        self.validate_arg_count(1);
+        let function: extern fn(T1) -> R = mem::transmute(self.address());
+
+        function(a1)
+    }
+
+    pub unsafe fn call_2<T1, T2, R>(&self, a1: T1, a2: T2) -> R {
+        self.validate_arg_count(2);
+        let function: extern fn(T1, T2) -> R = mem::transmute(self.address());
+
+        function(a1, a2)
+    }
+
+    pub unsafe fn call_3<T1, T2, T3, R>(&self, a1: T1, a2: T2, a3: T3) -> R {
+        self.validate_arg_count(2);
+        let function: extern fn(T1, T2, T3) -> R = mem::transmute(self.address());
+
+        function(a1, a2, a3)
+    }
+
+    fn validate_arg_count(&self, given: usize) {
+        if self.num_args != given {
+            panic!(format!(
+                "Function expected {} arguments but you tried to call it with {}",
+                self.num_args,
+                given
+            ));
+        }
+    }
+
+    unsafe fn address(&self) -> *const () {
+        let function_address = LLVMGetFunctionAddress(
+            self.compiler.execution_engine,
+            llvm_str(&self.name)
+        );
+
+        function_address as *const ()
+    }
+    // pub fn call(&self, args: &[NativeValue]) -> GenericValue {
+    //     if args.len() != self.num_args {
+    //         panic!(format!(
+    //             "Function expected {} arguments but you tried to call it with {}",
+    //             self.num_args,
+    //             args.len()
+    //         ));
+    //     }
+
+    //     unsafe {
+    //         let mut args: Vec<LLVMGenericValueRef> = args.iter()
+    //             .map( |value| value.to_llvm_value(self.compiler) )
+    //             .collect();
+
+    //         let llvm_return_value = LLVMRunFunction(
+    //             self.compiler.execution_engine,
+    //             self.llvm_ref,
+    //             self.num_args as u32,
+    //             args.as_mut_ptr()
+    //         );
+
+    //         for arg in args {
+    //             LLVMDisposeGenericValue(arg);
+    //         }
+
+    //         GenericValue { compiler: self.compiler, llvm_value: llvm_return_value }
+    //     }
+    // }
+}
+
+pub struct GenericValue<'a> {
+    compiler: &'a Compiler,
+    llvm_value: LLVMGenericValueRef
+}
+
+impl<'a> GenericValue<'a> {
+    pub fn as_i64(self) -> i64 {
+        unsafe {
+            mem::transmute(LLVMGenericValueToInt(
+                self.llvm_value,
+                llvm_bool(true)
+            ))
+        }
+    }
+
+    pub fn as_f64(self) -> f64 {
+        unsafe {
+            LLVMGenericValueToFloat(
+                self.compiler.llvm_type(Kind::Float),
+                self.llvm_value
+            )
+        }
+    }
+
+    pub fn as_bool(self) -> bool {
+        self.as_i64() != 0
+    }
+}
+
+impl<'a> Drop for GenericValue<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            LLVMDisposeGenericValue(self.llvm_value);
+        }
+    }
+}
 
 fn llvm_bool(value: bool) -> LLVMBool {
     if value {
