@@ -27,7 +27,7 @@ fn main() {
         compiler.print_ir();
 
         unsafe {
-            let return_value: i64 = method.call_2(5, 2);
+            let return_value = method.call_2::<i64, i64, i64>(5, 2);
 
             println!("Return value: {}", return_value);
         }
