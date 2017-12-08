@@ -1,6 +1,8 @@
 use std::fmt;
 
 use super::parser::*;
+use super::compiler::*;
+
 use itertools::Itertools;
 
 pub fn lex(source: &str) -> String {
@@ -45,6 +47,55 @@ pub fn parse_all(source: &str) -> Result<Vec<AST>, ParseError> {
     }
 
     Ok(nodes)
+}
+
+pub fn call_0<R>(source: &str) -> R {
+    let compiler = Compiler::new();
+    let method = compile_method(&compiler, source);
+    let jit = jit::JIT::new(&compiler);
+
+    unsafe { jit.call_0::<R>(&method) }
+}
+
+pub fn call_1<T1, R>(source: &str, a1: T1) -> R {
+    let compiler = Compiler::new();
+    let method = compile_method(&compiler, source);
+    let jit = jit::JIT::new(&compiler);
+
+    unsafe { jit.call_1::<T1, R>(&method, a1) }
+}
+
+pub fn call_2<T1, T2, R>(source: &str, a1: T1, a2: T2) -> R {
+    let compiler = Compiler::new();
+    let method = compile_method(&compiler, source);
+    let jit = jit::JIT::new(&compiler);
+
+    unsafe { jit.call_2::<T1, T2, R>(&method, a1, a2) }
+}
+
+pub fn call_3<T1, T2, T3, R>(source: &str, a1: T1, a2: T2, a3: T3) -> R {
+    let compiler = Compiler::new();
+    let method = compile_method(&compiler, source);
+    let jit = jit::JIT::new(&compiler);
+
+    unsafe { jit.call_3::<T1, T2, T3, R>(&method, a1, a2, a3) }
+}
+
+fn compile_method<'a>(compiler: &'a Compiler, source: &str) -> CompiledMethod<'a> {
+    let nodes = parse_all(source).unwrap();
+    let last_node = nodes.last().unwrap();
+
+    if let &AST::MethodDef(ref method_ast) = last_node {
+        let compiled_method = compiler.compile_method(method_ast);
+
+        if let Err(reason) = compiler.verify_module() {
+            panic!(format!("Module is not valid: {}", reason));
+        }
+
+        compiled_method
+    } else {
+        panic!(format!("The last node should be a method definition. Was {:?}", last_node));
+    }
 }
 
 impl fmt::Debug for AST {
@@ -93,23 +144,7 @@ impl fmt::Debug for AST {
 
             &AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
-            &AST::MethodDef(ref method) => {
-                write!(f, "(def {}:{:?}", method.name, method.return_kind)?;
-                write!(f, " [")?;
-
-                for (i, param) in method.params.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " ")?;
-                    }
-
-                    write!(f, "{:?}", param)?;
-                }
-
-                write!(f, "] ")?;
-                write!(f, "{:?}", method.body)?;
-
-                write!(f, ")")
-            }
+            &AST::MethodDef(ref method) => method.fmt(f)
         }
     }
 }
@@ -145,6 +180,26 @@ impl fmt::Debug for BlockAST {
         }
 
         write!(f, " }}")
+    }
+}
+
+impl fmt::Debug for MethodDefAST {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "(def {}:{:?}", self.name, self.return_kind)?;
+        write!(f, " [")?;
+
+        for (i, param) in self.params.iter().enumerate() {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+
+            write!(f, "{:?}", param)?;
+        }
+
+        write!(f, "] ")?;
+        write!(f, "{:?}", self.body)?;
+
+        write!(f, ")")
     }
 }
 

@@ -29,6 +29,13 @@ impl JIT {
         }
     }
 
+    pub unsafe fn call_0<R>(&self, method: &CompiledMethod) -> R {
+        Self::validate_arg_count(method, 0);
+        let function: extern fn() -> R = mem::transmute(self.get_address(method));
+
+        function()
+    }
+
     pub unsafe fn call_1<T1, R>(&self, method: &CompiledMethod, a1: T1) -> R {
         Self::validate_arg_count(method, 1);
         let function: extern fn(T1) -> R = mem::transmute(self.get_address(method));
@@ -61,11 +68,22 @@ impl JIT {
     }
 
     unsafe fn get_address(&self, method: &CompiledMethod) -> *const () {
+        if method.name.len() < 3 {
+            panic!(format!(
+                "LLVM crashes on method names with less than 3 symbols. Given: {}",
+                method.name
+            ))
+        }
+
         // This actually compiles the function
         let function_address = LLVMGetFunctionAddress(
             self.execution_engine,
             llvm_utils::llvm_str(&method.name)
         );
+
+        if function_address == 0 {
+            panic!(format!("Could not compile method {:?}", method.name));
+        }
 
         function_address as *const ()
     }

@@ -5,6 +5,7 @@ use llvm::core::*;
 use llvm::target::*;
 use llvm::analysis::*;
 use llvm::prelude::*;
+use llvm::error_handling::*;
 
 use std::ptr;
 use std::ffi::{CString, CStr};
@@ -39,6 +40,10 @@ impl Compiler {
         unsafe {
             let context = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(c_str!("photon"), context);
+
+            LLVMEnablePrettyStackTrace();
+            LLVMResetFatalErrorHandler();
+            LLVMInstallFatalErrorHandler(handle_llvm_fatal_error);
 
             Self {
                 context: context,
@@ -106,7 +111,6 @@ impl Compiler {
 
             LLVMBuildRet(builder, return_value);
             LLVMDisposeBuilder(builder);
-
 
             CompiledMethod {
                 compiler: self,
@@ -187,3 +191,10 @@ impl Compiler {
     }
 }
 
+extern fn handle_llvm_fatal_error(reason: *const i8) {
+    unsafe {
+        let message = CStr::from_ptr(reason).to_str().unwrap();
+
+        panic!(format!("LLVM error: {}", message));
+    }
+}
