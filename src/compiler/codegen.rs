@@ -4,7 +4,6 @@ use llvm::*;
 use llvm::core::*;
 use llvm::target::*;
 use llvm::analysis::*;
-use llvm::execution_engine::*;
 use llvm::prelude::*;
 
 use std::ptr;
@@ -12,23 +11,23 @@ use std::ffi::{CString, CStr};
 use std::mem;
 
 use parser::*;
-
-macro_rules! c_str {
-    ($str: expr) => {
-        concat!($str, "\0").as_ptr() as *const i8
-    }
-}
+use super::llvm_utils;
 
 pub struct Compiler {
-    context: LLVMContextRef,
-    module: LLVMModuleRef,
-    execution_engine: LLVMExecutionEngineRef
+    pub(super) context: LLVMContextRef,
+    pub(super) module: LLVMModuleRef
+}
+
+pub struct CompiledMethod<'a> {
+    compiler: &'a Compiler,
+
+    pub name: String,
+    pub num_args: usize
 }
 
 impl Drop for Compiler {
     fn drop(&mut self) {
         unsafe {
-            // LLVMDisposeExecutionEngine(self.execution_engine);
             LLVMDisposeModule(self.module);
             LLVMContextDispose(self.context);
         }
@@ -41,14 +40,9 @@ impl Compiler {
             let context = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(c_str!("photon"), context);
 
-            llvm_init_jit();
-
-            let engine = create_execution_engine(module);
-
             Self {
                 context: context,
-                module: module,
-                execution_engine: engine.expect("Could not create execution engine")
+                module: module
             }
         }
     }
@@ -78,13 +72,6 @@ impl Compiler {
         }
     }
 
-    // pub fn compile(&self, ast: AST) {
-    //     match ast {
-    //         AST::MethodDef(ref method) => self.compile_method(method),
-    //         _ => panic!("Unsupported AST type for code generation {:?}", ast)
-    //     }
-    // }
-
     pub fn print_ir(&self) {
         unsafe {
             LLVMDumpModule(self.module);
@@ -101,12 +88,12 @@ impl Compiler {
                 self.llvm_type(method.return_kind),
                 param_types.as_mut_ptr(),
                 param_types.len() as u32,
-                llvm_bool(false)
+                llvm_utils::llvm_bool(false)
             );
 
             let function = LLVMAddFunction(
                 self.module,
-                llvm_str(&method.name),
+                llvm_utils::llvm_str(&method.name),
                 function_type
             );
 
@@ -120,10 +107,10 @@ impl Compiler {
             LLVMBuildRet(builder, return_value);
             LLVMDisposeBuilder(builder);
 
+
             CompiledMethod {
                 compiler: self,
                 name: method.name.clone(),
-                llvm_ref: function,
                 num_args: method.params.len()
             }
         }
@@ -144,13 +131,13 @@ impl Compiler {
             &AST::BoolLiteral { value } => LLVMConstInt(
                 self.llvm_type(Kind::Bool),
                 value as u64,
-                llvm_bool(false)
+                llvm_utils::llvm_bool(false)
             ),
 
             &AST::IntLiteral { value } => LLVMConstInt(
                 self.llvm_type(Kind::Int),
                 mem::transmute(value),
-                llvm_bool(true)
+                llvm_utils::llvm_bool(true)
             ),
 
             &AST::FloatLiteral { value } => LLVMConstReal(
@@ -200,94 +187,3 @@ impl Compiler {
     }
 }
 
-pub struct CompiledMethod<'a> {
-    compiler: &'a Compiler,
-    name: String,
-    llvm_ref: LLVMValueRef,
-    num_args: usize
-}
-
-impl<'a> CompiledMethod<'a> {
-    pub unsafe fn call_1<T1, R>(&self, a1: T1) -> R {
-        self.validate_arg_count(1);
-        let function: extern fn(T1) -> R = mem::transmute(self.address());
-
-        function(a1)
-    }
-
-    pub unsafe fn call_2<T1, T2, R>(&self, a1: T1, a2: T2) -> R {
-        self.validate_arg_count(2);
-        let function: extern fn(T1, T2) -> R = mem::transmute(self.address());
-
-        function(a1, a2)
-    }
-
-    pub unsafe fn call_3<T1, T2, T3, R>(&self, a1: T1, a2: T2, a3: T3) -> R {
-        self.validate_arg_count(2);
-        let function: extern fn(T1, T2, T3) -> R = mem::transmute(self.address());
-
-        function(a1, a2, a3)
-    }
-
-    fn validate_arg_count(&self, given: usize) {
-        if self.num_args != given {
-            panic!(format!(
-                "Function expected {} arguments but you tried to call it with {}",
-                self.num_args,
-                given
-            ));
-        }
-    }
-
-    unsafe fn address(&self) -> *const () {
-        let function_address = LLVMGetFunctionAddress(
-            self.compiler.execution_engine,
-            llvm_str(&self.name)
-        );
-
-        function_address as *const ()
-    }
-}
-
-fn llvm_bool(value: bool) -> LLVMBool {
-    if value {
-        1
-    } else {
-        0
-    }
-}
-
-unsafe fn llvm_str(str: &str) -> *const i8 {
-    str.as_ptr() as *const i8
-}
-
-unsafe fn llvm_init_jit() {
-    LLVMLinkInMCJIT();
-    LLVM_InitializeNativeTarget();
-    LLVM_InitializeNativeAsmPrinter();
-    LLVM_InitializeNativeAsmParser();
-}
-
-unsafe fn create_execution_engine(module: LLVMModuleRef) -> Result<LLVMExecutionEngineRef, String> {
-    let mut engine = ptr::null_mut() as LLVMExecutionEngineRef;
-    let mut error = ptr::null_mut() as *mut i8;
-
-    let creation_result = LLVMCreateExecutionEngineForModule(
-        &mut engine as *mut LLVMExecutionEngineRef,
-        module,
-        &mut error as *mut *mut i8
-    );
-
-    if creation_result == 0 {
-        Ok(engine)
-    } else {
-        if let Ok(message) = CStr::from_ptr(error).to_str() {
-            // DANGER
-            Err(message.to_owned())
-        } else {
-            Err(String::from(
-                "Could not create LLVM execution engine. No error message provided by LLVM"
-            ))
-        }
-    }
-}

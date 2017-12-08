@@ -7,4 +7,4 @@ extern crate llvm_sys as llvm;
 
 pub mod parser;
 pub mod testing;
-pub mod codegen;
+pub mod compiler;

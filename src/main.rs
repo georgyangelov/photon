@@ -1,7 +1,7 @@
 extern crate photon;
 
 use photon::parser::*;
-use photon::codegen::*;
+use photon::compiler::*;
 
 fn main() {
     // let input = &mut std::io::stdin();
@@ -16,6 +16,7 @@ fn main() {
     println!();
 
     let compiler = Compiler::new();
+    let jit = jit::JIT::new(&compiler);
 
     if let AST::MethodDef(ref method_ast) = token {
         let method = compiler.compile_method(method_ast);
@@ -27,7 +28,7 @@ fn main() {
         compiler.print_ir();
 
         unsafe {
-            let return_value = method.call_2::<i64, i64, i64>(5, 2);
+            let return_value = jit.call_2::<i64, i64, i64>(&method, 5, 2);
 
             println!("Return value: {}", return_value);
         }
