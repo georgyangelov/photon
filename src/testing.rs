@@ -1,7 +1,10 @@
 use std::fmt;
+use std::rc::Rc;
 
 use super::parser::*;
 use super::compiler::*;
+use super::ir;
+use super::core;
 
 use itertools::Itertools;
 
@@ -81,18 +84,27 @@ pub fn call_3<T1, T2, T3, R>(source: &str, a1: T1, a2: T2, a3: T3) -> R {
     unsafe { jit.call_3::<T1, T2, T3, R>(&method, a1, a2, a3) }
 }
 
-fn compile_method<'a>(compiler: &'a Compiler, source: &str) -> CompiledMethod<'a> {
+fn compile_method<'a>(compiler: &'a Compiler, source: &str) -> CompiledFunction<'a> {
     let nodes = parse_all(source).unwrap();
     let last_node = nodes.last().unwrap();
 
     if let &AST::MethodDef(ref method_ast) = last_node {
-        let compiled_method = compiler.compile_method(method_ast);
+        let mut runtime = ir::Runtime::new();
+
+        core::add_core(Rc::clone(&runtime));
+
+        let function = ir::Function::build(method_ast, Rc::clone(&runtime))
+            .expect("Could not build function to IR");
+
+        runtime.borrow_mut().add_function(&function);
+
+        let compiled_fn = compiler.compile(&function.borrow());
 
         if let Err(reason) = compiler.verify_module() {
             panic!(format!("Module is not valid: {}", reason));
         }
 
-        compiled_method
+        compiled_fn
     } else {
         panic!(format!("The last node should be a method definition. Was {:?}", last_node));
     }

@@ -1,7 +1,10 @@
 extern crate photon;
 
+use std::rc::Rc;
+
 use photon::parser::*;
 use photon::compiler::*;
+use photon::ir;
 
 fn main() {
     // let input = &mut std::io::stdin();
@@ -17,9 +20,15 @@ fn main() {
 
     let compiler = Compiler::new();
     let jit = jit::JIT::new(&compiler);
+    let runtime = ir::Runtime::new();
 
     if let AST::MethodDef(ref method_ast) = token {
-        let method = compiler.compile_method(method_ast);
+        let function = ir::Function::build(method_ast, Rc::clone(&runtime))
+            .expect("Could not build function to IR");
+
+        runtime.borrow_mut().add_function(&function);
+
+        let method = compiler.compile(&function.borrow());
 
         if let Err(reason) = compiler.verify_module() {
             panic!(format!("Module is not valid: {}", reason));

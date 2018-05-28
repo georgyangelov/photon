@@ -29,35 +29,35 @@ impl JIT {
         }
     }
 
-    pub unsafe fn call_0<R>(&self, method: &CompiledMethod) -> R {
+    pub unsafe fn call_0<R>(&self, method: &CompiledFunction) -> R {
         Self::validate_arg_count(method, 0);
         let function: extern fn() -> R = mem::transmute(self.get_address(method));
 
         function()
     }
 
-    pub unsafe fn call_1<T1, R>(&self, method: &CompiledMethod, a1: T1) -> R {
+    pub unsafe fn call_1<T1, R>(&self, method: &CompiledFunction, a1: T1) -> R {
         Self::validate_arg_count(method, 1);
         let function: extern fn(T1) -> R = mem::transmute(self.get_address(method));
 
         function(a1)
     }
 
-    pub unsafe fn call_2<T1, T2, R>(&self, method: &CompiledMethod, a1: T1, a2: T2) -> R {
+    pub unsafe fn call_2<T1, T2, R>(&self, method: &CompiledFunction, a1: T1, a2: T2) -> R {
         Self::validate_arg_count(method, 2);
         let function: extern fn(T1, T2) -> R = mem::transmute(self.get_address(method));
 
         function(a1, a2)
     }
 
-    pub unsafe fn call_3<T1, T2, T3, R>(&self, method: &CompiledMethod, a1: T1, a2: T2, a3: T3) -> R {
+    pub unsafe fn call_3<T1, T2, T3, R>(&self, method: &CompiledFunction, a1: T1, a2: T2, a3: T3) -> R {
         Self::validate_arg_count(method, 3);
         let function: extern fn(T1, T2, T3) -> R = mem::transmute(self.get_address(method));
 
         function(a1, a2, a3)
     }
 
-    fn validate_arg_count(method: &CompiledMethod, given: usize) {
+    fn validate_arg_count(method: &CompiledFunction, given: usize) {
         if method.num_args != given {
             panic!(format!(
                 "Function expected {} arguments but you tried to call it with {}",
@@ -67,7 +67,7 @@ impl JIT {
         }
     }
 
-    unsafe fn get_address(&self, method: &CompiledMethod) -> *const () {
+    unsafe fn get_address(&self, method: &CompiledFunction) -> *const () {
         if method.name.len() < 3 {
             panic!(format!(
                 "LLVM crashes on method names with less than 3 symbols. Given: {}",
