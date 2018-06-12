@@ -90,7 +90,7 @@ pub struct Block {
     pub code: Vec<IR>
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Type {
     Nil,
     Bool,

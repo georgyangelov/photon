@@ -5,6 +5,7 @@
 extern crate itertools;
 extern crate llvm_sys as llvm;
 
+pub mod analyzer;
 pub mod parser;
 pub mod testing;
 pub mod compiler;
