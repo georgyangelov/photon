@@ -6,7 +6,7 @@ use super::ir::Type;
 
 #[derive(Debug, Clone)]
 enum Constraint {
-    Assert { var: Var, t: Type },
+    Assert { var: Var, types: PossibleTypes },
     // VarAssign { from: Var, to: Var },
     // ValAssign { var: Var, t: Type }
 }
@@ -24,18 +24,42 @@ pub struct Analyzer {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnalyzerError {
-    VarHasNoType(Var)
+    VarHasNoType(Var),
+    VarMayHaveManyTypes(Var, HashSet<Type>)
 }
 
 #[derive(Debug, Clone)]
 pub struct Solution {
-    types: HashMap<Var, Type>
+    pub types: HashMap<Var, Type>
 }
 
 #[derive(Debug, Clone)]
 enum PossibleTypes {
     All,
     Some(HashSet<Type>)
+}
+
+impl PossibleTypes {
+    fn only(t: Type) -> Self {
+        let mut set = HashSet::new();
+        set.insert(t);
+
+        PossibleTypes::Some(set)
+    }
+
+    fn intersect(&self, other: &PossibleTypes) -> PossibleTypes {
+        match self {
+            &PossibleTypes::All => other.clone(),
+            &PossibleTypes::Some(ref self_types) => {
+                match other {
+                    &PossibleTypes::All => self.clone(),
+                    &PossibleTypes::Some(ref other_types) => PossibleTypes::Some(
+                        self_types.intersection(other_types).cloned().collect()
+                    )
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -64,10 +88,20 @@ impl Analyzer {
     }
 
     pub fn assert(&mut self, var: Var, t: Type) {
-        self.constraints.push(Constraint::Assert { var, t });
+        self.constraints.push(Constraint::Assert {
+            var,
+            types: PossibleTypes::only(t)
+        });
     }
 
-    pub fn solve(&self) -> Result<(), AnalyzerError> {
+    pub fn assert_multi(&mut self, var: Var, types: Vec<Type>) {
+        self.constraints.push(Constraint::Assert {
+            var,
+            types: PossibleTypes::Some(types.iter().cloned().collect())
+        })
+    }
+
+    pub fn solve(&self) -> Result<Solution, AnalyzerError> {
         let mut draft = SolutionDraft {
             possible_types: self.build_initial_possible_types(),
             var_constraints: self.build_var_constraints(),
@@ -91,7 +125,7 @@ impl Analyzer {
             }
         }
 
-        self.verify_draft(&mut draft)
+        self.present_solution(&mut draft)
     }
 
     fn build_initial_possible_types(&self) -> HashMap<Var, PossibleTypes> {
@@ -125,18 +159,12 @@ impl Analyzer {
     // TODO: Ability to fail early
     fn apply_constraint(draft: &mut SolutionDraft, constraint: &Constraint) {
         match constraint {
-            &Constraint::Assert { var, t } => {
+            &Constraint::Assert { var, ref types } => {
                 let next_possible = {
                     let currently_possible = draft.possible_types.get(&var)
                         .expect("possible_types must contain all vars");
 
-                    let mut type_set = HashSet::new();
-                    type_set.insert(t);
-
-                    Self::intersect_types(
-                        currently_possible,
-                        &PossibleTypes::Some(type_set)
-                    )
+                    currently_possible.intersect(types)
                 };
 
                 draft.possible_types.insert(var, next_possible);
@@ -144,21 +172,11 @@ impl Analyzer {
         }
     }
 
-    fn intersect_types(a: &PossibleTypes, b: &PossibleTypes) -> PossibleTypes {
-        match a {
-            &PossibleTypes::All => b.clone(),
-            &PossibleTypes::Some(ref a_types) => {
-                match b {
-                    &PossibleTypes::All => a.clone(),
-                    &PossibleTypes::Some(ref b_types) => PossibleTypes::Some(
-                        a_types.intersection(b_types).map( |t| *t ).collect()
-                    )
-                }
-            }
-        }
-    }
+    fn present_solution(&self, draft: &SolutionDraft) -> Result<Solution, AnalyzerError> {
+        let mut solution = Solution {
+            types: HashMap::new()
+        };
 
-    fn verify_draft(&self, draft: &SolutionDraft) -> Result<(), AnalyzerError> {
         for var in self.vars.iter().cloned() {
             let possible_types = draft.possible_types.get(&var)
                 .expect("possible_types must contain all vars");
@@ -167,14 +185,17 @@ impl Analyzer {
                 &PossibleTypes::All => return Err(AnalyzerError::VarHasNoType(var)),
 
                 &PossibleTypes::Some(ref types) => {
-                    if types.len() != 1 {
-                        // TODO: More descriptive error
+                    if types.len() == 0 {
                         return Err(AnalyzerError::VarHasNoType(var));
+                    } else if types.len() > 1 {
+                        return Err(AnalyzerError::VarMayHaveManyTypes(var, types.clone()));
+                    } else {
+                        solution.types.insert(var, types.iter().cloned().next().unwrap());
                     }
                 }
             };
         }
 
-        Ok(())
+        Ok(solution)
     }
 }
