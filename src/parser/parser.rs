@@ -55,10 +55,12 @@ impl<'a> Parser<'a> {
             let right = self.parse_expression(op_precedence + 1)?;
 
             left = if op.string == "=" {
-                if let AST::Name { ref name } = left {
+                if let AST::Name { ref name, .. } = left {
                     AST::Assignment {
                         name: name.clone(),
-                        expr: Box::new(right)
+                        expr: Box::new(right),
+
+                        value_type: None
                     }
                 } else {
                     return Err(self.parse_error());
@@ -68,7 +70,8 @@ impl<'a> Parser<'a> {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
-                    may_be_var_call: false
+                    may_be_var_call: false,
+                    value_type: None
                 })
             }
         }
@@ -86,7 +89,8 @@ impl<'a> Parser<'a> {
                     name: String::from("-"),
                     target: Box::new(expression),
                     args: vec![],
-                    may_be_var_call: false
+                    may_be_var_call: false,
+                    value_type: None
                 })
             };
 
@@ -118,7 +122,7 @@ impl<'a> Parser<'a> {
             TokenType::Bool        => self.parse_bool(),
             TokenType::Number      => self.parse_number(),
             TokenType::String      => Ok(AST::StringLiteral { value: self.read()?.string }),
-            TokenType::Name        => Ok(AST::Name { name: self.read()?.string }),
+            TokenType::Name        => Ok(AST::Name { name: self.read()?.string, value_type: None }),
             TokenType::If          => self.parse_if(),
             TokenType::While       => self.parse_loop(),
             TokenType::Def         => self.parse_def(),
@@ -132,7 +136,9 @@ impl<'a> Parser<'a> {
                 name: self.read()?.string,
                 target: Box::new(self.parse_primary()?),
                 args: vec![],
-                may_be_var_call: false
+                may_be_var_call: false,
+
+                value_type: None
             })),
 
             TokenType::OpenParen => {
@@ -293,7 +299,12 @@ impl<'a> Parser<'a> {
         }
 
         let true_branch = self.parse_block(false)?;
-        let mut false_branch = BlockAST { exprs: vec![], catches: vec![] };
+        let mut false_branch = BlockAST {
+            exprs: vec![],
+            catches: vec![],
+
+            value_type: None
+        };
 
         if self.token().token_type == TokenType::Else {
             self.read()?; // else
@@ -307,7 +318,9 @@ impl<'a> Parser<'a> {
         } else if self.token().token_type == TokenType::Elsif {
             false_branch = BlockAST {
                 exprs: vec![self.parse_if()?],
-                catches: vec![]
+                catches: vec![],
+
+                value_type: None
             };
         } else {
             if self.token().token_type != TokenType::End {
@@ -363,7 +376,9 @@ impl<'a> Parser<'a> {
 
         Ok(BlockAST {
             exprs: exprs,
-            catches: catches
+            catches: catches,
+
+            value_type: None
         })
     }
 
@@ -415,21 +430,28 @@ impl<'a> Parser<'a> {
                 name: name.string,
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false
+                may_be_var_call: false,
+
+                value_type: None
             }));
         }
 
         // name a
         // name(a)
-        if let AST::Name { ref name } = target {
+        if let AST::Name { ref name, .. } = target {
             if !self.current_expression_may_end() {
                 let args = self.parse_arguments()?;
 
                 return Ok(AST::MethodCall(MethodCallAST {
                     name: name.clone(),
-                    target: Box::new(AST::Name { name: String::from("self") }),
+                    target: Box::new(AST::Name {
+                        name: String::from("self"),
+                        value_type: None
+                    }),
                     args: args,
-                    may_be_var_call: true
+                    may_be_var_call: true,
+
+                    value_type: None
                 }));
             }
 
@@ -452,7 +474,9 @@ impl<'a> Parser<'a> {
                 name: String::from("call"),
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false
+                may_be_var_call: false,
+
+                value_type: None
             }));
         }
 
@@ -470,9 +494,15 @@ impl<'a> Parser<'a> {
 
         Ok(AST::MethodCall(MethodCallAST {
             name: String::from("new"),
-            target: Box::new(AST::Name { name: String::from("Array") }),
+            target: Box::new(AST::Name {
+                name: String::from("Array"),
+
+                value_type: None
+            }),
             args: elements,
-            may_be_var_call: false
+            may_be_var_call: false,
+
+            value_type: None
         }))
     }
 

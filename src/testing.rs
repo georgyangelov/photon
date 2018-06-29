@@ -5,6 +5,7 @@ use ::parser::*;
 use ::compiler::*;
 use ::analyzer::*;
 use ::core;
+use ::ir_builder;
 
 use ::data_structures::{make_shared, ir};
 use ::data_structures::ast;
@@ -126,9 +127,25 @@ impl fmt::Debug for ast::AST {
             &ast::AST::FloatLiteral { value } => write!(f, "{}", value),
 
             &ast::AST::StringLiteral { ref value } => write!(f, "\"{}\"", value),
-            &ast::AST::Name { ref name } => write!(f, "{}", name),
+            &ast::AST::Name { ref name, ref value_type } => {
+                write!(f, "{}", name)?;
 
-            &ast::AST::Assignment { ref name, ref expr } => write!(f, "(= {} {:?})", name, expr),
+                if let &Some(t) = value_type {
+                    write!(f, ":{:?}", t)?;
+                }
+
+                Ok(())
+            },
+
+            &ast::AST::Assignment { ref name, ref expr, ref value_type } => {
+                write!(f, "(= {} {:?})", name, expr)?;
+
+                if let &Some(t) = value_type {
+                    write!(f, ":{:?}", t)?;
+                }
+
+                Ok(())
+            },
 
             &ast::AST::MethodCall(ref method_call) => method_call.fmt(f),
 
@@ -198,7 +215,13 @@ impl fmt::Debug for ast::BlockAST {
             write!(f, " {:?}", catch)?;
         }
 
-        write!(f, " }}")
+        write!(f, " }}")?;
+
+        if let Some(t) = self.value_type {
+            write!(f, ":{:?}", t)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -230,7 +253,13 @@ impl fmt::Debug for ast::MethodCallAST {
             write!(f, " {:?}", arg)?;
         }
 
-        write!(f, ")")
+        write!(f, ")")?;
+
+        if let Some(t) = self.value_type {
+            write!(f, ":{:?}", t)?;
+        }
+
+        Ok(())
     }
 }
 

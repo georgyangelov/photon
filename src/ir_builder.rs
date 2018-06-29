@@ -149,7 +149,7 @@ fn build_instruction<'a>(
         &ast::AST::IntLiteral   { value } => ir::Instruction::Literal(ir::ConstValue::Int(value)),
         &ast::AST::FloatLiteral { value } => ir::Instruction::Literal(ir::ConstValue::Float(value)),
 
-        &ast::AST::Name { ref name } => {
+        &ast::AST::Name { ref name, .. } => {
             let scope = scope.borrow();
             let maybe_variable = scope.vars.get(name);
 

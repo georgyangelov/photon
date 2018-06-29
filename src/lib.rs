@@ -11,3 +11,4 @@ pub mod data_structures;
 pub mod parser;
 pub mod core;
 pub mod testing;
+pub mod ir_builder;

@@ -1,3 +1,5 @@
+use ::data_structures::ir;
+
 pub enum AST {
     NilLiteral,
     BoolLiteral   { value: bool },
@@ -5,11 +7,17 @@ pub enum AST {
     FloatLiteral  { value: f64 },
     StringLiteral { value: String },
 
-    Name { name: String },
+    Name {
+        name: String,
+
+        value_type: Option<ir::Type>
+    },
 
     Assignment {
         name: String,
-        expr: Box<AST>
+        expr: Box<AST>,
+
+        value_type: Option<ir::Type>
     },
 
     Block(BlockAST),
@@ -46,12 +54,16 @@ pub struct MethodCallAST {
     pub target: Box<AST>,
     pub name: String,
     pub args: Vec<AST>,
-    pub may_be_var_call: bool
+    pub may_be_var_call: bool,
+
+    pub value_type: Option<ir::Type>
 }
 
 pub struct BlockAST {
     pub exprs: Vec<AST>,
-    pub catches: Vec<Catch>
+    pub catches: Vec<Catch>,
+
+    pub value_type: Option<ir::Type>
 }
 
 pub struct MethodParam {

@@ -95,9 +95,3 @@ pub enum Type {
     Int,
     Float
 }
-
-// impl fmt::Debug for Type {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-//         write!(f, "{}", self)
-//     }
-// }
