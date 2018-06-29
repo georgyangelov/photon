@@ -1,81 +1,5 @@
 use super::*;
-
-pub enum AST {
-    NilLiteral,
-    BoolLiteral   { value: bool },
-    IntLiteral    { value: i64 },
-    FloatLiteral  { value: f64 },
-    StringLiteral { value: String },
-
-    Name { name: String },
-
-    Assignment {
-        name: String,
-        expr: Box<AST>
-    },
-
-    Block(BlockAST),
-
-    MethodCall(MethodCallAST),
-
-    Branch {
-        condition: Box<AST>,
-        true_branch: BlockAST,
-        false_branch: BlockAST
-    },
-
-    Loop {
-        condition: Box<AST>,
-        body: BlockAST
-    },
-
-    Lambda {
-        params: Vec<MethodParam>,
-        body: BlockAST
-    },
-
-    MethodDef(MethodDefAST),
-}
-
-pub struct MethodDefAST {
-    pub name: String,
-    pub return_kind: Kind,
-    pub params: Vec<MethodParam>,
-    pub body: BlockAST
-}
-
-pub struct MethodCallAST {
-    pub target: Box<AST>,
-    pub name: String,
-    pub args: Vec<AST>,
-    pub may_be_var_call: bool
-}
-
-pub struct BlockAST {
-    pub exprs: Vec<AST>,
-    pub catches: Vec<Catch>
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Kind {
-    Nil,
-    Bool,
-    Int,
-    Float,
-    String,
-    Error
-}
-
-pub struct MethodParam {
-    pub name: String,
-    pub kind: Kind
-}
-
-pub struct Catch {
-    pub kind: Kind,
-    pub name: Option<String>,
-    pub body: BlockAST
-}
+use ::data_structures::ast::*;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -316,7 +240,7 @@ impl<'a> Parser<'a> {
         Ok(AST::MethodDef(MethodDefAST {
             name: name,
             params: params,
-            return_kind: self.parse_kind(&return_kind)?,
+            return_kind: return_kind,
             body: body
         }))
     }
@@ -355,22 +279,8 @@ impl<'a> Parser<'a> {
 
         Ok(MethodParam {
             name: name,
-            kind: self.parse_kind(&kind)?
+            kind: kind
         })
-    }
-
-    fn parse_kind(&self, name: &str) -> Result<Kind, ParseError> {
-        match name {
-            "Nil"    => Ok(Kind::Nil),
-            "Int"    => Ok(Kind::Int),
-            "Float"  => Ok(Kind::Float),
-            "Error"  => Ok(Kind::Error),
-            "String" => Ok(Kind::String),
-
-            _ => Err(ParseError {
-                message: format!("Unknown built-in type {}", name)
-            })
-        }
     }
 
     fn parse_if(&mut self) -> Result<AST, ParseError> {
@@ -484,7 +394,7 @@ impl<'a> Parser<'a> {
 
         Ok(Catch {
             name: name,
-            kind: self.parse_kind(&kind)?,
+            kind: kind,
             body: body
         })
     }

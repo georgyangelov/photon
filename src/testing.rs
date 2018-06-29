@@ -1,10 +1,13 @@
 use std::fmt;
-use std::rc::Rc;
+use std::collections::HashMap;
 
-use super::parser::*;
-use super::compiler::*;
-use super::ir;
-use super::core;
+use ::parser::*;
+use ::compiler::*;
+use ::analyzer::*;
+use ::core;
+
+use ::data_structures::{make_shared, ir};
+use ::data_structures::ast;
 
 use itertools::Itertools;
 
@@ -39,11 +42,11 @@ pub fn lex_result(source: &str) -> Result<String, ParseError> {
     Ok(result)
 }
 
-pub fn parse_all(source: &str) -> Result<Vec<AST>, ParseError> {
+pub fn parse_all(source: &str) -> Result<Vec<ast::AST>, ParseError> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
     let mut parser = Parser::new(lexer);
-    let mut nodes: Vec<AST> = Vec::new();
+    let mut nodes = Vec::new();
 
     while parser.has_more_tokens()? {
         nodes.push(parser.parse_next()?)
@@ -85,49 +88,53 @@ pub fn call_3<T1, T2, T3, R>(source: &str, a1: T1, a2: T2, a3: T3) -> R {
 }
 
 fn compile_method<'a>(compiler: &'a Compiler, source: &str) -> CompiledFunction<'a> {
-    let nodes = parse_all(source).unwrap();
-    let last_node = nodes.last().unwrap();
+    let ast_nodes = parse_all(source).expect(&format!("Could not parse {:?}", source));
 
-    if let &AST::MethodDef(ref method_ast) = last_node {
-        let mut runtime = ir::Runtime::new();
+    let runtime = make_shared(ir::Runtime {
+        functions: HashMap::new()
+    });
 
-        core::add_core(Rc::clone(&runtime));
+    core::add_core(runtime.clone());
 
-        let function = ir::Function::build(method_ast, Rc::clone(&runtime))
-            .expect("Could not build function to IR");
+    let build_result = ir_builder::build_ir(runtime.clone(), &ast_nodes);
 
-        runtime.borrow_mut().add_function(&function);
+    match build_result {
+        Ok(_) => {
+            let runtime = runtime.borrow();
+            let main_fn = runtime.functions.get("main")
+                .expect("The compiled runtime does not contain a main function");
 
-        let compiled_fn = compiler.compile(&function.borrow());
+            let compiled_fn = compiler.compile(&main_fn.borrow());
 
-        if let Err(reason) = compiler.verify_module() {
-            panic!(format!("Module is not valid: {}", reason));
-        }
+            if let Err(reason) = compiler.verify_module() {
+                panic!(format!("Module is not valid: {}", reason));
+            }
 
-        compiled_fn
-    } else {
-        panic!(format!("The last node should be a method definition. Was {:?}", last_node));
+            compiled_fn
+        },
+
+        Err(error) => panic!(format!("Could not build ir: {:?}", error))
     }
 }
 
-impl fmt::Debug for AST {
+impl fmt::Debug for ast::AST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &AST::NilLiteral => write!(f, "nil"),
-            &AST::BoolLiteral { value } => write!(f, "{:?}", value),
-            &AST::IntLiteral { value } => write!(f, "{}", value),
-            &AST::FloatLiteral { value } => write!(f, "{}", value),
+            &ast::AST::NilLiteral => write!(f, "nil"),
+            &ast::AST::BoolLiteral { value } => write!(f, "{:?}", value),
+            &ast::AST::IntLiteral { value } => write!(f, "{}", value),
+            &ast::AST::FloatLiteral { value } => write!(f, "{}", value),
 
-            &AST::StringLiteral { ref value } => write!(f, "\"{}\"", value),
-            &AST::Name { ref name } => write!(f, "{}", name),
+            &ast::AST::StringLiteral { ref value } => write!(f, "\"{}\"", value),
+            &ast::AST::Name { ref name } => write!(f, "{}", name),
 
-            &AST::Assignment { ref name, ref expr } => write!(f, "(= {} {:?})", name, expr),
+            &ast::AST::Assignment { ref name, ref expr } => write!(f, "(= {} {:?})", name, expr),
 
-            &AST::MethodCall(ref method_call) => method_call.fmt(f),
+            &ast::AST::MethodCall(ref method_call) => method_call.fmt(f),
 
-            &AST::Block(ref block) => block.fmt(f),
+            &ast::AST::Block(ref block) => block.fmt(f),
 
-            &AST::Lambda { ref params, ref body } => {
+            &ast::AST::Lambda { ref params, ref body } => {
                 write!(f, "(lambda [")?;
 
                 for (i, param) in params.iter().enumerate() {
@@ -144,7 +151,7 @@ impl fmt::Debug for AST {
                 write!(f, ")")
             },
 
-            &AST::Branch { ref condition, ref true_branch, ref false_branch } => {
+            &ast::AST::Branch { ref condition, ref true_branch, ref false_branch } => {
                 write!(f, "(if {:?} {:?}", condition, true_branch)?;
 
                 if false_branch.exprs.len() > 0 {
@@ -154,20 +161,20 @@ impl fmt::Debug for AST {
                 write!(f, ")")
             },
 
-            &AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
+            &ast::AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
-            &AST::MethodDef(ref method) => method.fmt(f)
+            &ast::AST::MethodDef(ref method) => method.fmt(f)
         }
     }
 }
 
-impl fmt::Debug for MethodParam {
+impl fmt::Debug for ast::MethodParam {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(param {}:{:?})", self.name, self.kind)
+        write!(f, "(param {}:{})", self.name, self.kind)
     }
 }
 
-impl fmt::Debug for Catch {
+impl fmt::Debug for ast::Catch {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "(catch ")?;
 
@@ -175,11 +182,11 @@ impl fmt::Debug for Catch {
             write!(f, "{}:", name)?;
         }
 
-        write!(f, "{:?} {:?})", self.kind, self.body)
+        write!(f, "{} {:?})", self.kind, self.body)
     }
 }
 
-impl fmt::Debug for BlockAST {
+impl fmt::Debug for ast::BlockAST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{{")?;
 
@@ -195,9 +202,9 @@ impl fmt::Debug for BlockAST {
     }
 }
 
-impl fmt::Debug for MethodDefAST {
+impl fmt::Debug for ast::MethodDefAST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(def {}:{:?}", self.name, self.return_kind)?;
+        write!(f, "(def {}:{}", self.name, self.return_kind)?;
         write!(f, " [")?;
 
         for (i, param) in self.params.iter().enumerate() {
@@ -215,7 +222,7 @@ impl fmt::Debug for MethodDefAST {
     }
 }
 
-impl fmt::Debug for MethodCallAST {
+impl fmt::Debug for ast::MethodCallAST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "({} {:?}", self.name, self.target)?;
 
@@ -226,3 +233,16 @@ impl fmt::Debug for MethodCallAST {
         write!(f, ")")
     }
 }
+
+// #[derive(Debug)]
+// struct AnalyzerData {
+//     types: HashMap<String, ir::Type>
+// }
+//
+// type AnalyzerTestResult = Result<AnalyzerData, AnalyzerError>;
+//
+// fn analyze(source: &str) -> AnalyzerTestResult {
+//     let nodes = parse_all(source).expect("Cannot parse source");
+//
+//
+// }

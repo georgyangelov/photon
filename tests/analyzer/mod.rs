@@ -1,15 +1,15 @@
-use photon::analyzer::*;
+use photon::analyzer::constraint_solver::*;
 
-use photon::ir::Type;
+use photon::data_structures::ir::Type;
 
 #[test]
 fn test_vars_must_have_type() {
     // Tests `var` => Error
 
-    let mut analyzer = Analyzer::new();
-    let var = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let var = solver.new_var();
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert!(result.is_err());
     assert_eq!(AnalyzerError::VarHasNoType(var), result.unwrap_err());
@@ -19,12 +19,12 @@ fn test_vars_must_have_type() {
 fn test_simple_assert() {
     // Tests `var:Int`
 
-    let mut analyzer = Analyzer::new();
-    let var = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let var = solver.new_var();
 
-    analyzer.assert(var, Type::Int);
+    solver.assert(var, Type::Int);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert!(result.is_ok());
 }
@@ -33,13 +33,13 @@ fn test_simple_assert() {
 fn test_conflicting_asserts() {
     // Tests `var:Int`, `var:Bool` => Error
 
-    let mut analyzer = Analyzer::new();
-    let var = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let var = solver.new_var();
 
-    analyzer.assert(var, Type::Int);
-    analyzer.assert(var, Type::Bool);
+    solver.assert(var, Type::Int);
+    solver.assert(var, Type::Bool);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert!(result.is_err());
     assert_eq!(AnalyzerError::VarHasNoType(var), result.unwrap_err());
@@ -49,13 +49,13 @@ fn test_conflicting_asserts() {
 fn test_assert_intersection_inference() {
     // Tests `var:Int,Bool`, `var:Float,Bool` => `var:Bool`
 
-    let mut analyzer = Analyzer::new();
-    let var = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let var = solver.new_var();
 
-    analyzer.assert_multi(var, vec![Type::Int, Type::Bool]);
-    analyzer.assert_multi(var, vec![Type::Float, Type::Bool]);
+    solver.assert_multi(var, vec![Type::Int, Type::Bool]);
+    solver.assert_multi(var, vec![Type::Float, Type::Bool]);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert_result_type(result, var, Type::Bool);
 }
@@ -64,14 +64,14 @@ fn test_assert_intersection_inference() {
 fn test_assignment_inference() {
     // Tests `to = from:Int` => `to:Int`
 
-    let mut analyzer = Analyzer::new();
-    let from = analyzer.new_var();
-    let to = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let from = solver.new_var();
+    let to = solver.new_var();
 
-    analyzer.assert(from, Type::Int);
-    analyzer.assign(to, from);
+    solver.assert(from, Type::Int);
+    solver.assign(to, from);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert_result_type(result, to, Type::Int);
 }
@@ -80,16 +80,16 @@ fn test_assignment_inference() {
 fn test_transitive_assignment_inference() {
     // Tests `a = b = c:Int` => `a:Int`, `b:Int`
 
-    let mut analyzer = Analyzer::new();
-    let a = analyzer.new_var();
-    let b = analyzer.new_var();
-    let c = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let a = solver.new_var();
+    let b = solver.new_var();
+    let c = solver.new_var();
 
-    analyzer.assert(c, Type::Int);
-    analyzer.assign(a, b);
-    analyzer.assign(b, c);
+    solver.assert(c, Type::Int);
+    solver.assign(a, b);
+    solver.assign(b, c);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert_result_type(result, a, Type::Int);
 }
@@ -98,15 +98,15 @@ fn test_transitive_assignment_inference() {
 fn test_constraint_loop() {
     // Tests `a = b:Int`, `b = a` => `a:Int` and no infinite looping :)
 
-    let mut analyzer = Analyzer::new();
-    let a = analyzer.new_var();
-    let b = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let a = solver.new_var();
+    let b = solver.new_var();
 
-    analyzer.assert(b, Type::Int);
-    analyzer.assign(a, b);
-    analyzer.assign(b, a);
+    solver.assert(b, Type::Int);
+    solver.assign(a, b);
+    solver.assign(b, a);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert_result_type(result, a, Type::Int);
 }
@@ -115,15 +115,15 @@ fn test_constraint_loop() {
 fn test_assignment_back_propagation() {
     // Tests `to:Int,Bool = from:Int`
 
-    let mut analyzer = Analyzer::new();
-    let from = analyzer.new_var();
-    let to = analyzer.new_var();
+    let mut solver = ConstraintSolver::new();
+    let from = solver.new_var();
+    let to = solver.new_var();
 
-    analyzer.assert_multi(from, vec![Type::Int, Type::Bool]);
-    analyzer.assert(to, Type::Int);
-    analyzer.assign(to, from);
+    solver.assert_multi(from, vec![Type::Int, Type::Bool]);
+    solver.assert(to, Type::Int);
+    solver.assign(to, from);
 
-    let result = analyzer.solve();
+    let result = solver.solve();
 
     assert_result_type(result, from, Type::Int);
 }

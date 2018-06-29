@@ -1,6 +1,6 @@
-use super::ir;
+use ::data_structures::{ir, make_shared, Shared};
 
-pub fn add_core(shared_runtime: ir::Shared<ir::Runtime>) {
+pub fn add_core(shared_runtime: Shared<ir::Runtime>) {
     let mut runtime = shared_runtime.borrow_mut();
 
     create_intrinsic_fn(
@@ -35,21 +35,20 @@ pub fn add_core(shared_runtime: ir::Shared<ir::Runtime>) {
 fn create_intrinsic_fn(
     runtime: &mut ir::Runtime,
     name: &str,
-    params: Vec<ir::Shared<ir::Variable>>,
+    params: Vec<Shared<ir::Variable>>,
     return_type: ir::Type
 ) {
-    let function = ir::make_shared(ir::Function {
+    let function = make_shared(ir::Function {
         name: String::from(name),
-        params,
-        return_type,
+        signature: ir::FunctionSignature { params, return_type },
         implementation: ir::FunctionImpl::Intrinsic
     });
 
-    runtime.add_function(&function);
+    runtime.functions.insert(String::from(name), function);
 }
 
-fn param(name: &str, value_type: ir::Type) -> ir::Shared<ir::Variable> {
-    ir::make_shared(ir::Variable {
+fn param(name: &str, value_type: ir::Type) -> Shared<ir::Variable> {
+    make_shared(ir::Variable {
         name: String::from(name),
         value_type
     })

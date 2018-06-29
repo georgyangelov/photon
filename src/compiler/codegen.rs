@@ -13,7 +13,7 @@ use std::mem;
 
 use parser::*;
 use super::llvm_utils;
-use ir;
+use ::data_structures::ir;
 
 pub struct Compiler {
     pub(super) context: LLVMContextRef,
@@ -87,13 +87,13 @@ impl Compiler {
     }
 
     pub fn compile(&self, f: &ir::Function) -> CompiledFunction {
-        let mut param_types = f.params.iter()
+        let mut param_types = f.signature.params.iter()
             .map( |param| self.llvm_type(param.borrow().value_type) )
             .collect::<Vec<LLVMTypeRef>>();
 
         unsafe {
             let function_type = LLVMFunctionType(
-                self.llvm_type(f.return_type),
+                self.llvm_type(f.signature.return_type),
                 param_types.as_mut_ptr(),
                 param_types.len() as u32,
                 llvm_utils::llvm_bool(false)
@@ -123,7 +123,7 @@ impl Compiler {
             CompiledFunction {
                 compiler: self,
                 name: f.name.clone(),
-                num_args: f.params.len()
+                num_args: f.signature.params.len()
             }
         }
     }
