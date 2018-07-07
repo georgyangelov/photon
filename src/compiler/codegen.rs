@@ -42,9 +42,9 @@ impl Compiler {
             let context = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(c_str!("photon"), context);
 
-            println!("LLVM Threading: {}", LLVMIsMultithreaded());
+            // println!("LLVM Threading: {}", LLVMIsMultithreaded());
 
-            // LLVMEnablePrettyStackTrace();
+            LLVMEnablePrettyStackTrace();
             // LLVMResetFatalErrorHandler();
             // LLVMInstallFatalErrorHandler(handle_llvm_fatal_error);
 
@@ -101,9 +101,11 @@ impl Compiler {
 
             let function = LLVMAddFunction(
                 self.module,
-                llvm_utils::llvm_str(&f.name),
+                llvm_utils::llvm_str(&f.name).as_ptr(),
                 function_type
             );
+
+            LLVMSetLinkage(function, LLVMLinkage::LLVMExternalLinkage);
 
             let entry = LLVMAppendBasicBlock(function, c_str!("entry"));
             let builder = LLVMCreateBuilderInContext(self.context);

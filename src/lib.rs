@@ -4,6 +4,7 @@
 // #[macro_use]
 extern crate itertools;
 extern crate llvm_sys as llvm;
+extern crate libc;
 
 pub mod analyzer;
 pub mod compiler;
