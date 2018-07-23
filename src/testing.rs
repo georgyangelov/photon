@@ -1,13 +1,7 @@
 use std::fmt;
-use std::collections::HashMap;
 
 use ::parser::*;
-use ::compiler::*;
-use ::analyzer::*;
-use ::core;
-use ::ir_builder;
 
-use ::data_structures::{make_shared, ir};
 use ::data_structures::ast;
 
 use itertools::Itertools;
@@ -56,68 +50,6 @@ pub fn parse_all(source: &str) -> Result<Vec<ast::AST>, ParseError> {
     Ok(nodes)
 }
 
-pub fn call_0<R>(source: &str) -> R {
-    let compiler = Compiler::new();
-    let method = compile_method(&compiler, source);
-    let jit = jit::JIT::new(&compiler);
-
-    unsafe { jit.call_0::<R>(&method) }
-}
-
-pub fn call_1<T1, R>(source: &str, a1: T1) -> R {
-    let compiler = Compiler::new();
-    let method = compile_method(&compiler, source);
-    let jit = jit::JIT::new(&compiler);
-
-    unsafe { jit.call_1::<T1, R>(&method, a1) }
-}
-
-pub fn call_2<T1, T2, R>(source: &str, a1: T1, a2: T2) -> R {
-    let compiler = Compiler::new();
-    let method = compile_method(&compiler, source);
-    let jit = jit::JIT::new(&compiler);
-
-    unsafe { jit.call_2::<T1, T2, R>(&method, a1, a2) }
-}
-
-pub fn call_3<T1, T2, T3, R>(source: &str, a1: T1, a2: T2, a3: T3) -> R {
-    let compiler = Compiler::new();
-    let method = compile_method(&compiler, source);
-    let jit = jit::JIT::new(&compiler);
-
-    unsafe { jit.call_3::<T1, T2, T3, R>(&method, a1, a2, a3) }
-}
-
-fn compile_method<'a>(compiler: &'a Compiler, source: &str) -> CompiledFunction<'a> {
-    let ast_nodes = parse_all(source).expect(&format!("Could not parse {:?}", source));
-
-    let runtime = make_shared(ir::Runtime {
-        functions: HashMap::new()
-    });
-
-    core::add_core(runtime.clone());
-
-    let build_result = ir_builder::build_ir(runtime.clone(), &ast_nodes);
-
-    match build_result {
-        Ok(_) => {
-            let runtime = runtime.borrow();
-            let main_fn = runtime.functions.get("main")
-                .expect("The compiled runtime does not contain a main function");
-
-            let compiled_fn = compiler.compile(&main_fn.borrow());
-
-            if let Err(reason) = compiler.verify_module() {
-                panic!(format!("Module is not valid: {}", reason));
-            }
-
-            compiled_fn
-        },
-
-        Err(error) => panic!(format!("Could not build ir: {:?}", error))
-    }
-}
-
 impl fmt::Debug for ast::AST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
@@ -130,9 +62,9 @@ impl fmt::Debug for ast::AST {
             &ast::AST::Name { ref name, ref value_type } => {
                 write!(f, "{}", name)?;
 
-                if let &Some(t) = value_type {
-                    write!(f, ":{:?}", t)?;
-                }
+                // if let &Some(t) = value_type {
+                //     write!(f, ":{:?}", t)?;
+                // }
 
                 Ok(())
             },
@@ -140,9 +72,9 @@ impl fmt::Debug for ast::AST {
             &ast::AST::Assignment { ref name, ref expr, ref value_type } => {
                 write!(f, "(= {} {:?})", name, expr)?;
 
-                if let &Some(t) = value_type {
-                    write!(f, ":{:?}", t)?;
-                }
+                // if let &Some(t) = value_type {
+                //     write!(f, ":{:?}", t)?;
+                // }
 
                 Ok(())
             },
@@ -185,7 +117,7 @@ impl fmt::Debug for ast::AST {
     }
 }
 
-impl fmt::Debug for ast::MethodParam {
+impl fmt::Debug for ast::UnparsedMethodParam {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "(param {}:{})", self.name, self.kind)
     }
@@ -203,7 +135,7 @@ impl fmt::Debug for ast::Catch {
     }
 }
 
-impl fmt::Debug for ast::BlockAST {
+impl fmt::Debug for ast::Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{{")?;
 
@@ -217,17 +149,17 @@ impl fmt::Debug for ast::BlockAST {
 
         write!(f, " }}")?;
 
-        if let Some(t) = self.value_type {
-            write!(f, ":{:?}", t)?;
-        }
+        // if let Some(t) = self.value_type {
+        //     write!(f, ":{:?}", t)?;
+        // }
 
         Ok(())
     }
 }
 
-impl fmt::Debug for ast::MethodDefAST {
+impl fmt::Debug for ast::MethodDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(def {}:{}", self.name, self.return_kind)?;
+        write!(f, "(def {}:{}", self.name, self.return_type)?;
         write!(f, " [")?;
 
         for (i, param) in self.params.iter().enumerate() {
@@ -245,7 +177,7 @@ impl fmt::Debug for ast::MethodDefAST {
     }
 }
 
-impl fmt::Debug for ast::MethodCallAST {
+impl fmt::Debug for ast::MethodCall {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "({} {:?}", self.name, self.target)?;
 
@@ -255,23 +187,10 @@ impl fmt::Debug for ast::MethodCallAST {
 
         write!(f, ")")?;
 
-        if let Some(t) = self.value_type {
-            write!(f, ":{:?}", t)?;
-        }
+        // if let Some(t) = self.value_type {
+        //     write!(f, ":{:?}", t)?;
+        // }
 
         Ok(())
     }
 }
-
-// #[derive(Debug)]
-// struct AnalyzerData {
-//     types: HashMap<String, ir::Type>
-// }
-//
-// type AnalyzerTestResult = Result<AnalyzerData, AnalyzerError>;
-//
-// fn analyze(source: &str) -> AnalyzerTestResult {
-//     let nodes = parse_all(source).expect("Cannot parse source");
-//
-//
-// }

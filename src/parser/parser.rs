@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
                     return Err(self.parse_error());
                 }
             } else {
-                AST::MethodCall(MethodCallAST {
+                AST::MethodCall(MethodCall {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
@@ -85,7 +85,7 @@ impl<'a> Parser<'a> {
             let expression = match expression {
                 AST::IntLiteral { value } => AST::IntLiteral { value: -value },
                 AST::FloatLiteral { value } => AST::FloatLiteral { value: -value },
-                _ => AST::MethodCall(MethodCallAST {
+                _ => AST::MethodCall(MethodCall {
                     name: String::from("-"),
                     target: Box::new(expression),
                     args: vec![],
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
             TokenType::OpenBrace |
             TokenType::Do          => self.parse_lambda(),
 
-            TokenType::UnaryOperator => Ok(AST::MethodCall(MethodCallAST {
+            TokenType::UnaryOperator => Ok(AST::MethodCall(MethodCall {
                 name: self.read()?.string,
                 target: Box::new(self.parse_primary()?),
                 args: vec![],
@@ -162,7 +162,7 @@ impl<'a> Parser<'a> {
 
         self.read()?; // do or {
 
-        let params: Vec<MethodParam>;
+        let params: Vec<UnparsedMethodParam>;
 
         if self.token().token_type == TokenType::Pipe {
             self.read()?; // |
@@ -209,7 +209,7 @@ impl<'a> Parser<'a> {
         }
 
         let name = self.read()?.string;
-        let params: Vec<MethodParam>;
+        let params: Vec<UnparsedMethodParam>;
 
         if self.token().token_type == TokenType::OpenParen {
             self.read()?; // (
@@ -224,7 +224,7 @@ impl<'a> Parser<'a> {
             params = vec![];
         }
 
-        let return_kind = if self.token().token_type == TokenType::Colon {
+        let return_type = if self.token().token_type == TokenType::Colon {
             self.read()?; // :
 
             if self.token().token_type != TokenType::Name {
@@ -243,16 +243,16 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // end
 
-        Ok(AST::MethodDef(MethodDefAST {
+        Ok(AST::MethodDef(MethodDef {
             name: name,
             params: params,
-            return_kind: return_kind,
+            return_type: return_type,
             body: body
         }))
     }
 
-    fn parse_params(&mut self) -> Result<Vec<MethodParam>, ParseError> {
-        let mut params = Vec::<MethodParam>::new();
+    fn parse_params(&mut self) -> Result<Vec<UnparsedMethodParam>, ParseError> {
+        let mut params = Vec::<UnparsedMethodParam>::new();
 
         loop {
             params.push(self.parse_param()?);
@@ -267,7 +267,7 @@ impl<'a> Parser<'a> {
         Ok(params)
     }
 
-    fn parse_param(&mut self) -> Result<MethodParam, ParseError> {
+    fn parse_param(&mut self) -> Result<UnparsedMethodParam, ParseError> {
         if self.token().token_type != TokenType::Name {
             return Err(self.parse_error());
         }
@@ -283,7 +283,7 @@ impl<'a> Parser<'a> {
         }
         let kind = self.read()?.string;
 
-        Ok(MethodParam {
+        Ok(UnparsedMethodParam {
             name: name,
             kind: kind
         })
@@ -299,7 +299,7 @@ impl<'a> Parser<'a> {
         }
 
         let true_branch = self.parse_block(false)?;
-        let mut false_branch = BlockAST {
+        let mut false_branch = Block {
             exprs: vec![],
             catches: vec![],
 
@@ -316,7 +316,7 @@ impl<'a> Parser<'a> {
 
             self.read()?; // end
         } else if self.token().token_type == TokenType::Elsif {
-            false_branch = BlockAST {
+            false_branch = Block {
                 exprs: vec![self.parse_if()?],
                 catches: vec![],
 
@@ -360,7 +360,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_block(&mut self, skip_catch: bool) -> Result<BlockAST, ParseError> {
+    fn parse_block(&mut self, skip_catch: bool) -> Result<Block, ParseError> {
         let mut exprs = Vec::<AST>::new();
         let mut catches = Vec::<Catch>::new();
 
@@ -374,7 +374,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(BlockAST {
+        Ok(Block {
             exprs: exprs,
             catches: catches,
 
@@ -426,7 +426,7 @@ impl<'a> Parser<'a> {
             let name = self.read()?;
             let args = self.parse_arguments()?;
 
-            return Ok(AST::MethodCall(MethodCallAST {
+            return Ok(AST::MethodCall(MethodCall {
                 name: name.string,
                 target: Box::new(target),
                 args: args,
@@ -442,7 +442,7 @@ impl<'a> Parser<'a> {
             if !self.current_expression_may_end() {
                 let args = self.parse_arguments()?;
 
-                return Ok(AST::MethodCall(MethodCallAST {
+                return Ok(AST::MethodCall(MethodCall {
                     name: name.clone(),
                     target: Box::new(AST::Name {
                         name: String::from("self"),
@@ -470,7 +470,7 @@ impl<'a> Parser<'a> {
             }
             self.read()?; // )
 
-            return Ok(AST::MethodCall(MethodCallAST {
+            return Ok(AST::MethodCall(MethodCall {
                 name: String::from("call"),
                 target: Box::new(target),
                 args: args,
@@ -492,7 +492,7 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // ]
 
-        Ok(AST::MethodCall(MethodCallAST {
+        Ok(AST::MethodCall(MethodCall {
             name: String::from("new"),
             target: Box::new(AST::Name {
                 name: String::from("Array"),

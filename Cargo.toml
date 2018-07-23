@@ -5,5 +5,3 @@ authors = ["Georgi Angelov <georgyangelov@gmail.com>"]
 
 [dependencies]
 itertools = "0.6.5"
-llvm-sys = "60"
-libc = "0.2"
