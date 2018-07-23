@@ -82,7 +82,7 @@ fn build_functions<'a>(
             _ => return Err(AnalysisError::CannotHaveExpressionAtTopLevel(ast))
         };
 
-        draft.runtime.borrow_mut().functions.insert(function.name.clone(), make_shared(function));
+        draft.runtime.borrow_mut().add_function(make_shared(function));
     }
 
     Ok(())

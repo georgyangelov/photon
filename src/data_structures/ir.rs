@@ -1,11 +1,24 @@
 use std::collections::HashMap;
-use std::fmt;
 
 use super::Shared;
 
 #[derive(Debug)]
 pub struct Runtime {
     pub functions: HashMap<String, Shared<Function>>
+}
+
+impl Runtime {
+    pub fn new() -> Self {
+        Self {
+            functions: HashMap::new()
+        }
+    }
+
+    pub fn add_function(&mut self, function: Shared<Function>) {
+        let name = function.borrow().name.clone();
+
+        self.functions.insert(name, function);
+    }
 }
 
 #[derive(Debug)]
@@ -39,7 +52,7 @@ pub struct PhotonFunction {
     pub code: Block
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct Variable {
     // pub ast: Option<&AST>,
     pub name: String,
