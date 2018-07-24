@@ -11,8 +11,15 @@ pub enum AST {
         value_type: Option<Type>
     },
 
+    TypeAssert {
+        expr: Box<AST>,
+        type_expr: Box<AST>,
+
+        value_type: Option<Type>
+    },
+
     Assignment {
-        name: String,
+        name: Box<AST>,
         expr: Box<AST>,
 
         value_type: Option<Type>
@@ -44,14 +51,14 @@ pub enum AST {
 pub struct MethodDef {
     pub name: String,
     pub params: Vec<UnparsedMethodParam>,
-    pub return_type: String,
+    pub return_type_expr: Box<AST>,
 
     pub body: Block
 }
 
 pub struct UnparsedMethodParam {
     pub name: String,
-    pub kind: String
+    pub type_expr: Box<AST>
 }
 
 pub struct MethodCall {
@@ -65,15 +72,8 @@ pub struct MethodCall {
 
 pub struct Block {
     pub exprs: Vec<AST>,
-    pub catches: Vec<Catch>,
 
     pub value_type: Option<Type>
-}
-
-pub struct Catch {
-    pub kind: String,
-    pub name: Option<String>,
-    pub body: Block
 }
 
 // ---
@@ -84,11 +84,11 @@ pub enum Type {
     Bool,
     Int,
     Float,
-    Ref(RefType)
+    Interface(Interface)
 }
 
 #[derive(Debug)]
-pub struct RefType {
+pub struct Interface {
     pub methods: Vec<MethodSignature>
 }
 

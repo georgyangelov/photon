@@ -59,7 +59,7 @@ impl fmt::Debug for ast::AST {
             &ast::AST::FloatLiteral { value } => write!(f, "{}", value),
 
             &ast::AST::StringLiteral { ref value } => write!(f, "\"{}\"", value),
-            &ast::AST::Name { ref name, ref value_type } => {
+            &ast::AST::Name { ref name, .. } => {
                 write!(f, "{}", name)?;
 
                 // if let &Some(t) = value_type {
@@ -69,8 +69,12 @@ impl fmt::Debug for ast::AST {
                 Ok(())
             },
 
-            &ast::AST::Assignment { ref name, ref expr, ref value_type } => {
-                write!(f, "(= {} {:?})", name, expr)?;
+            &ast::AST::TypeAssert { ref expr, ref type_expr, .. } => {
+                write!(f, "{:?}:{:?}", expr, type_expr)
+            },
+
+            &ast::AST::Assignment { ref name, ref expr, .. } => {
+                write!(f, "(= {:?} {:?})", name, expr)?;
 
                 // if let &Some(t) = value_type {
                 //     write!(f, ":{:?}", t)?;
@@ -119,19 +123,7 @@ impl fmt::Debug for ast::AST {
 
 impl fmt::Debug for ast::UnparsedMethodParam {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(param {}:{})", self.name, self.kind)
-    }
-}
-
-impl fmt::Debug for ast::Catch {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(catch ")?;
-
-        if let Some(ref name) = self.name {
-            write!(f, "{}:", name)?;
-        }
-
-        write!(f, "{} {:?})", self.kind, self.body)
+        write!(f, "(param {}:{:?})", self.name, self.type_expr)
     }
 }
 
@@ -141,10 +133,6 @@ impl fmt::Debug for ast::Block {
 
         for ref expr in &self.exprs {
             write!(f, " {:?}", expr)?;
-        }
-
-        for ref catch in &self.catches {
-            write!(f, " {:?}", catch)?;
         }
 
         write!(f, " }}")?;
@@ -159,7 +147,7 @@ impl fmt::Debug for ast::Block {
 
 impl fmt::Debug for ast::MethodDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(def {}:{}", self.name, self.return_type)?;
+        write!(f, "(def {}:{:?}", self.name, self.return_type_expr)?;
         write!(f, " [")?;
 
         for (i, param) in self.params.iter().enumerate() {

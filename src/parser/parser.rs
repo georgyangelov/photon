@@ -42,7 +42,8 @@ impl<'a> Parser<'a> {
                 return Ok(left);
             }
 
-            if self.token().token_type != TokenType::BinaryOperator {
+            if self.token().token_type != TokenType::BinaryOperator &&
+               self.token().token_type != TokenType::Colon {
                 return Ok(left);
             }
 
@@ -54,23 +55,27 @@ impl<'a> Parser<'a> {
             let op = self.read()?;
             let right = self.parse_expression(op_precedence + 1)?;
 
-            left = if op.string == "=" {
-                if let AST::Name { ref name, .. } = left {
-                    AST::Assignment {
-                        name: name.clone(),
-                        expr: Box::new(right),
+            left = match op.string.as_str() {
+                "=" => AST::Assignment {
+                    name: Box::new(left),
+                    expr: Box::new(right),
 
-                        value_type: None
-                    }
-                } else {
-                    return Err(self.parse_error());
-                }
-            } else {
-                AST::MethodCall(MethodCall {
+                    value_type: None
+                },
+
+                ":" => AST::TypeAssert {
+                    expr: Box::new(left),
+                    type_expr: Box::new(right),
+
+                    value_type: None
+                },
+
+                _ => AST::MethodCall(MethodCall {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
                     may_be_var_call: false,
+
                     value_type: None
                 })
             }
@@ -176,7 +181,7 @@ impl<'a> Parser<'a> {
             params = vec![];
         }
 
-        let body = self.parse_block(false)?;
+        let body = self.parse_block()?;
 
         if is_multiline && self.token().token_type != TokenType::End ||
            !is_multiline && self.token().token_type != TokenType::CloseBrace {
@@ -190,7 +195,7 @@ impl<'a> Parser<'a> {
     fn parse_standalone_block(&mut self) -> Result<AST, ParseError> {
         self.read()?; // begin
 
-        let block = self.parse_block(false)?;
+        let block = self.parse_block()?;
 
         if self.token().token_type != TokenType::End {
             return Err(self.parse_error());
@@ -224,19 +229,18 @@ impl<'a> Parser<'a> {
             params = vec![];
         }
 
-        let return_type = if self.token().token_type == TokenType::Colon {
+        let return_type_expr = if self.token().token_type == TokenType::Colon {
             self.read()?; // :
 
-            if self.token().token_type != TokenType::Name {
-                return Err(self.parse_error());
-            }
-
-            self.read()?.string
+            self.parse_next()?
         } else {
-            String::from("Nil")
+            AST::Name {
+                name: String::from("None"),
+                value_type: None
+            }
         };
 
-        let body = self.parse_block(false)?;
+        let body = self.parse_block()?;
 
         if self.token().token_type != TokenType::End {
             return Err(self.parse_error());
@@ -246,7 +250,7 @@ impl<'a> Parser<'a> {
         Ok(AST::MethodDef(MethodDef {
             name: name,
             params: params,
-            return_type: return_type,
+            return_type_expr: Box::new(return_type_expr),
             body: body
         }))
     }
@@ -278,14 +282,11 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // :
 
-        if self.token().token_type != TokenType::Name {
-            return Err(self.parse_error());
-        }
-        let kind = self.read()?.string;
+        let type_expr = self.parse_next()?;
 
         Ok(UnparsedMethodParam {
             name: name,
-            kind: kind
+            type_expr: Box::new(type_expr)
         })
     }
 
@@ -298,17 +299,16 @@ impl<'a> Parser<'a> {
             return Err(self.parse_error());
         }
 
-        let true_branch = self.parse_block(false)?;
+        let true_branch = self.parse_block()?;
         let mut false_branch = Block {
             exprs: vec![],
-            catches: vec![],
 
             value_type: None
         };
 
         if self.token().token_type == TokenType::Else {
             self.read()?; // else
-            false_branch = self.parse_block(false)?;
+            false_branch = self.parse_block()?;
 
             if self.token().token_type != TokenType::End {
                 return Err(self.parse_error());
@@ -318,7 +318,6 @@ impl<'a> Parser<'a> {
         } else if self.token().token_type == TokenType::Elsif {
             false_branch = Block {
                 exprs: vec![self.parse_if()?],
-                catches: vec![],
 
                 value_type: None
             };
@@ -346,7 +345,7 @@ impl<'a> Parser<'a> {
             return Err(self.parse_error());
         }
 
-        let body = self.parse_block(false)?;
+        let body = self.parse_block()?;
 
         if self.token().token_type != TokenType::End {
             return Err(self.parse_error());
@@ -360,57 +359,17 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_block(&mut self, skip_catch: bool) -> Result<Block, ParseError> {
+    fn parse_block(&mut self) -> Result<Block, ParseError> {
         let mut exprs = Vec::<AST>::new();
-        let mut catches = Vec::<Catch>::new();
 
         while !self.block_ends() {
             exprs.push(self.parse_next()?);
         }
 
-        if !skip_catch {
-            while self.token().token_type == TokenType::Catch {
-                catches.push(self.parse_catch()?);
-            }
-        }
-
         Ok(Block {
             exprs: exprs,
-            catches: catches,
 
             value_type: None
-        })
-    }
-
-    fn parse_catch(&mut self) -> Result<Catch, ParseError> {
-        self.read()?; // catch
-
-        let mut name: Option<String> = None;
-        let mut kind: String = String::from("Error");
-
-        if !self.newline {
-            if self.token().token_type == TokenType::Name && !Self::is_const_name(self.token().string.as_str()) {
-                name = Some(self.read()?.string);
-
-                if self.token().token_type == TokenType::Colon {
-                    self.read()?; // :
-
-                    if self.token().token_type != TokenType::Name {
-                        return Err(self.parse_error());
-                    }
-                    kind = self.read()?.string;
-                }
-            } else if self.token().token_type == TokenType::Name {
-                kind = self.read()?.string;
-            }
-        }
-
-        let body = self.parse_block(true)?;
-
-        Ok(Catch {
-            name: name,
-            kind: kind,
-            body: body
         })
     }
 
@@ -594,10 +553,12 @@ impl<'a> Parser<'a> {
         self.newline ||
         t.token_type == TokenType::EOF ||
         t.token_type == TokenType::BinaryOperator ||
+        t.token_type == TokenType::Colon ||
         t.token_type == TokenType::Comma ||
         t.token_type == TokenType::CloseParen ||
         t.token_type == TokenType::Dot ||
         t.token_type == TokenType::CloseBracket ||
+        t.token_type == TokenType::Pipe ||
         self.block_ends()
     }
 
@@ -611,9 +572,9 @@ impl<'a> Parser<'a> {
         t.token_type == TokenType::CloseBrace
     }
 
-    fn is_const_name(name: &str) -> bool {
-        name.chars().nth(0).unwrap().is_uppercase()
-    }
+    // fn is_const_name(name: &str) -> bool {
+    //     name.chars().nth(0).unwrap().is_uppercase()
+    // }
 
     fn parse_error(&self) -> ParseError {
         ParseError {
@@ -629,6 +590,7 @@ impl<'a> Parser<'a> {
             "==" | "<" | ">" | "<=" | ">=" | "!=" => 4,
             "+" | "-" => 5,
             "*" | "/" => 6,
+            ":" => 7,
             _ => panic!(format!("Unknown binary operator '{}'", op.string))
         }
     }
@@ -636,10 +598,6 @@ impl<'a> Parser<'a> {
     fn token(&self) -> &Token {
         self.t.as_ref().expect("First token not initialized")
     }
-
-    // fn expect_token() -> Option<Token> {
-    //
-    // }
 
     // TODO: Figure out a way to not clone the result
     fn read(&mut self) -> Result<Token, ParseError> {
