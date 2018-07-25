@@ -1,8 +1,10 @@
 use std::fmt;
 
 use ::parser::*;
+use ::interpreter::*;
 
 use ::data_structures::ast;
+use ::data_structures::core;
 
 use itertools::Itertools;
 
@@ -48,6 +50,33 @@ pub fn parse_all(source: &str) -> Result<Vec<ast::AST>, ParseError> {
     }
 
     Ok(nodes)
+}
+
+#[derive(Debug)]
+pub struct ParseOrInterpretError {
+    pub message: String
+}
+
+impl From<ParseError> for ParseOrInterpretError {
+    fn from(error: ParseError) -> Self {
+        Self { message: error.message }
+    }
+}
+
+impl From<InterpreterError> for ParseOrInterpretError {
+    fn from(error: InterpreterError) -> Self {
+        Self { message: error.message }
+    }
+}
+
+pub fn run(source: &str, expression: &str) -> Result<core::Value, ParseOrInterpretError> {
+    let asts = parse_all(source)?;
+    let expression = parse_all(expression)?.remove(0);
+    let mut interpreter = Interpreter::new();
+
+    interpreter.compile(asts)?;
+
+    Ok(interpreter.run(expression)?)
 }
 
 impl fmt::Debug for ast::AST {
@@ -194,5 +223,11 @@ impl fmt::Debug for ast::MethodCall {
         // }
 
         Ok(())
+    }
+}
+
+impl fmt::Debug for core::Object {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Object")
     }
 }

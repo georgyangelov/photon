@@ -21,6 +21,7 @@ pub struct Interface {
     pub methods: Vec<MethodSignature>
 }
 
+#[derive(Debug)]
 pub enum Value {
     None,
     Bool(bool),
