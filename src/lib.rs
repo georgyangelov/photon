@@ -8,3 +8,4 @@ pub mod analyzer;
 pub mod data_structures;
 pub mod parser;
 pub mod testing;
+pub mod interpreter;

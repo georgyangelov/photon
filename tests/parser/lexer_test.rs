@@ -59,8 +59,8 @@ fn test_calls_on_literals() {
 #[test]
 fn test_keywords() {
     assert_eq!(
-        "(Begin) (Do) (End) (If) (Elsif) (Else) (While) (Def) (Catch) (EOF)",
-        lex("begin do end if elsif else while def catch")
+        "(Begin) (Do) (End) (If) (Elsif) (Else) (While) (Def) (Catch) (Struct) (Module) (EOF)",
+        lex("begin do end if elsif else while def catch struct module")
     );
 }
 

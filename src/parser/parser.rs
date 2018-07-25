@@ -130,6 +130,8 @@ impl<'a> Parser<'a> {
             TokenType::Name        => Ok(AST::Name { name: self.read()?.string, value_type: None }),
             TokenType::If          => self.parse_if(),
             TokenType::While       => self.parse_loop(),
+            TokenType::Struct      => self.parse_struct(),
+            TokenType::Module      => self.parse_module(),
             TokenType::Def         => self.parse_def(),
             TokenType::Begin       => self.parse_standalone_block(),
             TokenType::OpenBracket => self.parse_array_literal(),
@@ -160,6 +162,42 @@ impl<'a> Parser<'a> {
 
             _ => Err(self.parse_error())
         }
+    }
+
+    fn parse_struct(&mut self) -> Result<AST, ParseError> {
+        self.read()?; // struct
+
+        if self.token().token_type != TokenType::Name {
+            return Err(self.parse_error());
+        }
+
+        let name = self.read()?.string;
+        let body = self.parse_block()?;
+
+        if self.token().token_type != TokenType::End {
+            return Err(self.parse_error());
+        }
+        self.read()?; // end
+
+        Ok(AST::StructDef(StructDef { name, body }))
+    }
+
+    fn parse_module(&mut self) -> Result<AST, ParseError> {
+        self.read()?; // module
+
+        if self.token().token_type != TokenType::Name {
+            return Err(self.parse_error());
+        }
+
+        let name = self.read()?.string;
+        let body = self.parse_block()?;
+
+        if self.token().token_type != TokenType::End {
+            return Err(self.parse_error());
+        }
+        self.read()?; // end
+
+        Ok(AST::ModuleDef(ModuleDef { name, body }))
     }
 
     fn parse_lambda(&mut self) -> Result<AST, ParseError> {

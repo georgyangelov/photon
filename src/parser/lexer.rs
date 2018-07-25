@@ -43,6 +43,8 @@ pub enum TokenType {
     Begin,
     Catch,
     Do,
+    Struct,
+    Module
 }
 
 #[derive(Debug, Clone)]
@@ -250,6 +252,8 @@ impl<'a> Lexer<'a> {
                 "true" | "false" => TokenType::Bool,
                 "catch"          => TokenType::Catch,
                 "begin"          => TokenType::Begin,
+                "struct"         => TokenType::Struct,
+                "module"         => TokenType::Module,
                 _                => TokenType::Name
             };
 

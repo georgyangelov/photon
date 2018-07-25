@@ -1,3 +1,5 @@
+use ::data_structures::core::{Type};
+
 pub enum AST {
     NilLiteral,
     BoolLiteral   { value: bool },
@@ -45,7 +47,21 @@ pub enum AST {
         body: Block
     },
 
+    StructDef(StructDef),
+
+    ModuleDef(ModuleDef),
+
     MethodDef(MethodDef),
+}
+
+pub struct StructDef {
+    pub name: String,
+    pub body: Block
+}
+
+pub struct ModuleDef {
+    pub name: String,
+    pub body: Block
 }
 
 pub struct MethodDef {
@@ -74,33 +90,4 @@ pub struct Block {
     pub exprs: Vec<AST>,
 
     pub value_type: Option<Type>
-}
-
-// ---
-
-#[derive(Debug)]
-pub enum Type {
-    None,
-    Bool,
-    Int,
-    Float,
-    Interface(Interface)
-}
-
-#[derive(Debug)]
-pub struct Interface {
-    pub methods: Vec<MethodSignature>
-}
-
-#[derive(Debug)]
-pub struct MethodSignature {
-    pub name: String,
-    pub params: Vec<MethodParam>,
-    pub return_type: Type
-}
-
-#[derive(Debug)]
-pub struct MethodParam {
-    pub name: String,
-    pub kind: Type
 }

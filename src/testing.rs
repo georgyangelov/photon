@@ -116,6 +116,8 @@ impl fmt::Debug for ast::AST {
 
             &ast::AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
+            &ast::AST::StructDef(ref struct_def) => struct_def.fmt(f),
+            &ast::AST::ModuleDef(ref module) => module.fmt(f),
             &ast::AST::MethodDef(ref method) => method.fmt(f)
         }
     }
@@ -142,6 +144,18 @@ impl fmt::Debug for ast::Block {
         // }
 
         Ok(())
+    }
+}
+
+impl fmt::Debug for ast::StructDef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "(struct {} {:?})", self.name, self.body)
+    }
+}
+
+impl fmt::Debug for ast::ModuleDef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "(module {} {:?})", self.name, self.body)
     }
 }
 
