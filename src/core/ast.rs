@@ -1,5 +1,6 @@
 use ::core::core::{Value};
 
+#[derive(Clone)]
 pub enum AST {
     BoolLiteral   { value: bool },
     IntLiteral    { value: i64 },
@@ -25,6 +26,7 @@ pub enum AST {
     Value(Value)
 }
 
+#[derive(Clone)]
 pub struct FnDef {
     pub name: String,
     pub params: Vec<UnparsedFnParam>,
@@ -33,11 +35,13 @@ pub struct FnDef {
     pub body: Block
 }
 
+#[derive(Clone)]
 pub struct UnparsedFnParam {
     pub name: String,
     pub type_expr: Box<AST>
 }
 
+#[derive(Clone)]
 pub struct FnCall {
     pub target: Box<AST>,
     pub name: String,
@@ -45,21 +49,25 @@ pub struct FnCall {
     pub may_be_var_call: bool
 }
 
+#[derive(Clone)]
 pub struct Block {
     pub exprs: Vec<AST>
 }
 
+#[derive(Clone)]
 pub struct Branch {
     pub condition: Box<AST>,
     pub true_branch: Block,
     pub false_branch: Block
 }
 
+#[derive(Clone)]
 pub struct TypeHint {
     pub expr: Box<AST>,
     pub type_expr: Box<AST>
 }
 
+#[derive(Clone)]
 pub struct Assignment {
     pub name: Box<AST>,
     pub expr: Box<AST>

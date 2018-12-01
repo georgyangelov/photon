@@ -50,6 +50,14 @@ fn test_scope_nesting() {
     assert_match!(Value::Int(11), run("a = 42; begin a = 11; a end"));
 }
 
+#[test]
+fn test_simple_fn_definitions() {
+    assert_match!(Value::Int(42), run("def answer 42 end; answer()"));
+    assert_match!(Value::Int(42), run("def answer 42 end; answer"));
+    assert_match!(Value::Int(42), run("def answer(a: _) a end; answer(42)"));
+    assert_match!(Value::Int(42), run("def answer(a: _) a end; answer 42"));
+}
+
 // #[test]
 // fn test_simple_method_calls() {
 //     assert_match!(

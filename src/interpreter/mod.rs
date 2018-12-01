@@ -38,7 +38,10 @@ impl Interpreter {
             &AST::Assignment(ref assignment) => self.eval_assignment(assignment, scope),
 
             &AST::Branch(ref branch) => self.eval_if(branch, scope),
-            &AST::Block(ref block) => self.eval_block(block, scope),
+            &AST::Block(ref block)   => self.eval_block(block, scope),
+
+            &AST::FnDef(ref def)   => self.eval_fn_def(def, scope),
+            &AST::FnCall(ref fn_call) => self.eval_fn_call(fn_call, scope),
 
             _ => Err(InterpreterError { message: String::from("Not implemented") })
         }
@@ -85,10 +88,97 @@ impl Interpreter {
     }
 
     fn eval_name(&mut self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let value = self.find_name_in_scope(name, scope)?;
+        let args = Vec::new();
+
+        // TODO: This should go
+        Ok(match value {
+            Value::Function(ref function) => self.call_fn(function.clone(), &args)?,
+            _ => value
+        })
+    }
+
+    fn eval_fn_def(&mut self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let function = self.create_fn(def, scope.clone())?;
+        let function_value = Value::Function(function);
+        let mut scope = scope.borrow_mut();
+
+        scope.assign(Variable { name: def.name.clone(), value: function_value.clone() });
+
+        Ok(function_value)
+    }
+
+    fn create_fn(&self, def: &FnDef, scope: Shared<Scope>) -> Result<Shared<Function>, InterpreterError> {
+        let signature = FnSignature {
+            name: def.name.clone(),
+            params: def.params.iter()
+                .map( |param| FnParam { name: param.name.clone() } )
+                .collect()
+        };
+
+        let implementation = FnImplementation::Photon {
+            scope: scope.clone(),
+            body: def.body.clone()
+        };
+
+        Ok(make_shared(Function { signature, implementation }))
+    }
+
+    fn find_name_in_scope(&self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let scope = scope.borrow();
 
         scope.get(name)
             .map( |var| var.value.clone() )
             .ok_or(InterpreterError { message: format!("Cannot find name {}", name) })
+    }
+
+    fn eval_fn_call(&mut self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        match &*fn_call.target {
+            AST::Name { ref name } if name == "self" => (),
+            _ => return Err(InterpreterError { message: String::from("Method calls on non-self are not supported yet") })
+        };
+
+        let function = self.find_name_in_scope(&fn_call.name, scope.clone())?;
+        let function = match function {
+            Value::Function(ref function) => function.clone(),
+            _ => return Err(InterpreterError { message: String::from("Value is not a function") })
+        };
+
+        let mut args = Vec::new();
+
+        for ast in &fn_call.args {
+            args.push(self.eval_ast(ast, scope.clone())?);
+        }
+
+        self.call_fn(function, &args)
+    }
+
+    fn call_fn(&mut self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
+        let function = function.borrow();
+        let closure_scope = match function.implementation {
+            FnImplementation::Rust   { ref scope, .. } => scope,
+            FnImplementation::Photon { ref scope, .. } => scope
+        }.clone();
+
+        let call_scope = Scope::new_child_scope(closure_scope);
+        let fn_params = &function.signature.params;
+
+        if fn_params.len() != args.len() {
+            return Err(InterpreterError { message: String::from("Missing or extra arguments") });
+        }
+
+        for i in 0..fn_params.len() {
+            let name = fn_params[i].name.clone();
+            let value = args[i].clone();
+
+            call_scope.borrow_mut().assign(Variable { name, value });
+        }
+
+        let result = match function.implementation {
+            FnImplementation::Rust { ref body, .. } => (*body)(self, call_scope, args),
+            FnImplementation::Photon { ref body, .. }  => self.eval_block(body, call_scope)?
+        };
+
+        Ok(result)
     }
 }

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::fmt;
 
 use ::core::{ast, Scope};
 use ::interpreter::{Interpreter};
@@ -16,6 +17,7 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Function(Shared<Function>),
 
     // Used to support partial evaluation
     Unknown
@@ -27,6 +29,7 @@ pub struct Variable {
     pub value: Value
 }
 
+#[derive(Debug)]
 pub struct Function {
     pub signature: FnSignature,
     pub implementation: FnImplementation
@@ -44,6 +47,17 @@ pub struct FnParam {
 }
 
 pub enum FnImplementation {
-    Rust(Box<fn(&mut Interpreter, &mut Scope, Vec<Shared<Value>>) -> Value>),
-    Photon(ast::Block)
+    Rust { scope: Shared<Scope>, body: Box<fn(&mut Interpreter, Shared<Scope>, &[Value]) -> Value> },
+
+    // TODO: Hold onto only the used variables, do not share the entire world
+    Photon { scope: Shared<Scope>, body: ast::Block }
+}
+
+impl fmt::Debug for FnImplementation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FnImplementation::Rust { .. } => write!(f, "{}", "[native code]"),
+            FnImplementation::Photon { ref body, .. } => body.fmt(f)
+        }
+    }
 }
