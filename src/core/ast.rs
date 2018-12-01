@@ -8,25 +8,11 @@ pub enum AST {
 
     Name { name: String },
 
-    TypeHint {
-        expr: Box<AST>,
-        type_expr: Box<AST>
-    },
-
-    Assignment {
-        name: Box<AST>,
-        expr: Box<AST>
-    },
-
+    TypeHint(TypeHint),
+    Assignment(Assignment),
     Block(Block),
-
     FnCall(FnCall),
-
-    Branch {
-        condition: Box<AST>,
-        true_branch: Block,
-        false_branch: Block
-    },
+    Branch(Branch),
 
     // Loop {
     //     condition: Box<AST>,
@@ -61,4 +47,20 @@ pub struct FnCall {
 
 pub struct Block {
     pub exprs: Vec<AST>
+}
+
+pub struct Branch {
+    pub condition: Box<AST>,
+    pub true_branch: Block,
+    pub false_branch: Block
+}
+
+pub struct TypeHint {
+    pub expr: Box<AST>,
+    pub type_expr: Box<AST>
+}
+
+pub struct Assignment {
+    pub name: Box<AST>,
+    pub expr: Box<AST>
 }

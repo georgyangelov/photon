@@ -56,15 +56,15 @@ impl<'a> Parser<'a> {
             let right = self.parse_expression(op_precedence + 1)?;
 
             left = match op.string.as_str() {
-                "=" => AST::Assignment {
+                "=" => AST::Assignment(Assignment {
                     name: Box::new(left),
                     expr: Box::new(right)
-                },
+                }),
 
-                ":" => AST::TypeHint {
+                ":" => AST::TypeHint(TypeHint {
                     expr: Box::new(left),
                     type_expr: Box::new(right)
-                },
+                }),
 
                 _ => AST::FnCall(FnCall {
                     target: Box::new(left),
@@ -351,11 +351,11 @@ impl<'a> Parser<'a> {
             self.read()?; // end
         }
 
-        Ok(AST::Branch {
+        Ok(AST::Branch(Branch {
             condition: Box::new(condition),
             true_branch: true_branch,
             false_branch: false_branch
-        })
+        }))
     }
 
     // fn parse_loop(&mut self) -> Result<AST, ParseError> {

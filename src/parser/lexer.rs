@@ -132,7 +132,7 @@ impl<'a> Lexer<'a> {
         }
 
         let token_type = match self.c {
-            '\n' => Some(TokenType::NewLine),
+            '\n' | ';' => Some(TokenType::NewLine),
             '('  => Some(TokenType::OpenParen),
             ')'  => Some(TokenType::CloseParen),
             '['  => Some(TokenType::OpenBracket),

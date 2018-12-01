@@ -68,14 +68,7 @@ impl From<InterpreterError> for ParseOrInterpretError {
     }
 }
 
-pub fn run(source: &str, expression: &str) -> Result<Value, ParseOrInterpretError> {
-    // let asts = parse_all(source)?;
-    // let expression = parse_all(expression)?.remove(0);
-    // let mut interpreter = Interpreter::new();
-    //
-    // interpreter.run(asts)?;
-    //
-    // Ok(interpreter.run(expression)?)
+pub fn run(source: &str) -> Result<Value, ParseOrInterpretError> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
     let mut parser = Parser::new(lexer);
@@ -111,11 +104,11 @@ impl fmt::Debug for ast::AST {
                 Ok(())
             },
 
-            &ast::AST::TypeHint { ref expr, ref type_expr, .. } => {
+            &ast::AST::TypeHint(ast::TypeHint { ref expr, ref type_expr, .. }) => {
                 write!(f, "{:?}:{:?}", expr, type_expr)
             },
 
-            &ast::AST::Assignment { ref name, ref expr, .. } => {
+            &ast::AST::Assignment(ast::Assignment { ref name, ref expr, .. }) => {
                 write!(f, "(= {:?} {:?})", name, expr)?;
 
                 // if let &Some(t) = value_type {
@@ -146,7 +139,7 @@ impl fmt::Debug for ast::AST {
             //     write!(f, ")")
             // },
 
-            &ast::AST::Branch { ref condition, ref true_branch, ref false_branch } => {
+            &ast::AST::Branch(ast::Branch { ref condition, ref true_branch, ref false_branch }) => {
                 write!(f, "(if {:?} {:?}", condition, true_branch)?;
 
                 if false_branch.exprs.len() > 0 {
