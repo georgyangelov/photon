@@ -4,8 +4,7 @@
 // #[macro_use]
 extern crate itertools;
 
-pub mod analyzer;
-pub mod data_structures;
+pub mod core;
 pub mod parser;
 pub mod testing;
 pub mod interpreter;

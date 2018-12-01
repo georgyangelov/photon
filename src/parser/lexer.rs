@@ -29,7 +29,7 @@ pub enum TokenType {
 
     Name,
 
-    Nil,
+    // Nil,
     Number,
     String,
     Bool,
@@ -248,7 +248,7 @@ impl<'a> Lexer<'a> {
                 "while"          => TokenType::While,
                 "def"            => TokenType::Def,
                 "and" | "or"     => TokenType::BinaryOperator,
-                "nil"            => TokenType::Nil,
+                // "nil"            => TokenType::Nil,
                 "true" | "false" => TokenType::Bool,
                 "catch"          => TokenType::Catch,
                 "begin"          => TokenType::Begin,

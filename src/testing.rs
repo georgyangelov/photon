@@ -3,8 +3,7 @@ use std::fmt;
 use ::parser::*;
 use ::interpreter::*;
 
-use ::data_structures::ast;
-use ::data_structures::core;
+use ::core::*;
 
 use itertools::Itertools;
 
@@ -69,20 +68,34 @@ impl From<InterpreterError> for ParseOrInterpretError {
     }
 }
 
-pub fn run(source: &str, expression: &str) -> Result<core::Value, ParseOrInterpretError> {
-    let asts = parse_all(source)?;
-    let expression = parse_all(expression)?.remove(0);
+pub fn run(source: &str, expression: &str) -> Result<Value, ParseOrInterpretError> {
+    // let asts = parse_all(source)?;
+    // let expression = parse_all(expression)?.remove(0);
+    // let mut interpreter = Interpreter::new();
+    //
+    // interpreter.run(asts)?;
+    //
+    // Ok(interpreter.run(expression)?)
+    let mut input = source.as_bytes();
+    let lexer = Lexer::new("<testing>", &mut input);
+    let mut parser = Parser::new(lexer);
     let mut interpreter = Interpreter::new();
 
-    interpreter.compile(asts)?;
+    let mut last_result = None;
 
-    Ok(interpreter.run(expression)?)
+    while parser.has_more_tokens()? {
+        let token = parser.parse_next()?;
+
+        last_result = Some(interpreter.eval(&token)?);
+    }
+
+    last_result.ok_or(ParseOrInterpretError { message: String::from("Nothing to interpret") })
 }
 
 impl fmt::Debug for ast::AST {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &ast::AST::NilLiteral => write!(f, "nil"),
+            // &ast::AST::NilLiteral => write!(f, "nil"),
             &ast::AST::BoolLiteral { value } => write!(f, "{:?}", value),
             &ast::AST::IntLiteral { value } => write!(f, "{}", value),
             &ast::AST::FloatLiteral { value } => write!(f, "{}", value),
@@ -98,7 +111,7 @@ impl fmt::Debug for ast::AST {
                 Ok(())
             },
 
-            &ast::AST::TypeAssert { ref expr, ref type_expr, .. } => {
+            &ast::AST::TypeHint { ref expr, ref type_expr, .. } => {
                 write!(f, "{:?}:{:?}", expr, type_expr)
             },
 
@@ -112,26 +125,26 @@ impl fmt::Debug for ast::AST {
                 Ok(())
             },
 
-            &ast::AST::MethodCall(ref method_call) => method_call.fmt(f),
+            &ast::AST::FnCall(ref method_call) => method_call.fmt(f),
 
             &ast::AST::Block(ref block) => block.fmt(f),
 
-            &ast::AST::Lambda { ref params, ref body } => {
-                write!(f, "(lambda [")?;
-
-                for (i, param) in params.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " ")?;
-                    }
-
-                    write!(f, "{:?}", param)?;
-                }
-
-                write!(f, "] ")?;
-                write!(f, "{:?}", body)?;
-
-                write!(f, ")")
-            },
+            // &ast::AST::Lambda { ref params, ref body } => {
+            //     write!(f, "(lambda [")?;
+            //
+            //     for (i, param) in params.iter().enumerate() {
+            //         if i > 0 {
+            //             write!(f, " ")?;
+            //         }
+            //
+            //         write!(f, "{:?}", param)?;
+            //     }
+            //
+            //     write!(f, "] ")?;
+            //     write!(f, "{:?}", body)?;
+            //
+            //     write!(f, ")")
+            // },
 
             &ast::AST::Branch { ref condition, ref true_branch, ref false_branch } => {
                 write!(f, "(if {:?} {:?}", condition, true_branch)?;
@@ -143,16 +156,18 @@ impl fmt::Debug for ast::AST {
                 write!(f, ")")
             },
 
-            &ast::AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
+            // &ast::AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
-            &ast::AST::StructDef(ref struct_def) => struct_def.fmt(f),
-            &ast::AST::ModuleDef(ref module) => module.fmt(f),
-            &ast::AST::MethodDef(ref method) => method.fmt(f)
+            // &ast::AST::StructDef(ref struct_def) => struct_def.fmt(f),
+            // &ast::AST::ModuleDef(ref module) => module.fmt(f),
+            &ast::AST::FnDef(ref method) => method.fmt(f),
+
+            &ast::AST::Value(ref value) => value.fmt(f)
         }
     }
 }
 
-impl fmt::Debug for ast::UnparsedMethodParam {
+impl fmt::Debug for ast::UnparsedFnParam {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "(param {}:{:?})", self.name, self.type_expr)
     }
@@ -176,19 +191,19 @@ impl fmt::Debug for ast::Block {
     }
 }
 
-impl fmt::Debug for ast::StructDef {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(struct {} {:?})", self.name, self.body)
-    }
-}
+// impl fmt::Debug for ast::StructDef {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//         write!(f, "(struct {} {:?})", self.name, self.body)
+//     }
+// }
 
-impl fmt::Debug for ast::ModuleDef {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(module {} {:?})", self.name, self.body)
-    }
-}
+// impl fmt::Debug for ast::ModuleDef {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//         write!(f, "(module {} {:?})", self.name, self.body)
+//     }
+// }
 
-impl fmt::Debug for ast::MethodDef {
+impl fmt::Debug for ast::FnDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "(def {}:{:?}", self.name, self.return_type_expr)?;
         write!(f, " [")?;
@@ -208,7 +223,7 @@ impl fmt::Debug for ast::MethodDef {
     }
 }
 
-impl fmt::Debug for ast::MethodCall {
+impl fmt::Debug for ast::FnCall {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "({} {:?}", self.name, self.target)?;
 
@@ -226,8 +241,8 @@ impl fmt::Debug for ast::MethodCall {
     }
 }
 
-impl fmt::Debug for core::Object {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Object")
-    }
-}
+// impl fmt::Debug for core::Object {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//         write!(f, "Object")
+//     }
+// }

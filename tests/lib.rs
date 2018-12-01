@@ -4,5 +4,4 @@ extern crate itertools;
 extern crate photon;
 
 mod parser;
-mod analyzer;
 mod interpreter;

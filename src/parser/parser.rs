@@ -1,5 +1,5 @@
 use super::*;
-use ::data_structures::ast::*;
+use ::core::ast::*;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -58,25 +58,19 @@ impl<'a> Parser<'a> {
             left = match op.string.as_str() {
                 "=" => AST::Assignment {
                     name: Box::new(left),
-                    expr: Box::new(right),
-
-                    value_type: None
+                    expr: Box::new(right)
                 },
 
-                ":" => AST::TypeAssert {
+                ":" => AST::TypeHint {
                     expr: Box::new(left),
-                    type_expr: Box::new(right),
-
-                    value_type: None
+                    type_expr: Box::new(right)
                 },
 
-                _ => AST::MethodCall(MethodCall {
+                _ => AST::FnCall(FnCall {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
-                    may_be_var_call: false,
-
-                    value_type: None
+                    may_be_var_call: false
                 })
             }
         }
@@ -90,12 +84,11 @@ impl<'a> Parser<'a> {
             let expression = match expression {
                 AST::IntLiteral { value } => AST::IntLiteral { value: -value },
                 AST::FloatLiteral { value } => AST::FloatLiteral { value: -value },
-                _ => AST::MethodCall(MethodCall {
+                _ => AST::FnCall(FnCall {
                     name: String::from("-"),
                     target: Box::new(expression),
                     args: vec![],
-                    may_be_var_call: false,
-                    value_type: None
+                    may_be_var_call: false
                 })
             };
 
@@ -119,33 +112,29 @@ impl<'a> Parser<'a> {
 
     fn parse_method_target(&mut self) -> Result<AST, ParseError> {
         match self.token().token_type {
-            TokenType::Nil => {
-                self.read()?;
-
-                Ok(AST::NilLiteral)
-            },
+            // TokenType::Nil => {
+            //     self.read()?;
+            //
+            //     Ok(AST::NilLiteral)
+            // },
             TokenType::Bool        => self.parse_bool(),
             TokenType::Number      => self.parse_number(),
             TokenType::String      => Ok(AST::StringLiteral { value: self.read()?.string }),
-            TokenType::Name        => Ok(AST::Name { name: self.read()?.string, value_type: None }),
+            TokenType::Name        => Ok(AST::Name { name: self.read()?.string }),
             TokenType::If          => self.parse_if(),
-            TokenType::While       => self.parse_loop(),
-            TokenType::Struct      => self.parse_struct(),
-            TokenType::Module      => self.parse_module(),
+            // TokenType::While       => self.parse_loop(),
             TokenType::Def         => self.parse_def(),
             TokenType::Begin       => self.parse_standalone_block(),
             TokenType::OpenBracket => self.parse_array_literal(),
 
-            TokenType::OpenBrace |
-            TokenType::Do          => self.parse_lambda(),
+            // TokenType::OpenBrace |
+            // TokenType::Do          => self.parse_lambda(),
 
-            TokenType::UnaryOperator => Ok(AST::MethodCall(MethodCall {
+            TokenType::UnaryOperator => Ok(AST::FnCall(FnCall {
                 name: self.read()?.string,
                 target: Box::new(self.parse_primary()?),
                 args: vec![],
-                may_be_var_call: false,
-
-                value_type: None
+                may_be_var_call: false
             })),
 
             TokenType::OpenParen => {
@@ -164,71 +153,71 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_struct(&mut self) -> Result<AST, ParseError> {
-        self.read()?; // struct
+    // fn parse_struct(&mut self) -> Result<AST, ParseError> {
+    //     self.read()?; // struct
+    //
+    //     if self.token().token_type != TokenType::Name {
+    //         return Err(self.parse_error());
+    //     }
+    //
+    //     let name = self.read()?.string;
+    //     let body = self.parse_block()?;
+    //
+    //     if self.token().token_type != TokenType::End {
+    //         return Err(self.parse_error());
+    //     }
+    //     self.read()?; // end
+    //
+    //     Ok(AST::StructDef(StructDef { name, body }))
+    // }
 
-        if self.token().token_type != TokenType::Name {
-            return Err(self.parse_error());
-        }
+    // fn parse_module(&mut self) -> Result<AST, ParseError> {
+    //     self.read()?; // module
+    //
+    //     if self.token().token_type != TokenType::Name {
+    //         return Err(self.parse_error());
+    //     }
+    //
+    //     let name = self.read()?.string;
+    //     let body = self.parse_block()?;
+    //
+    //     if self.token().token_type != TokenType::End {
+    //         return Err(self.parse_error());
+    //     }
+    //     self.read()?; // end
+    //
+    //     Ok(AST::ModuleDef(ModuleDef { name, body }))
+    // }
 
-        let name = self.read()?.string;
-        let body = self.parse_block()?;
-
-        if self.token().token_type != TokenType::End {
-            return Err(self.parse_error());
-        }
-        self.read()?; // end
-
-        Ok(AST::StructDef(StructDef { name, body }))
-    }
-
-    fn parse_module(&mut self) -> Result<AST, ParseError> {
-        self.read()?; // module
-
-        if self.token().token_type != TokenType::Name {
-            return Err(self.parse_error());
-        }
-
-        let name = self.read()?.string;
-        let body = self.parse_block()?;
-
-        if self.token().token_type != TokenType::End {
-            return Err(self.parse_error());
-        }
-        self.read()?; // end
-
-        Ok(AST::ModuleDef(ModuleDef { name, body }))
-    }
-
-    fn parse_lambda(&mut self) -> Result<AST, ParseError> {
-        let is_multiline = self.token().token_type == TokenType::Do;
-
-        self.read()?; // do or {
-
-        let params: Vec<UnparsedMethodParam>;
-
-        if self.token().token_type == TokenType::Pipe {
-            self.read()?; // |
-            params = self.parse_params()?;
-
-            if self.token().token_type != TokenType::Pipe {
-                return Err(self.parse_error());
-            }
-            self.read()?; // |
-        } else {
-            params = vec![];
-        }
-
-        let body = self.parse_block()?;
-
-        if is_multiline && self.token().token_type != TokenType::End ||
-           !is_multiline && self.token().token_type != TokenType::CloseBrace {
-            return Err(self.parse_error());
-        }
-        self.read()?; // end or }
-
-        Ok(AST::Lambda { params: params, body: body })
-    }
+    // fn parse_lambda(&mut self) -> Result<AST, ParseError> {
+    //     let is_multiline = self.token().token_type == TokenType::Do;
+    //
+    //     self.read()?; // do or {
+    //
+    //     let params: Vec<UnparsedFnParam>;
+    //
+    //     if self.token().token_type == TokenType::Pipe {
+    //         self.read()?; // |
+    //         params = self.parse_params()?;
+    //
+    //         if self.token().token_type != TokenType::Pipe {
+    //             return Err(self.parse_error());
+    //         }
+    //         self.read()?; // |
+    //     } else {
+    //         params = vec![];
+    //     }
+    //
+    //     let body = self.parse_block()?;
+    //
+    //     if is_multiline && self.token().token_type != TokenType::End ||
+    //        !is_multiline && self.token().token_type != TokenType::CloseBrace {
+    //         return Err(self.parse_error());
+    //     }
+    //     self.read()?; // end or }
+    //
+    //     Ok(AST::Lambda { params: params, body: body })
+    // }
 
     fn parse_standalone_block(&mut self) -> Result<AST, ParseError> {
         self.read()?; // begin
@@ -252,7 +241,7 @@ impl<'a> Parser<'a> {
         }
 
         let name = self.read()?.string;
-        let params: Vec<UnparsedMethodParam>;
+        let params: Vec<UnparsedFnParam>;
 
         if self.token().token_type == TokenType::OpenParen {
             self.read()?; // (
@@ -273,8 +262,7 @@ impl<'a> Parser<'a> {
             self.parse_next()?
         } else {
             AST::Name {
-                name: String::from("None"),
-                value_type: None
+                name: String::from("None")
             }
         };
 
@@ -285,7 +273,7 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // end
 
-        Ok(AST::MethodDef(MethodDef {
+        Ok(AST::FnDef(FnDef {
             name: name,
             params: params,
             return_type_expr: Box::new(return_type_expr),
@@ -293,8 +281,8 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_params(&mut self) -> Result<Vec<UnparsedMethodParam>, ParseError> {
-        let mut params = Vec::<UnparsedMethodParam>::new();
+    fn parse_params(&mut self) -> Result<Vec<UnparsedFnParam>, ParseError> {
+        let mut params = Vec::<UnparsedFnParam>::new();
 
         loop {
             params.push(self.parse_param()?);
@@ -309,7 +297,7 @@ impl<'a> Parser<'a> {
         Ok(params)
     }
 
-    fn parse_param(&mut self) -> Result<UnparsedMethodParam, ParseError> {
+    fn parse_param(&mut self) -> Result<UnparsedFnParam, ParseError> {
         if self.token().token_type != TokenType::Name {
             return Err(self.parse_error());
         }
@@ -322,7 +310,7 @@ impl<'a> Parser<'a> {
 
         let type_expr = self.parse_next()?;
 
-        Ok(UnparsedMethodParam {
+        Ok(UnparsedFnParam {
             name: name,
             type_expr: Box::new(type_expr)
         })
@@ -339,9 +327,7 @@ impl<'a> Parser<'a> {
 
         let true_branch = self.parse_block()?;
         let mut false_branch = Block {
-            exprs: vec![],
-
-            value_type: None
+            exprs: vec![]
         };
 
         if self.token().token_type == TokenType::Else {
@@ -355,9 +341,7 @@ impl<'a> Parser<'a> {
             self.read()?; // end
         } else if self.token().token_type == TokenType::Elsif {
             false_branch = Block {
-                exprs: vec![self.parse_if()?],
-
-                value_type: None
+                exprs: vec![self.parse_if()?]
             };
         } else {
             if self.token().token_type != TokenType::End {
@@ -374,28 +358,28 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_loop(&mut self) -> Result<AST, ParseError> {
-        self.read()?; // while
-
-        let condition = self.parse_next()?;
-
-        if !self.newline {
-            return Err(self.parse_error());
-        }
-
-        let body = self.parse_block()?;
-
-        if self.token().token_type != TokenType::End {
-            return Err(self.parse_error());
-        }
-
-        self.read()?; // end
-
-        Ok(AST::Loop {
-            condition: Box::new(condition),
-            body: body
-        })
-    }
+    // fn parse_loop(&mut self) -> Result<AST, ParseError> {
+    //     self.read()?; // while
+    //
+    //     let condition = self.parse_next()?;
+    //
+    //     if !self.newline {
+    //         return Err(self.parse_error());
+    //     }
+    //
+    //     let body = self.parse_block()?;
+    //
+    //     if self.token().token_type != TokenType::End {
+    //         return Err(self.parse_error());
+    //     }
+    //
+    //     self.read()?; // end
+    //
+    //     Ok(AST::Loop {
+    //         condition: Box::new(condition),
+    //         body: body
+    //     })
+    // }
 
     fn parse_block(&mut self) -> Result<Block, ParseError> {
         let mut exprs = Vec::<AST>::new();
@@ -405,9 +389,7 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Block {
-            exprs: exprs,
-
-            value_type: None
+            exprs: exprs
         })
     }
 
@@ -423,13 +405,11 @@ impl<'a> Parser<'a> {
             let name = self.read()?;
             let args = self.parse_arguments()?;
 
-            return Ok(AST::MethodCall(MethodCall {
+            return Ok(AST::FnCall(FnCall {
                 name: name.string,
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false,
-
-                value_type: None
+                may_be_var_call: false
             }));
         }
 
@@ -439,16 +419,13 @@ impl<'a> Parser<'a> {
             if !self.current_expression_may_end() {
                 let args = self.parse_arguments()?;
 
-                return Ok(AST::MethodCall(MethodCall {
+                return Ok(AST::FnCall(FnCall {
                     name: name.clone(),
                     target: Box::new(AST::Name {
-                        name: String::from("self"),
-                        value_type: None
+                        name: String::from("self")
                     }),
                     args: args,
-                    may_be_var_call: true,
-
-                    value_type: None
+                    may_be_var_call: true
                 }));
             }
 
@@ -467,13 +444,11 @@ impl<'a> Parser<'a> {
             }
             self.read()?; // )
 
-            return Ok(AST::MethodCall(MethodCall {
+            return Ok(AST::FnCall(FnCall {
                 name: String::from("call"),
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false,
-
-                value_type: None
+                may_be_var_call: false
             }));
         }
 
@@ -489,17 +464,13 @@ impl<'a> Parser<'a> {
         }
         self.read()?; // ]
 
-        Ok(AST::MethodCall(MethodCall {
+        Ok(AST::FnCall(FnCall {
             name: String::from("new"),
             target: Box::new(AST::Name {
-                name: String::from("Array"),
-
-                value_type: None
+                name: String::from("Array")
             }),
             args: elements,
-            may_be_var_call: false,
-
-            value_type: None
+            may_be_var_call: false
         }))
     }
 

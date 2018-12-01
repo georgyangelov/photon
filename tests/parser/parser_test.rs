@@ -49,13 +49,13 @@ fn test_elsif() {
     assert_eq!("(if 1 { 2 } { (if 3 { 4 } { 5 }) })", parse("if 1\n 2\nelsif 3\n4\nelse\n5\nend"));
 }
 
-#[test]
-fn test_loops() {
-    assert_eq!("(loop a { b c })", parse("while a\n b\n c end"));
-    assert_eq!("(loop a { (b self c) })", parse("while a\n b c end"));
-    assert_eq!("(loop a { (c b) })", parse("while a\n b.c end"));
-    assert_eq!("(loop (< a 1) { b })", parse("while a < 1\n b end"));
-}
+// #[test]
+// fn test_loops() {
+//     assert_eq!("(loop a { b c })", parse("while a\n b\n c end"));
+//     assert_eq!("(loop a { (b self c) })", parse("while a\n b c end"));
+//     assert_eq!("(loop a { (c b) })", parse("while a\n b.c end"));
+//     assert_eq!("(loop (< a 1) { b })", parse("while a < 1\n b end"));
+// }
 
 #[test]
 fn test_infix_operators() {
@@ -213,14 +213,14 @@ fn test_standalone_blocks() {
     assert_eq!("{ a b }", parse("begin a\n b end"));
 }
 
-#[test]
-fn test_lambdas() {
-    assert_eq!("(lambda [] { a b })", parse("do a\n b\n end"));
-    assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("do |a:Int, b:Int| a\n b\n end"));
-    assert_eq!("(lambda [] { a b })", parse("{ a\n b\n }"));
-    assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("{ |a:Int, b:Int| a\n b\n }"));
-    assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
-}
+// #[test]
+// fn test_lambdas() {
+//     assert_eq!("(lambda [] { a b })", parse("do a\n b\n end"));
+//     assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("do |a:Int, b:Int| a\n b\n end"));
+//     assert_eq!("(lambda [] { a b })", parse("{ a\n b\n }"));
+//     assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("{ |a:Int, b:Int| a\n b\n }"));
+//     assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
+// }
 
 #[test]
 fn test_array_literals() {
@@ -252,19 +252,19 @@ fn test_complex_type_assertions() {
     );
 }
 
-#[test]
-fn test_struct_definitions() {
-    assert_eq!("(struct Name { a b c })", parse("struct Name\n a\n b\n c\n end"));
-    assert_eq!("(struct _ { a b c })", parse("struct _\n a\n b\n c\n end"));
-}
+// #[test]
+// fn test_struct_definitions() {
+//     assert_eq!("(struct Name { a b c })", parse("struct Name\n a\n b\n c\n end"));
+//     assert_eq!("(struct _ { a b c })", parse("struct _\n a\n b\n c\n end"));
+// }
 
-#[test]
-fn test_module_definitions() {
-    assert_eq!(
-        "(module Name { (def method:None [] { a }) (def method2:None [] { b }) })",
-        parse("module Name\n def method\n a\n end\n def method2\n b\n end end")
-    );
-}
+// #[test]
+// fn test_module_definitions() {
+//     assert_eq!(
+//         "(module Name { (def method:None [] { a }) (def method2:None [] { b }) })",
+//         parse("module Name\n def method\n a\n end\n def method2\n b\n end end")
+//     );
+// }
 
 fn parse(source: &str) -> String {
     parse_all(source).expect("Could not parse").iter()
