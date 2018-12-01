@@ -1,4 +1,4 @@
-use ::data_structures::core::{Type};
+use ::data_structures::core::{Type, Value};
 
 pub enum AST {
     NilLiteral,
@@ -52,6 +52,9 @@ pub enum AST {
     ModuleDef(ModuleDef),
 
     MethodDef(MethodDef),
+
+    // Used to support partial evaluation
+    Value(Value)
 }
 
 pub struct StructDef {

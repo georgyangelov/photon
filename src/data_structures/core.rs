@@ -5,15 +5,19 @@ use std::collections::HashMap;
 use ::data_structures::ast;
 use ::interpreter::{Interpreter};
 
-type Shared<T> = Rc<RefCell<T>>;
+pub type Shared<T> = Rc<RefCell<T>>;
 
-#[derive(Debug)]
+pub fn make_shared<T>(value: T) -> Shared<T> {
+    Rc::new(RefCell::new(value))
+}
+
+#[derive(Debug, Clone)]
 pub enum Type {
     None,
     Bool,
     Int,
     Float,
-    Interface(Interface)
+    Interface(Shared<Interface>)
 }
 
 #[derive(Debug)]
@@ -21,18 +25,28 @@ pub struct Interface {
     pub methods: Vec<MethodSignature>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     None,
     Bool(bool),
     Int(i64),
     Float(f64),
-    Object(Object)
+    Object(Shared<Object>),
+
+    // Used to support partial evaluation
+    Unknown
+}
+
+#[derive(Debug, Clone)]
+pub struct Variable {
+    pub name: String,
+    pub value: Value,
+    // pub kind: Type
 }
 
 pub struct Scope {
     pub parent: Option<Box<Scope>>,
-    pub variables: HashMap<String, Value>
+    pub variables: HashMap<String, Variable>
 }
 
 pub struct Method {
@@ -60,13 +74,16 @@ pub enum MethodImplementation {
 
 pub struct Module {
     pub name: Option<String>,
-    pub methods: HashMap<String, Method>
+    pub methods: HashMap<String, Shared<Method>>
 }
 
 pub struct Class {
+    pub name: Option<String>,
     pub modules: Vec<Shared<Module>>
 }
 
+#[derive(Clone)]
 pub struct Object {
-    pub class: Class
+    pub class: Shared<Class>,
+    pub instance_variables: HashMap<String, Variable>
 }
