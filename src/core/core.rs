@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
+use std::collections::HashMap;
 
 use ::core::{ast, Scope};
 use ::interpreter::{Interpreter};
@@ -18,9 +19,15 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Function(Shared<Function>),
+    Struct(Shared<Struct>),
 
     // Used to support partial evaluation
     Unknown
+}
+
+#[derive(Debug, Clone)]
+pub struct Struct {
+    pub values: HashMap<String, Value>
 }
 
 #[derive(Debug, Clone)]

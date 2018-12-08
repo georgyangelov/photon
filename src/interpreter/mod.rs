@@ -1,6 +1,7 @@
 // mod interpreter;
 
 // pub use self::interpreter::*;
+use std::collections::HashMap;
 
 use ::core::ast::*;
 use ::core::*;
@@ -31,6 +32,7 @@ impl Interpreter {
             &AST::BoolLiteral  { value } => Ok(Value::Bool(value)),
             &AST::IntLiteral   { value } => Ok(Value::Int(value)),
             &AST::FloatLiteral { value } => Ok(Value::Float(value)),
+            &AST::StructLiteral(ref struct_literal) => self.eval_struct_literal(struct_literal, scope),
 
             &AST::Name { ref name } => self.eval_name(name, scope),
 
@@ -38,9 +40,9 @@ impl Interpreter {
             &AST::Assignment(ref assignment) => self.eval_assignment(assignment, scope),
 
             &AST::Branch(ref branch) => self.eval_if(branch, scope),
-            &AST::Block(ref block)   => self.eval_block(block, scope),
+            &AST::Block(ref block) => self.eval_block(block, scope),
 
-            &AST::FnDef(ref def)   => self.eval_fn_def(def, scope),
+            &AST::FnDef(ref def) => self.eval_fn_def(def, scope),
             &AST::FnCall(ref fn_call) => self.eval_fn_call(fn_call, scope),
 
             _ => Err(InterpreterError { message: String::from("Not implemented") })
@@ -88,14 +90,18 @@ impl Interpreter {
     }
 
     fn eval_name(&mut self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let value = self.find_name_in_scope(name, scope)?;
-        let args = Vec::new();
+        // TODO: This may be a method called implicitly on `self`, if there is no variable with this name, try a function call
+        self.find_name_in_scope(name, scope)
+    }
 
-        // TODO: This should go
-        Ok(match value {
-            Value::Function(ref function) => self.call_fn(function.clone(), &args)?,
-            _ => value
-        })
+    fn eval_struct_literal(&mut self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let mut values = HashMap::new();
+
+        for (name, value_ast) in &struct_literal.tuples {
+            values.insert(name.clone(), self.eval_ast(&value_ast, scope.clone())?);
+        }
+
+        Ok(Value::Struct(make_shared(Struct { values })))
     }
 
     fn eval_fn_def(&mut self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
@@ -132,25 +138,34 @@ impl Interpreter {
             .ok_or(InterpreterError { message: format!("Cannot find name {}", name) })
     }
 
+    fn find_name_in_struct(&self, name: &str, object: Shared<Struct>) -> Option<Value> {
+        let object = object.borrow();
+
+        object.values.get(name)
+            .map( |value| value.clone() )
+    }
+
     fn eval_fn_call(&mut self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        match &*fn_call.target {
-            AST::Name { ref name } if name == "self" => (),
-            _ => return Err(InterpreterError { message: String::from("Method calls on non-self are not supported yet") })
+        let target = self.eval_ast(&fn_call.target, scope)?;
+        let function = match target {
+            Value::Struct(ref object) => self.find_name_in_struct(&fn_call.name, object.clone()),
+
+            // TODO: Support methods on base values (int, string, etc.)
+            _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", target) })
         };
 
-        let function = self.find_name_in_scope(&fn_call.name, scope.clone())?;
-        let function = match function {
-            Value::Function(ref function) => function.clone(),
-            _ => return Err(InterpreterError { message: String::from("Value is not a function") })
-        };
-
-        let mut args = Vec::new();
-
-        for ast in &fn_call.args {
-            args.push(self.eval_ast(ast, scope.clone())?);
+        match function {
+            Some(ref value) => Ok(value.clone()),
+            None => Err(InterpreterError { message: format!("No method '{}' present on {:?}", &fn_call.name, target) })
         }
 
-        self.call_fn(function, &args)
+        // let mut args = Vec::new();
+        //
+        // for ast in &fn_call.args {
+        //     args.push(self.eval_ast(ast, scope.clone())?);
+        // }
+        //
+        // self.call_fn(function, &args)
     }
 
     fn call_fn(&mut self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
