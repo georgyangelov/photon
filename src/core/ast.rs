@@ -21,6 +21,7 @@ pub enum AST {
     //     body: Block
     // },
 
+    ModuleDef(ModuleDef),
     FnDef(FnDef),
 
     // Used to support partial evaluation
@@ -38,6 +39,12 @@ pub struct FnDef {
     pub params: Vec<UnparsedFnParam>,
     pub return_type_expr: Box<AST>,
 
+    pub body: Block
+}
+
+#[derive(Clone)]
+pub struct ModuleDef {
+    pub name: String,
     pub body: Block
 }
 

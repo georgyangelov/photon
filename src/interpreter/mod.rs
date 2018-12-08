@@ -21,13 +21,13 @@ impl Interpreter {
         }
     }
 
-    pub fn eval(&mut self, ast: &AST) -> Result<Value, InterpreterError> {
+    pub fn eval(&self, ast: &AST) -> Result<Value, InterpreterError> {
         let scope = self.root_scope.clone();
 
         self.eval_ast(ast, scope)
     }
 
-    fn eval_ast(&mut self, ast: &AST, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_ast(&self, ast: &AST, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         match ast {
             &AST::BoolLiteral  { value } => Ok(Value::Bool(value)),
             &AST::IntLiteral   { value } => Ok(Value::Int(value)),
@@ -42,6 +42,7 @@ impl Interpreter {
             &AST::Branch(ref branch) => self.eval_if(branch, scope),
             &AST::Block(ref block) => self.eval_block(block, scope),
 
+            &AST::ModuleDef(ref def) => self.eval_module_def(def, scope),
             &AST::FnDef(ref def) => self.eval_fn_def(def, scope),
             &AST::FnCall(ref fn_call) => self.eval_fn_call(fn_call, scope),
 
@@ -49,7 +50,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_if(&mut self, branch: &Branch, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_if(&self, branch: &Branch, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         match self.eval_ast(&branch.condition, scope.clone())? {
             Value::Bool(true)  => self.eval_block(&branch.true_branch, scope),
             Value::Bool(false) => self.eval_block(&branch.false_branch, scope),
@@ -58,7 +59,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_block(&mut self, block: &Block, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_block(&self, block: &Block, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let mut last_expr_value = Value::None;
         let child_scope = Scope::new_child_scope(scope);
 
@@ -69,7 +70,7 @@ impl Interpreter {
         Ok(last_expr_value)
     }
 
-    fn eval_assignment(&mut self, assign: &Assignment, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_assignment(&self, assign: &Assignment, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         if let AST::Name { ref name } = *assign.name {
             let value = self.eval_ast(&assign.expr, scope.clone())?;
 
@@ -89,12 +90,12 @@ impl Interpreter {
         }
     }
 
-    fn eval_name(&mut self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_name(&self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         // TODO: This may be a method called implicitly on `self`, if there is no variable with this name, try a function call
         self.find_name_in_scope(name, scope)
     }
 
-    fn eval_struct_literal(&mut self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn eval_struct_literal(&self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let mut values = HashMap::new();
 
         for (name, value_ast) in &struct_literal.tuples {
@@ -104,14 +105,19 @@ impl Interpreter {
         Ok(Value::Struct(make_shared(Struct { values })))
     }
 
-    fn eval_fn_def(&mut self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let function = self.create_fn(def, scope.clone())?;
-        let function_value = Value::Function(function);
-        let mut scope = scope.borrow_mut();
+    fn eval_fn_def(&self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let module = self.find_name_in_scope("SelfModule", scope.clone())?;
+        let module = match module {
+            Value::Module(ref module) => module.clone(),
 
-        scope.assign(Variable { name: def.name.clone(), value: function_value.clone() });
+            _ => return Err(InterpreterError { message: format!("Cannot define '{}' because it is not in a module", &def.name) })
+        };
 
-        Ok(function_value)
+        let function = self.create_fn(def, scope)?;
+
+        module.borrow_mut().add_function(&def.name, function.clone());
+
+        Ok(Value::Function(function))
     }
 
     fn create_fn(&self, def: &FnDef, scope: Shared<Scope>) -> Result<Shared<Function>, InterpreterError> {
@@ -123,11 +129,35 @@ impl Interpreter {
         };
 
         let implementation = FnImplementation::Photon {
+            // TODO: Remove this as it will create loops that cannot be garbage-collected
             scope: scope.clone(),
             body: def.body.clone()
         };
 
         Ok(make_shared(Function { signature, implementation }))
+    }
+
+    fn eval_module_def(&self, def: &ModuleDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let def_scope = Scope::new_child_scope(scope.clone());
+        let module = make_shared(Module { name: def.name.clone(), functions: HashMap::new() });
+
+        {
+            def_scope.borrow_mut().assign(Variable {
+                name: String::from("SelfModule"),
+                value: Value::Module(module.clone())
+            });
+
+            self.eval_block(&def.body, def_scope)?;
+        }
+
+        let module_value = Value::Module(module);
+
+        scope.borrow_mut().assign(Variable {
+            name: def.name.clone(),
+            value: module_value.clone()
+        });
+
+        Ok(module_value)
     }
 
     fn find_name_in_scope(&self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
@@ -145,30 +175,45 @@ impl Interpreter {
             .map( |value| value.clone() )
     }
 
-    fn eval_fn_call(&mut self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let target = self.eval_ast(&fn_call.target, scope)?;
-        let function = match target {
-            Value::Struct(ref object) => self.find_name_in_struct(&fn_call.name, object.clone()),
+    fn find_function_in_module(&self, name: &str, module: Shared<Module>) -> Option<Shared<Function>> {
+        let module = module.borrow();
+
+        module.functions.get(name)
+            .map( |value| value.clone() )
+    }
+
+    fn eval_fn_call(&self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+        let target = self.eval_ast(&fn_call.target, scope.clone())?;
+
+        match target {
+            Value::Struct(ref object) => {
+                // TODO: Add ability to call methods on structs
+                let value = self.find_name_in_struct(&fn_call.name, object.clone());
+
+                match value {
+                    Some(ref value) => Ok(value.clone()),
+                    None => Err(InterpreterError { message: format!("No property '{}' present on {:?}", &fn_call.name, target) })
+                }
+            },
+
+            Value::Module(ref module) => {
+                let function = self.find_function_in_module(&fn_call.name, module.clone())
+                    .ok_or_else( || InterpreterError { message: format!("No function '{}' present in module '{}'", &fn_call.name, &module.borrow().name) } )?;
+                let mut args = Vec::new();
+
+                for ast in &fn_call.args {
+                    args.push(self.eval_ast(ast, scope.clone())?);
+                }
+
+                self.call_fn(function, &args)
+            },
 
             // TODO: Support methods on base values (int, string, etc.)
             _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", target) })
-        };
-
-        match function {
-            Some(ref value) => Ok(value.clone()),
-            None => Err(InterpreterError { message: format!("No method '{}' present on {:?}", &fn_call.name, target) })
         }
-
-        // let mut args = Vec::new();
-        //
-        // for ast in &fn_call.args {
-        //     args.push(self.eval_ast(ast, scope.clone())?);
-        // }
-        //
-        // self.call_fn(function, &args)
     }
 
-    fn call_fn(&mut self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
+    fn call_fn(&self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
         let function = function.borrow();
         let closure_scope = match function.implementation {
             FnImplementation::Rust   { ref scope, .. } => scope,

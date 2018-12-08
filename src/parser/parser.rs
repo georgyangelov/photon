@@ -127,6 +127,7 @@ impl<'a> Parser<'a> {
             TokenType::Begin       => self.parse_standalone_block(),
             TokenType::OpenBracket => self.parse_array_literal(),
             TokenType::Dollar      => self.parse_struct_literal(),
+            TokenType::Module      => self.parse_module(),
 
             // TokenType::OpenBrace |
             // TokenType::Do          => self.parse_lambda(),
@@ -227,23 +228,23 @@ impl<'a> Parser<'a> {
     //     Ok(AST::StructDef(StructDef { name, body }))
     // }
 
-    // fn parse_module(&mut self) -> Result<AST, ParseError> {
-    //     self.read()?; // module
-    //
-    //     if self.token().token_type != TokenType::Name {
-    //         return Err(self.parse_error());
-    //     }
-    //
-    //     let name = self.read()?.string;
-    //     let body = self.parse_block()?;
-    //
-    //     if self.token().token_type != TokenType::End {
-    //         return Err(self.parse_error());
-    //     }
-    //     self.read()?; // end
-    //
-    //     Ok(AST::ModuleDef(ModuleDef { name, body }))
-    // }
+    fn parse_module(&mut self) -> Result<AST, ParseError> {
+        self.read()?; // module
+
+        if self.token().token_type != TokenType::Name {
+            return Err(self.parse_error());
+        }
+
+        let name = self.read()?.string;
+        let body = self.parse_block()?;
+
+        if self.token().token_type != TokenType::End {
+            return Err(self.parse_error());
+        }
+        self.read()?; // end
+
+        Ok(AST::ModuleDef(ModuleDef { name, body }))
+    }
 
     // fn parse_lambda(&mut self) -> Result<AST, ParseError> {
     //     let is_multiline = self.token().token_type == TokenType::Do;

@@ -252,25 +252,24 @@ fn test_complex_type_assertions() {
     );
 }
 
-// #[test]
-// fn test_struct_definitions() {
-//     assert_eq!("(struct Name { a b c })", parse("struct Name\n a\n b\n c\n end"));
-//     assert_eq!("(struct _ { a b c })", parse("struct _\n a\n b\n c\n end"));
-// }
-
-// #[test]
-// fn test_module_definitions() {
-//     assert_eq!(
-//         "(module Name { (def method:None [] { a }) (def method2:None [] { b }) })",
-//         parse("module Name\n def method\n a\n end\n def method2\n b\n end end")
-//     );
-// }
-
 #[test]
 fn test_structs() {
     assert_eq!("($ [])", parse("${}"));
     assert_eq!("($ [(a, 1)])", parse("${a: 1}"));
     assert_eq!("($ [(a, 1) (b, 2)])", parse("${a: 1, b: 2}"));
+}
+
+#[test]
+fn test_module_definitions() {
+    assert_eq!(
+        "(module Name { })",
+        parse("module Name; end")
+    );
+
+    assert_eq!(
+        "(module Name { (def method:None [] { a }) (def method2:None [] { b }) })",
+        parse("module Name; def method; a; end; def method2; b; end end")
+    );
 }
 
 fn parse(source: &str) -> String {

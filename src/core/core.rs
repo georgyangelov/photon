@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::collections::HashMap;
 
-use ::core::{ast, Scope};
+use ::core::{ast, Scope, Module};
 use ::interpreter::{Interpreter};
 
 pub type Shared<T> = Rc<RefCell<T>>;
@@ -20,6 +20,7 @@ pub enum Value {
     Float(f64),
     Function(Shared<Function>),
     Struct(Shared<Struct>),
+    Module(Shared<Module>),
 
     // Used to support partial evaluation
     Unknown
@@ -54,7 +55,7 @@ pub struct FnParam {
 }
 
 pub enum FnImplementation {
-    Rust { scope: Shared<Scope>, body: Box<fn(&mut Interpreter, Shared<Scope>, &[Value]) -> Value> },
+    Rust { scope: Shared<Scope>, body: Box<fn(&Interpreter, Shared<Scope>, &[Value]) -> Value> },
 
     // TODO: Hold onto only the used variables, do not share the entire world
     Photon { scope: Shared<Scope>, body: ast::Block }
