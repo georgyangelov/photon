@@ -6,6 +6,7 @@ pub enum AST {
     IntLiteral    { value: i64 },
     FloatLiteral  { value: f64 },
     StringLiteral { value: String },
+    StructLiteral(StructLiteral),
 
     Name { name: String },
 
@@ -24,6 +25,11 @@ pub enum AST {
 
     // Used to support partial evaluation
     Value(Value)
+}
+
+#[derive(Clone)]
+pub struct StructLiteral {
+    pub tuples: Vec<(String, Box<AST>)>
 }
 
 #[derive(Clone)]

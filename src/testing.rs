@@ -104,6 +104,20 @@ impl fmt::Debug for ast::AST {
                 Ok(())
             },
 
+            &ast::AST::StructLiteral(ref struct_literal) => {
+                write!(f, "($ [")?;
+
+                for (i, tuple) in struct_literal.tuples.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+
+                    write!(f, "({}, {:?})", tuple.0, tuple.1)?;
+                }
+
+                write!(f, "])")
+            },
+
             &ast::AST::TypeHint(ast::TypeHint { ref expr, ref type_expr, .. }) => {
                 write!(f, "{:?}:{:?}", expr, type_expr)
             },

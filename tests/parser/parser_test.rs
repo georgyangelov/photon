@@ -266,6 +266,13 @@ fn test_complex_type_assertions() {
 //     );
 // }
 
+#[test]
+fn test_structs() {
+    assert_eq!("($ [])", parse("${}"));
+    assert_eq!("($ [(a, 1)])", parse("${a: 1}"));
+    assert_eq!("($ [(a, 1) (b, 2)])", parse("${a: 1, b: 2}"));
+}
+
 fn parse(source: &str) -> String {
     parse_all(source).expect("Could not parse").iter()
         .map( |ref ast| format!("{:?}", ast) )
