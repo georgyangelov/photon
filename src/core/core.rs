@@ -4,9 +4,10 @@ use std::fmt;
 use std::collections::HashMap;
 
 use ::core::{ast, Scope, Module};
-use ::interpreter::{Interpreter};
+use ::interpreter::{Interpreter, InterpreterError};
 
 pub type Shared<T> = Rc<RefCell<T>>;
+pub type RustFunction = fn(&Interpreter, Shared<Scope>, &[Value]) -> Result<Value, InterpreterError>;
 
 pub fn make_shared<T>(value: T) -> Shared<T> {
     Rc::new(RefCell::new(value))
@@ -55,7 +56,7 @@ pub struct FnParam {
 }
 
 pub enum FnImplementation {
-    Rust { scope: Shared<Scope>, body: Box<fn(&Interpreter, Shared<Scope>, &[Value]) -> Value> },
+    Rust(Box<RustFunction>),
 
     // TODO: Hold onto only the used variables, do not share the entire world
     Photon { scope: Shared<Scope>, body: ast::Block }

@@ -230,8 +230,8 @@ def greet(animal: Animal)
   puts animal.greeting
 end
 
-cat = ${name: 'Lucky', include CatMethods}
-dog = ${name: 'Lucky', include DogMethods}
+cat = ${name: 'Lucky'}.include(CatMethods)
+dog = ${name: 'Lucky'}.include(DogMethods)
 fox = ${name: 'Lucky', greeting: '???'}
 
 greet cat # Meow! Lucky
@@ -252,10 +252,8 @@ interface Request
     def static new(method: String, headers: [String: String]): Request
       ${
         @method: method,
-        @headers: headers,
-
-        include Request
-      }
+        @headers: headers
+      }.include(Request)
     end
 
     def get?: Bool

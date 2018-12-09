@@ -11,14 +11,62 @@ pub struct InterpreterError {
 }
 
 pub struct Interpreter {
-    root_scope: Shared<Scope>
+    root_scope: Shared<Scope>,
+    struct_module: Shared<Module>
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let scope = Scope::new();
+        let struct_module = Self::build_struct_module();
+
+        scope.borrow_mut().assign(Variable { name: struct_module.borrow().name.clone(), value: Value::Module(struct_module.clone()) });
+
         Interpreter {
-            root_scope: Scope::new()
+            root_scope: scope,
+            struct_module: struct_module
         }
+    }
+
+    fn build_struct_module() -> Shared<Module> {
+        let mut module = Module::new("Struct");
+
+        module.add_function("include", make_shared(Function {
+            signature: FnSignature {
+                name: String::from("include"),
+                params: vec![
+                    FnParam { name: String::from("self") },
+                    FnParam { name: String::from("module") }
+                ]
+            },
+            implementation: FnImplementation::Rust(Box::new(|i, _scope, args| {
+                let this = args[0].clone();
+                let module = args[1].clone();
+
+                let object = match this {
+                    Value::Struct(ref object) => object.clone(),
+
+                    _ => return Err(InterpreterError { message: format!("Cannot call include on non-structs {:?}", this) })
+                };
+
+                let module = match module {
+                    Value::Module(ref module) => module.clone(),
+                    _ => return Err(InterpreterError { message: String::from("Struct#include needs a module as an argument") })
+                };
+
+                let this_module = i.find_name_in_struct("__module__", object);
+                let this_module = match this_module {
+                    Some(Value::Module(ref module)) => module.clone(),
+                    _ => return Err(InterpreterError { message: String::from("Struct#__module__ is not a module") })
+                };
+
+                this_module.borrow_mut().include(module);
+
+                Ok(this.clone())
+            }))
+        }));
+
+        make_shared(module)
     }
 
     pub fn eval(&self, ast: &AST) -> Result<Value, InterpreterError> {
@@ -97,6 +145,10 @@ impl Interpreter {
 
     fn eval_struct_literal(&self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let mut values = HashMap::new();
+        let mut struct_module = Module::new("<anonymous>");
+        struct_module.include(self.struct_module.clone());
+
+        values.insert(String::from("__module__"), Value::Module(make_shared(struct_module)));
 
         for (name, value_ast) in &struct_literal.tuples {
             values.insert(name.clone(), self.eval_ast(&value_ast, scope.clone())?);
@@ -139,7 +191,7 @@ impl Interpreter {
 
     fn eval_module_def(&self, def: &ModuleDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let def_scope = Scope::new_child_scope(scope.clone());
-        let module = make_shared(Module { name: def.name.clone(), functions: HashMap::new() });
+        let module = make_shared(Module::new(&def.name));
 
         {
             def_scope.borrow_mut().assign(Variable {
@@ -175,56 +227,74 @@ impl Interpreter {
             .map( |value| value.clone() )
     }
 
-    fn find_function_in_module(&self, name: &str, module: Shared<Module>) -> Option<Shared<Function>> {
-        let module = module.borrow();
-
-        module.functions.get(name)
-            .map( |value| value.clone() )
-    }
-
     fn eval_fn_call(&self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let target = self.eval_ast(&fn_call.target, scope.clone())?;
+        let mut has_self_arg = false;
 
-        match target {
+        let function = match target {
             Value::Struct(ref object) => {
-                // TODO: Add ability to call methods on structs
-                let value = self.find_name_in_struct(&fn_call.name, object.clone());
+                has_self_arg = true;
 
-                match value {
-                    Some(ref value) => Ok(value.clone()),
-                    None => Err(InterpreterError { message: format!("No property '{}' present on {:?}", &fn_call.name, target) })
+                let function = self.find_name_in_struct("__module__", object.clone())
+                    .and_then( |module| {
+                        let module = match module {
+                            Value::Module(ref module) => module.clone(),
+                            _ => return None
+                        };
+
+                        let module = module.borrow();
+                        module.get(&fn_call.name)
+                    });
+
+                match function {
+                    Some(ref function) => function.clone(),
+                    None => {
+                        let value = self.find_name_in_struct(&fn_call.name, object.clone());
+
+                        match value {
+                            Some(ref value) => return Ok(value.clone()),
+                            None => return Err(InterpreterError { message: format!("No property or method '{}' present on {:?}", &fn_call.name, target) })
+                        }
+                    }
                 }
             },
 
             Value::Module(ref module) => {
-                let function = self.find_function_in_module(&fn_call.name, module.clone())
-                    .ok_or_else( || InterpreterError { message: format!("No function '{}' present in module '{}'", &fn_call.name, &module.borrow().name) } )?;
-                let mut args = Vec::new();
+                has_self_arg = false;
 
-                for ast in &fn_call.args {
-                    args.push(self.eval_ast(ast, scope.clone())?);
-                }
-
-                self.call_fn(function, &args)
+                module.borrow().get(&fn_call.name)
+                    .ok_or_else( || InterpreterError { message: format!("No function '{}' present in module '{}'", &fn_call.name, &module.borrow().name) } )?
             },
 
             // TODO: Support methods on base values (int, string, etc.)
             _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", target) })
+        };
+
+        let mut args = Vec::new();
+
+        if has_self_arg {
+            args.push(target);
         }
+
+        for ast in &fn_call.args {
+            args.push(self.eval_ast(ast, scope.clone())?);
+        }
+
+        self.call_fn(function, &args)
     }
 
     fn call_fn(&self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
         let function = function.borrow();
         let closure_scope = match function.implementation {
-            FnImplementation::Rust   { ref scope, .. } => scope,
-            FnImplementation::Photon { ref scope, .. } => scope
-        }.clone();
+            FnImplementation::Rust   { .. } => Scope::new(),
+            FnImplementation::Photon { ref scope, .. } => scope.clone()
+        };
 
         let call_scope = Scope::new_child_scope(closure_scope);
         let fn_params = &function.signature.params;
 
         if fn_params.len() != args.len() {
-            return Err(InterpreterError { message: String::from("Missing or extra arguments") });
+            return Err(InterpreterError { message: format!("Argument error. Expected: {}, got {}", fn_params.len(), args.len()) });
         }
 
         for i in 0..fn_params.len() {
@@ -234,11 +304,9 @@ impl Interpreter {
             call_scope.borrow_mut().assign(Variable { name, value });
         }
 
-        let result = match function.implementation {
-            FnImplementation::Rust { ref body, .. } => (*body)(self, call_scope, args),
-            FnImplementation::Photon { ref body, .. }  => self.eval_block(body, call_scope)?
-        };
-
-        Ok(result)
+        match function.implementation {
+            FnImplementation::Rust(ref body) => (*body)(self, call_scope, args),
+            FnImplementation::Photon { ref body, .. }  => self.eval_block(body, call_scope)
+        }
     }
 }

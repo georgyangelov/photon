@@ -259,6 +259,12 @@ fn test_structs() {
     assert_eq!("($ [(a, 1) (b, 2)])", parse("${a: 1, b: 2}"));
 }
 
+// #[test]
+// fn test_including_modules_in_structs() {
+//     assert_eq!("($ [] [])", parse("${}"));
+//     assert_eq!("($ [(a, 1) (b, 2)] [Module1 Module2])", parse("${a: 1, b: 2}.include(Module1, Module2)"));
+// }
+
 #[test]
 fn test_module_definitions() {
     assert_eq!(

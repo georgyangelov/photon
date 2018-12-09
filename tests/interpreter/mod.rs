@@ -63,3 +63,8 @@ fn test_struct_literals() {
     assert_match!(Value::Int(42), run("${test: 42}.test"));
     assert_match!(Value::Int(42), run("a = ${test: 42}; a.test"));
 }
+
+#[test]
+fn test_struct_modules() {
+    assert_match!(Value::Int(42), run("module Test; def answer(self: _) 42 end; end; ${}.include(Test).answer"));
+}
