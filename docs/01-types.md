@@ -248,14 +248,16 @@ interface Request
   @method: String
   @headers: [String: String]
 
-  include module
-    def static new(method: String, headers: [String: String]): Request
+  static module
+    def new(method: String, headers: [String: String]): Request
       ${
         @method: method,
         @headers: headers
       }.include(Request)
     end
+  end
 
+  instance module
     def get?: Bool
       @method.downcase == 'get'
     end
