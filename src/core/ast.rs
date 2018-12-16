@@ -6,6 +6,7 @@ pub enum AST {
     IntLiteral    { value: i64 },
     FloatLiteral  { value: f64 },
     StringLiteral { value: String },
+    StructLiteral(StructLiteral),
 
     Name { name: String },
 
@@ -20,10 +21,16 @@ pub enum AST {
     //     body: Block
     // },
 
+    ModuleDef(ModuleDef),
     FnDef(FnDef),
 
     // Used to support partial evaluation
     Value(Value)
+}
+
+#[derive(Clone)]
+pub struct StructLiteral {
+    pub tuples: Vec<(String, Box<AST>)>
 }
 
 #[derive(Clone)]
@@ -32,6 +39,12 @@ pub struct FnDef {
     pub params: Vec<UnparsedFnParam>,
     pub return_type_expr: Box<AST>,
 
+    pub body: Block
+}
+
+#[derive(Clone)]
+pub struct ModuleDef {
+    pub name: String,
     pub body: Block
 }
 

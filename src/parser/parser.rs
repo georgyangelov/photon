@@ -126,6 +126,8 @@ impl<'a> Parser<'a> {
             TokenType::Def         => self.parse_def(),
             TokenType::Begin       => self.parse_standalone_block(),
             TokenType::OpenBracket => self.parse_array_literal(),
+            TokenType::Dollar      => self.parse_struct_literal(),
+            TokenType::Module      => self.parse_module(),
 
             // TokenType::OpenBrace |
             // TokenType::Do          => self.parse_lambda(),
@@ -153,6 +155,61 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_struct_literal(&mut self) -> Result<AST, ParseError> {
+        self.read()?; // $
+
+        if self.token().token_type != TokenType::OpenBrace {
+            return Err(self.parse_error());
+        }
+
+        self.read()?; // {
+
+        if self.token().token_type == TokenType::CloseBrace {
+            self.read()?; // }
+            return Ok(AST::StructLiteral(StructLiteral { tuples: Vec::new() }));
+        }
+
+        let tuples = self.parse_struct_literal_tuples()?;
+
+        if self.token().token_type != TokenType::CloseBrace {
+            return Err(self.parse_error());
+        }
+
+        self.read()?; // }
+
+        Ok(AST::StructLiteral(StructLiteral { tuples }))
+    }
+
+    fn parse_struct_literal_tuples(&mut self) -> Result<Vec<(String, Box<AST>)>, ParseError> {
+        let mut params = Vec::new();
+
+        loop {
+            if self.token().token_type != TokenType::Name {
+                return Err(self.parse_error());
+            }
+
+            let name = self.read()?.string;
+
+            if self.token().token_type != TokenType::Colon {
+                return Err(self.parse_error());
+            }
+
+            self.read()?; // :
+
+            let value = self.parse_next()?;
+
+            params.push((name, Box::new(value)));
+
+            if self.token().token_type != TokenType::Comma {
+                break;
+            }
+
+            self.read()?; // ,
+        }
+
+        Ok(params)
+    }
+
     // fn parse_struct(&mut self) -> Result<AST, ParseError> {
     //     self.read()?; // struct
     //
@@ -171,23 +228,23 @@ impl<'a> Parser<'a> {
     //     Ok(AST::StructDef(StructDef { name, body }))
     // }
 
-    // fn parse_module(&mut self) -> Result<AST, ParseError> {
-    //     self.read()?; // module
-    //
-    //     if self.token().token_type != TokenType::Name {
-    //         return Err(self.parse_error());
-    //     }
-    //
-    //     let name = self.read()?.string;
-    //     let body = self.parse_block()?;
-    //
-    //     if self.token().token_type != TokenType::End {
-    //         return Err(self.parse_error());
-    //     }
-    //     self.read()?; // end
-    //
-    //     Ok(AST::ModuleDef(ModuleDef { name, body }))
-    // }
+    fn parse_module(&mut self) -> Result<AST, ParseError> {
+        self.read()?; // module
+
+        if self.token().token_type != TokenType::Name {
+            return Err(self.parse_error());
+        }
+
+        let name = self.read()?.string;
+        let body = self.parse_block()?;
+
+        if self.token().token_type != TokenType::End {
+            return Err(self.parse_error());
+        }
+        self.read()?; // end
+
+        Ok(AST::ModuleDef(ModuleDef { name, body }))
+    }
 
     // fn parse_lambda(&mut self) -> Result<AST, ParseError> {
     //     let is_multiline = self.token().token_type == TokenType::Do;

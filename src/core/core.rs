@@ -1,26 +1,21 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
+use std::collections::HashMap;
 
-use ::core::{ast, Scope};
-use ::interpreter::{Interpreter};
+use ::core::{ast, Scope, Module, Value};
+use ::interpreter::{Interpreter, InterpreterError};
 
 pub type Shared<T> = Rc<RefCell<T>>;
+pub type RustFunction = fn(&Interpreter, Shared<Scope>, &[Value]) -> Result<Value, InterpreterError>;
 
 pub fn make_shared<T>(value: T) -> Shared<T> {
     Rc::new(RefCell::new(value))
 }
 
 #[derive(Debug, Clone)]
-pub enum Value {
-    None,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    Function(Shared<Function>),
-
-    // Used to support partial evaluation
-    Unknown
+pub struct Struct {
+    pub values: HashMap<String, Value>
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +42,7 @@ pub struct FnParam {
 }
 
 pub enum FnImplementation {
-    Rust { scope: Shared<Scope>, body: Box<fn(&mut Interpreter, Shared<Scope>, &[Value]) -> Value> },
+    Rust(Box<RustFunction>),
 
     // TODO: Hold onto only the used variables, do not share the entire world
     Photon { scope: Shared<Scope>, body: ast::Block }

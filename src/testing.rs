@@ -72,7 +72,7 @@ pub fn run(source: &str) -> Result<Value, ParseOrInterpretError> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
     let mut parser = Parser::new(lexer);
-    let mut interpreter = Interpreter::new();
+    let interpreter = Interpreter::new();
 
     let mut last_result = None;
 
@@ -102,6 +102,20 @@ impl fmt::Debug for ast::AST {
                 // }
 
                 Ok(())
+            },
+
+            &ast::AST::StructLiteral(ref struct_literal) => {
+                write!(f, "($ [")?;
+
+                for (i, tuple) in struct_literal.tuples.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+
+                    write!(f, "({}, {:?})", tuple.0, tuple.1)?;
+                }
+
+                write!(f, "])")
             },
 
             &ast::AST::TypeHint(ast::TypeHint { ref expr, ref type_expr, .. }) => {
@@ -151,8 +165,7 @@ impl fmt::Debug for ast::AST {
 
             // &ast::AST::Loop { ref condition, ref body } => write!(f, "(loop {:?} {:?})", condition, body),
 
-            // &ast::AST::StructDef(ref struct_def) => struct_def.fmt(f),
-            // &ast::AST::ModuleDef(ref module) => module.fmt(f),
+            &ast::AST::ModuleDef(ref module) => module.fmt(f),
             &ast::AST::FnDef(ref method) => method.fmt(f),
 
             &ast::AST::Value(ref value) => value.fmt(f)
@@ -184,17 +197,11 @@ impl fmt::Debug for ast::Block {
     }
 }
 
-// impl fmt::Debug for ast::StructDef {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-//         write!(f, "(struct {} {:?})", self.name, self.body)
-//     }
-// }
-
-// impl fmt::Debug for ast::ModuleDef {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-//         write!(f, "(module {} {:?})", self.name, self.body)
-//     }
-// }
+impl fmt::Debug for ast::ModuleDef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "(module {} {:?})", self.name, self.body)
+    }
+}
 
 impl fmt::Debug for ast::FnDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {

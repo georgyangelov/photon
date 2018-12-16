@@ -22,6 +22,7 @@ pub enum TokenType {
     Dot,
     Colon,
     Pipe,
+    Dollar,
 
     UnaryOperator,
     BinaryOperator,
@@ -142,6 +143,7 @@ impl<'a> Lexer<'a> {
             '.'  => Some(TokenType::Dot),
             ':'  => Some(TokenType::Colon),
             '|'  => Some(TokenType::Pipe),
+            '$'  => Some(TokenType::Dollar),
             _    => None
         };
 
