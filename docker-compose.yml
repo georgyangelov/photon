@@ -1,0 +1,10 @@
+version: '3'
+services:
+  test:
+    build: .
+    volumes:
+      - target:/photon/target
+    command: cargo test --tests=lib
+
+volumes:
+  target:

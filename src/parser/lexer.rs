@@ -1,8 +1,7 @@
 use std::io;
-use std::io::Read;
 use std::fmt;
-use std::io::Chars;
 
+use super::char_iterator::CharIterator;
 use super::ParseError;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -83,7 +82,7 @@ pub struct Lexer<'a> {
     line: u32,
     column: u32,
 
-    chars_iter: Chars<&'a mut io::Read>
+    chars_iter: CharIterator<&'a mut io::Read>
 }
 
 impl<'a> Lexer<'a> {
@@ -100,7 +99,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             column: 0,
 
-            chars_iter: source.chars(),
+            chars_iter: CharIterator::new(source),
         }
     }
 
