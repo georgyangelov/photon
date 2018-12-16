@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::collections::HashMap;
 
-use ::core::{ast, Scope, Module};
+use ::core::{ast, Scope, Module, Value};
 use ::interpreter::{Interpreter, InterpreterError};
 
 pub type Shared<T> = Rc<RefCell<T>>;
@@ -11,20 +11,6 @@ pub type RustFunction = fn(&Interpreter, Shared<Scope>, &[Value]) -> Result<Valu
 
 pub fn make_shared<T>(value: T) -> Shared<T> {
     Rc::new(RefCell::new(value))
-}
-
-#[derive(Debug, Clone)]
-pub enum Value {
-    None,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    Function(Shared<Function>),
-    Struct(Shared<Struct>),
-    Module(Shared<Module>),
-
-    // Used to support partial evaluation
-    Unknown
 }
 
 #[derive(Debug, Clone)]

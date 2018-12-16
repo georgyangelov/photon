@@ -1,10 +1,11 @@
-// mod interpreter;
-
-// pub use self::interpreter::*;
 use std::collections::HashMap;
 
 use ::core::ast::*;
 use ::core::*;
+
+mod core_lib;
+
+use self::core_lib::CoreLib;
 
 pub struct InterpreterError {
     pub message: String
@@ -12,61 +13,20 @@ pub struct InterpreterError {
 
 pub struct Interpreter {
     root_scope: Shared<Scope>,
-    struct_module: Shared<Module>
+    core: CoreLib
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let scope = Scope::new();
-        let struct_module = Self::build_struct_module();
+        let root_scope = Scope::new();
+        let core = CoreLib::new();
 
-        scope.borrow_mut().assign(Variable { name: struct_module.borrow().name.clone(), value: Value::Module(struct_module.clone()) });
+        root_scope.borrow_mut().assign(Variable {
+            name: core.struct_module.borrow().name.clone(),
+            value: Value::Module(core.struct_module.clone())
+        });
 
-        Interpreter {
-            root_scope: scope,
-            struct_module: struct_module
-        }
-    }
-
-    fn build_struct_module() -> Shared<Module> {
-        let mut module = Module::new("Struct");
-
-        module.add_function("include", make_shared(Function {
-            signature: FnSignature {
-                name: String::from("include"),
-                params: vec![
-                    FnParam { name: String::from("self") },
-                    FnParam { name: String::from("module") }
-                ]
-            },
-            implementation: FnImplementation::Rust(Box::new(|i, _scope, args| {
-                let this = args[0].clone();
-                let module = args[1].clone();
-
-                let object = match this {
-                    Value::Struct(ref object) => object.clone(),
-
-                    _ => return Err(InterpreterError { message: format!("Cannot call include on non-structs {:?}", this) })
-                };
-
-                let module = match module {
-                    Value::Module(ref module) => module.clone(),
-                    _ => return Err(InterpreterError { message: String::from("Struct#include needs a module as an argument") })
-                };
-
-                let this_module = i.find_name_in_struct("__module__", object);
-                let this_module = match this_module {
-                    Some(Value::Module(ref module)) => module.clone(),
-                    _ => return Err(InterpreterError { message: String::from("Struct#__module__ is not a module") })
-                };
-
-                this_module.borrow_mut().include(module);
-
-                Ok(this.clone())
-            }))
-        }));
-
-        make_shared(module)
+        Interpreter { root_scope, core }
     }
 
     pub fn eval(&self, ast: &AST) -> Result<Value, InterpreterError> {
@@ -146,7 +106,7 @@ impl Interpreter {
     fn eval_struct_literal(&self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let mut values = HashMap::new();
         let mut struct_module = Module::new("<anonymous>");
-        struct_module.include(self.struct_module.clone());
+        struct_module.include(self.core.struct_module.clone());
 
         values.insert(String::from("__module__"), Value::Module(make_shared(struct_module)));
 
@@ -229,7 +189,7 @@ impl Interpreter {
 
     fn eval_fn_call(&self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let target = self.eval_ast(&fn_call.target, scope.clone())?;
-        let mut has_self_arg = false;
+        let has_self_arg;
 
         let function = match target {
             Value::Struct(ref object) => {
