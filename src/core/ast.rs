@@ -1,4 +1,4 @@
-use ::core::core::{Value};
+use ::core::{Value};
 
 #[derive(Clone)]
 pub enum AST {

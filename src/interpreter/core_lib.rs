@@ -18,18 +18,18 @@ fn build_struct_module() -> Shared<Module> {
 
     def(&mut module, "include", vec!["self", "module"], |i, _scope, args| {
         let this = args[0].expect_struct()
-            .ok_or_else(|| error(format!("Cannot call include on non-structs {:?}", this)))?;
+            .ok_or_else(|| error("Cannot call include on non-structs".into()))?;
 
         let module = args[1].expect_module()
             .ok_or_else(|| error("Struct#include needs a module as an argument".into()))?;
 
         let this_module = i.find_name_in_struct("__module__", this)
-            .flat_map( |m| m.expect_module() )
+            .and_then( |m| m.expect_module() )
             .ok_or_else(|| error("Struct#__module__ is not a module".into()))?;
 
         this_module.borrow_mut().include(module);
 
-        Ok(this.clone())
+        Ok(args[0].clone())
     });
 
     make_shared(module)

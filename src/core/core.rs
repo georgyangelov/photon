@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::collections::HashMap;
 
-use ::core::{ast, Scope, Module, Value};
+use ::core::{ast, Scope, Value};
 use ::interpreter::{Interpreter, InterpreterError};
 
 pub type Shared<T> = Rc<RefCell<T>>;

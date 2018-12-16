@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use ::interpreter::*;
 use ::core::*;
 
 #[derive(Debug, Clone)]
