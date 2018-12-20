@@ -113,7 +113,7 @@ end
 
 user = ${name: 'Georgi', age: 25}
 
-if PersonMethods.can_buy_alcohol?(user) and PersonMethods.can_drive?(user)
+if PersonMethods::can_buy_alcohol?(user) and PersonMethods::can_drive?(user)
   puts 'Yay! Just not both at the same time...'
 end
 ```
@@ -272,3 +272,35 @@ interface Request
   end
 end
 ```
+
+## Modules and supermodules
+
+Modules contain functions but they are also objects so functions can be called on them.
+
+```ruby
+module Functions1
+  def function_a
+    # ...
+  end
+end
+
+module FunctionsMethods
+  def super_method_1
+    # ...
+  end
+end
+
+module Functions2
+  include Functions1
+  extend FunctionsMethods
+
+  def function_b
+    # ...
+  end
+end
+```
+
+- Calling functions defined or included in modules: `Functions2::function_b`, `Functions2::function_a`, `Functions1::function_a`
+- Calling functions defined on the module itself: `FunctionsMethods::super_method_1`, `Functions2.super_method_1`
+
+### Q: Do we need this, or can we use implicit modules?

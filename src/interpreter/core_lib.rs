@@ -24,7 +24,7 @@ fn build_struct_module() -> Shared<Module> {
             .ok_or_else(|| error("Struct#include needs a module as an argument".into()))?;
 
         let this_module = i.find_name_in_struct("__module__", this)
-            .and_then( |m| m.expect_module() )
+            .and_then( |value| value.expect_module() )
             .ok_or_else(|| error("Struct#__module__ is not a module".into()))?;
 
         this_module.borrow_mut().include(module);
