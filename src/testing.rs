@@ -122,6 +122,10 @@ impl fmt::Debug for ast::AST {
                 write!(f, "{:?}:{:?}", expr, type_expr)
             },
 
+            &ast::AST::Subname(ast::Subname { ref target, ref name }) => {
+                write!(f, "{:?}::{}", target, name)
+            },
+
             &ast::AST::Assignment(ast::Assignment { ref name, ref expr, .. }) => {
                 write!(f, "(= {:?} {:?})", name, expr)?;
 

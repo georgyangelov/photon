@@ -118,3 +118,8 @@ fn test_binary_operators() {
     assert_eq!("(BinaryOperator '/=') (BinaryOperator '*=') (EOF)", lex("/= *="));
     assert_eq!("(Name 'a') (BinaryOperator '=') (Name 'b') (EOF)", lex("a = b"));
 }
+
+#[test]
+fn test_method_resolves() {
+    assert_eq!("(Name 'a') (DoubleColon) (Name 'b') (EOF)", lex("a::b"));
+}

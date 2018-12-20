@@ -100,7 +100,8 @@ impl<'a> Parser<'a> {
         loop {
             target = self.maybe_parse_method_call(target)?;
 
-            if self.token().token_type != TokenType::Dot && (
+            if self.token().token_type != TokenType::Dot &&
+                self.token().token_type != TokenType::DoubleColon && (
                 !self.newline || self.token().token_type != TokenType::OpenParen
             ) {
                 break;
@@ -451,6 +452,22 @@ impl<'a> Parser<'a> {
     }
 
     fn maybe_parse_method_call(&mut self, target: AST) -> Result<AST, ParseError> {
+        // target::name
+        if self.token().token_type == TokenType::DoubleColon {
+            self.read()?; // ::
+
+            if self.token().token_type != TokenType::Name {
+                return Err(self.parse_error());
+            }
+
+            let name = self.read()?;
+
+            return Ok(AST::Subname(Subname {
+                name: name.string,
+                target: Box::new(target)
+            }));
+        }
+
         // target.call
         if self.token().token_type == TokenType::Dot {
             self.read()?; // .
@@ -623,6 +640,7 @@ impl<'a> Parser<'a> {
         t.token_type == TokenType::Comma ||
         t.token_type == TokenType::CloseParen ||
         t.token_type == TokenType::Dot ||
+        t.token_type == TokenType::DoubleColon ||
         t.token_type == TokenType::CloseBracket ||
         t.token_type == TokenType::Pipe ||
         self.block_ends()

@@ -23,6 +23,7 @@ pub enum TokenType {
     Colon,
     Pipe,
     Dollar,
+    DoubleColon,
 
     UnaryOperator,
     BinaryOperator,
@@ -141,7 +142,6 @@ impl<'a> Lexer<'a> {
             '}'  => Some(TokenType::CloseBrace),
             ','  => Some(TokenType::Comma),
             '.'  => Some(TokenType::Dot),
-            ':'  => Some(TokenType::Colon),
             '|'  => Some(TokenType::Pipe),
             '$'  => Some(TokenType::Dollar),
             _    => None
@@ -174,6 +174,29 @@ impl<'a> Lexer<'a> {
                     column: column,
                     had_whitespace_before: had_whitespace
                 });
+            },
+            ':' => {
+                string.push(self.next());
+
+                if self.c == ':' {
+                    string.push(self.next());
+
+                    return Ok(Token {
+                        token_type: TokenType::DoubleColon,
+                        string,
+                        line,
+                        column,
+                        had_whitespace_before: had_whitespace
+                    });
+                } else {
+                    return Ok(Token {
+                        token_type: TokenType::Colon,
+                        string,
+                        line,
+                        column,
+                        had_whitespace_before: had_whitespace
+                    });
+                }
             },
             '"' => {
                 return Ok(Token {

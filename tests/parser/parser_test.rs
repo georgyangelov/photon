@@ -134,6 +134,16 @@ fn test_method_calls() {
 }
 
 #[test]
+fn test_subname_resolution() {
+    assert_eq!("NameA::NameB", parse("NameA::NameB"));
+    assert_eq!("(test NameA::NameB)", parse("NameA::NameB.test"));
+    assert_eq!("(test NameA::NameB 123)", parse("NameA::NameB.test 123"));
+    assert_eq!("NameA::NameB::NameC", parse("NameA::NameB::NameC"));
+    assert_eq!("(include A B)::C::D", parse("A.include(B)::C::D"));
+    assert_eq!("(test (include A B)::C::D)", parse("A.include(B)::C::D.test"));
+}
+
+#[test]
 fn test_method_calls_with_arguments() {
     assert_eq!("(method self a)", parse("method(a)"));
     assert_eq!("(method self a)", parse("method a"));

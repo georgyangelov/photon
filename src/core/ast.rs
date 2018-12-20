@@ -11,6 +11,7 @@ pub enum AST {
     Name { name: String },
 
     TypeHint(TypeHint),
+    Subname(Subname),
     Assignment(Assignment),
     Block(Block),
     FnCall(FnCall),
@@ -78,6 +79,12 @@ pub struct Branch {
 pub struct TypeHint {
     pub expr: Box<AST>,
     pub type_expr: Box<AST>
+}
+
+#[derive(Clone)]
+pub struct Subname {
+    pub target: Box<AST>,
+    pub name: String
 }
 
 #[derive(Clone)]
