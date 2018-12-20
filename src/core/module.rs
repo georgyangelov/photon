@@ -6,7 +6,8 @@ use ::core::*;
 pub struct Module {
     pub name: String,
     pub functions: HashMap<String, Shared<Function>>,
-    pub included: Vec<Shared<Module>>
+    pub ancestors: Vec<Shared<Module>>,
+    pub supermodules: Vec<Shared<Module>>
 }
 
 impl Module {
@@ -14,7 +15,8 @@ impl Module {
         Self {
             name: String::from(name),
             functions: HashMap::new(),
-            included: Vec::new()
+            ancestors: Vec::new(),
+            supermodules: Vec::new()
         }
     }
 
@@ -23,14 +25,14 @@ impl Module {
     }
 
     pub fn include(&mut self, module: Shared<Module>) {
-        self.included.insert(0, module);
+        self.ancestors.insert(0, module);
     }
 
     pub fn get(&self, name: &str) -> Option<Shared<Function>> {
         self.functions.get(name)
             .map(Clone::clone)
             .or_else( || {
-                for module in self.included.iter() {
+                for module in self.ancestors.iter() {
                     let function = module.borrow().get(name);
 
                     if let Some(_) = function {

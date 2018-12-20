@@ -12,34 +12,28 @@ pub struct InterpreterError {
 }
 
 pub struct Interpreter {
-    root_scope: Shared<Scope>,
     core: CoreLib
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let root_scope = Scope::new();
         let core = CoreLib::new();
 
-        root_scope.borrow_mut().assign(Variable {
-            name: core.struct_module.borrow().name.clone(),
-            value: Value::Module(core.struct_module.clone())
-        });
-
-        Interpreter { root_scope, core }
+        Interpreter { core }
     }
 
     pub fn eval(&self, ast: &AST) -> Result<Value, InterpreterError> {
-        let scope = self.root_scope.clone();
+        let scope = self.core.root_scope.clone();
 
         self.eval_ast(ast, scope)
     }
 
     fn eval_ast(&self, ast: &AST, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         match ast {
-            &AST::BoolLiteral  { value } => Ok(Value::Bool(value)),
-            &AST::IntLiteral   { value } => Ok(Value::Int(value)),
-            &AST::FloatLiteral { value } => Ok(Value::Float(value)),
+            &AST::BoolLiteral   { value } => Ok(Value::Bool(value)),
+            &AST::IntLiteral    { value } => Ok(Value::Int(value)),
+            &AST::FloatLiteral  { value } => Ok(Value::Float(value)),
+            &AST::StringLiteral { ref value } => Ok(Value::String(value.clone())),
             &AST::StructLiteral(ref struct_literal) => self.eval_struct_literal(struct_literal, scope),
 
             &AST::Name { ref name } => self.eval_name(name, scope),
@@ -219,11 +213,19 @@ impl Interpreter {
                 }
             },
 
+            // TODO: This is wrong, this should be the handler for the `::` syntax, not the `.` syntax
             Value::Module(ref module) => {
                 has_self_arg = false;
 
                 module.borrow().get(&fn_call.name)
                     .ok_or_else( || InterpreterError { message: format!("No function '{}' present in module '{}'", &fn_call.name, &module.borrow().name) } )?
+            },
+
+            Value::String(_) => {
+                has_self_arg = true;
+
+                self.core.string_module.borrow().get(&fn_call.name)
+                    .ok_or_else(|| error(format!("No method '{}' on String", fn_call.name)))?
             },
 
             // TODO: Support methods on base values (int, string, etc.)
@@ -269,4 +271,28 @@ impl Interpreter {
             FnImplementation::Photon { ref body, .. }  => self.eval_block(body, call_scope)
         }
     }
+
+    fn find_fn_on_module(&self, scope: &Scope, module_name: &str, fn_name: &str)
+            -> Result<Shared<Function>, InterpreterError> {
+        let shared_module = scope.get(module_name)
+            .map( |var| var.value )
+            .and_then( |value| value.expect_module() )
+            .ok_or_else(|| error(format!("Cannot find module '{}'", module_name)))?;
+
+        let module = shared_module.borrow();
+
+        module.get(fn_name)
+            .ok_or_else(|| error(format!("Cannot find method '{}' in module '{}'", fn_name, module_name)))
+    }
+
+    fn call_fn_on_module(&self, scope: &Scope, module_name: &str, fn_name: &str, args: &[Value])
+            -> Result<Value, InterpreterError> {
+        let function = self.find_fn_on_module(scope, module_name, fn_name)?;
+
+        self.call_fn(function, args)
+    }
+}
+
+fn error(message: String) -> InterpreterError {
+    InterpreterError { message }
 }

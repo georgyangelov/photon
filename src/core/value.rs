@@ -6,6 +6,8 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
+    String(String),
+
     Function(Shared<Function>),
     Struct(Shared<Struct>),
     Module(Shared<Module>),
@@ -32,6 +34,13 @@ impl Value {
     pub fn expect_float(&self) -> Option<f64> {
         match self {
             Value::Float(result) => Some(*result),
+            _ => None
+        }
+    }
+
+    pub fn expect_string(&self) -> Option<String> {
+        match self {
+            Value::String(string) => Some(string.clone()),
             _ => None
         }
     }

@@ -2,21 +2,79 @@ use ::core::*;
 use ::interpreter::InterpreterError;
 
 pub struct CoreLib {
+    pub root_scope: Shared<Scope>,
+
+    pub module_module: Shared<Module>,
+    pub string_module: Shared<Module>,
     pub struct_module: Shared<Module>
 }
 
 impl CoreLib {
     pub fn new() -> CoreLib {
+        let scope = Scope::new();
+
+        let module_module;
+        let string_module;
+        let struct_module;
+
+        {
+            let mut scope = scope.borrow_mut();
+
+            module_module = define_module_module(&mut scope);
+            string_module = define_string(&mut scope);
+            struct_module = define_struct_module(&mut scope);
+        }
+
         CoreLib {
-            struct_module: build_struct_module()
+            root_scope: scope,
+            module_module,
+            string_module,
+            struct_module
         }
     }
 }
 
-fn build_struct_module() -> Shared<Module> {
-    let mut module = Module::new("Struct");
+fn define_module_module(scope: &mut Scope) -> Shared<Module> {
+    let module = make_shared(Module::new("Module"));
 
-    def(&mut module, "include", vec!["self", "module"], |i, _scope, args| {
+    def(module.clone(), "name", vec!["self"], |_i, _scope, args| {
+        let this = args[0].expect_module()
+            .ok_or_else(|| error("Must be a module".into()))?;
+
+        let module = this.borrow();
+
+        Ok(Value::String(module.name.clone()))
+    });
+
+    scope.assign(Variable {
+        name: module.borrow().name.clone(),
+        value: Value::Module(module.clone())
+    });
+
+    module
+}
+
+fn define_module(scope: &mut Scope, name: &str) -> Shared<Module> {
+    let mut module = Module::new(name);
+    let module_module = find_module(scope, "Module").expect("Module `Module` does not exist");
+
+    module.supermodules.push(module_module);
+
+    let shared_module = make_shared(module);
+
+    scope.assign(Variable {
+        name: name.to_string(),
+        value: Value::Module(shared_module.clone())
+    });
+
+    shared_module
+}
+
+fn define_struct_module(scope: &mut Scope) -> Shared<Module> {
+    let module = define_module(scope, "Struct");
+
+    // TODO: Remove this and implement directly in Photon
+    def(module.clone(), "include", vec!["self", "module"], |i, _scope, args| {
         let this = args[0].expect_struct()
             .ok_or_else(|| error("Cannot call include on non-structs".into()))?;
 
@@ -32,10 +90,29 @@ fn build_struct_module() -> Shared<Module> {
         Ok(args[0].clone())
     });
 
-    make_shared(module)
+    module
 }
 
-fn def(module: &mut Module, name: &str, params: Vec<&str>, function: RustFunction) {
+fn define_string(scope: &mut Scope) -> Shared<Module> {
+    let module = define_module(scope, "String");
+    let supermodule = define_module(scope, "StringStaticModule");
+    extend(module.clone(), supermodule.clone());
+
+    def(supermodule.clone(), "new", vec!["self"], |_i, _scope, _args| {
+        Ok(Value::String(String::new()))
+    });
+
+    def(module.clone(), "size", vec!["self"], |_i, _scope, args| {
+        let this = args[0].expect_string()
+            .ok_or_else(|| error("Must be a string".into()))?;
+
+        Ok(Value::Int(this.len() as i64))
+    });
+
+    module
+}
+
+fn def(module: Shared<Module>, name: &str, params: Vec<&str>, function: RustFunction) {
     let signature = FnSignature {
         name: String::from(name),
         params: params.iter().map( |name| FnParam { name: String::from(*name) } ).collect()
@@ -43,10 +120,20 @@ fn def(module: &mut Module, name: &str, params: Vec<&str>, function: RustFunctio
 
     let implementation = FnImplementation::Rust(Box::new(function));
 
-    module.add_function(name, make_shared(Function {
+    module.borrow_mut().add_function(name, make_shared(Function {
         signature,
         implementation
     }));
+}
+
+fn extend(this: Shared<Module>, with: Shared<Module>) {
+    this.borrow_mut().supermodules.insert(0, with);
+}
+
+fn find_module(scope: &Scope, name: &str) -> Option<Shared<Module>> {
+    scope.get(name)
+        .map( |var| var.value )
+        .and_then( |value| value.expect_module() )
 }
 
 fn error(message: String) -> InterpreterError {
