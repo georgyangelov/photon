@@ -37,7 +37,7 @@ impl CoreLib {
 fn define_module_module(scope: &mut Scope) -> Shared<Module> {
     let module = make_shared(Module::new("Module"));
 
-    def(module.clone(), "name", vec!["self"], |_i, _scope, args| {
+    module.borrow_mut().def("name", vec!["self"], |_i, _scope, args| {
         let this = args[0].expect_module()
             .ok_or_else(|| error("Must be a module".into()))?;
 
@@ -74,7 +74,7 @@ fn define_struct_module(scope: &mut Scope) -> Shared<Module> {
     let module = define_module(scope, "Struct");
 
     // TODO: Remove this and implement directly in Photon
-    def(module.clone(), "include", vec!["self", "module"], |i, _scope, args| {
+    module.borrow_mut().def("include", vec!["self", "module"], |i, _scope, args| {
         let this = args[0].expect_struct()
             .ok_or_else(|| error("Cannot call include on non-structs".into()))?;
 
@@ -98,11 +98,11 @@ fn define_string(scope: &mut Scope) -> Shared<Module> {
     let supermodule = define_module(scope, "StringStaticModule");
     extend(module.clone(), supermodule.clone());
 
-    def(supermodule.clone(), "new", vec!["self"], |_i, _scope, _args| {
+    supermodule.borrow_mut().def("new", vec!["self"], |_i, _scope, _args| {
         Ok(Value::String(String::new()))
     });
 
-    def(module.clone(), "size", vec!["self"], |_i, _scope, args| {
+    module.borrow_mut().def("size", vec!["self"], |_i, _scope, args| {
         let this = args[0].expect_string()
             .ok_or_else(|| error("Must be a string".into()))?;
 
@@ -110,20 +110,6 @@ fn define_string(scope: &mut Scope) -> Shared<Module> {
     });
 
     module
-}
-
-fn def(module: Shared<Module>, name: &str, params: Vec<&str>, function: RustFunction) {
-    let signature = FnSignature {
-        name: String::from(name),
-        params: params.iter().map( |name| FnParam { name: String::from(*name) } ).collect()
-    };
-
-    let implementation = FnImplementation::Rust(Box::new(function));
-
-    module.borrow_mut().add_function(name, make_shared(Function {
-        signature,
-        implementation
-    }));
 }
 
 fn extend(this: Shared<Module>, with: Shared<Module>) {

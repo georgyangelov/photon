@@ -43,4 +43,30 @@ impl Module {
                 None
             })
     }
+
+    pub fn get_static(&self, name: &str) -> Option<Shared<Function>> {
+        for module in self.supermodules.iter() {
+            let function = module.borrow().get(name);
+
+            if let Some(_) = function {
+                return function;
+            }
+        }
+
+        None
+    }
+
+    pub fn def(&mut self, name: &str, params: Vec<&str>, function: RustFunction) {
+        let signature = FnSignature {
+            name: String::from(name),
+            params: params.iter().map( |name| FnParam { name: String::from(*name) } ).collect()
+        };
+
+        let implementation = FnImplementation::Rust(Box::new(function));
+
+        self.add_function(name, make_shared(Function {
+            signature,
+            implementation
+        }));
+    }
 }

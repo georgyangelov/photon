@@ -114,7 +114,7 @@ impl Interpreter {
     }
 
     fn eval_fn_def(&self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let module = self.find_name_in_scope("SelfModule", scope.clone())?;
+        let module = self.find_name_in_scope("$SelfModule", scope.clone())?;
         let module = match module {
             Value::Module(ref module) => module.clone(),
 
@@ -157,7 +157,7 @@ impl Interpreter {
 
         {
             def_scope.borrow_mut().assign(Variable {
-                name: String::from("SelfModule"),
+                name: String::from("$SelfModule"),
                 value: Value::Module(module.clone())
             });
 
@@ -171,6 +171,14 @@ impl Interpreter {
                 name: name.to_string(),
                 value: module_value.clone()
             });
+
+            // if let Some(parent_module_var) = scope.borrow_mut().get("$SelfModule") {
+            //     let parent_module = parent_module_var.value.expect_module()
+            //         .ok_or_else(|| error(format!("$SelfModule must be a module, was {:?}", parent_module_var.value)))?;
+            //     let value = Value::Module(module);
+
+            //     parent_module.borrow_mut().def(name, vec!["self"], |_i, _scope, _args| Ok(value));
+            // }
         }
 
         Ok(module_value)
@@ -282,6 +290,14 @@ impl Interpreter {
                         }
                     }
                 }
+            },
+
+            Value::Module(ref module) => {
+                let module = module.borrow();
+                let function = module.get_static(name)
+                    .ok_or_else(|| error(format!("No method '{}' on module {}", name, &module.name)))?;
+
+                function.clone()
             },
 
             Value::String(_) => {

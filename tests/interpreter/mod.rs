@@ -84,3 +84,16 @@ fn test_anonymous_modules() {
       m::answer
     "));
 }
+
+// #[test]
+// fn test_nested_modules() {
+//     assert_match!(Value::Int(42), run(r"
+//       module A
+//         module B
+//           def answer 42 end
+//         end
+//       end
+//
+//       A.B::answer
+//     "));
+// }
