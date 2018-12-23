@@ -102,7 +102,9 @@ impl Interpreter {
         let mut struct_module = Module::new("<anonymous>");
         struct_module.include(self.core.struct_module.clone());
 
-        values.insert(String::from("__module__"), Value::Module(make_shared(struct_module)));
+        // TODO: Consider using the module directly instead of only adding to it
+        // This way a struct will always have an already-defined module
+        values.insert(String::from("$module"), Value::Module(make_shared(struct_module)));
 
         for (name, value_ast) in &struct_literal.tuples {
             values.insert(name.clone(), self.eval_ast(&value_ast, scope.clone())?);
@@ -145,7 +147,13 @@ impl Interpreter {
 
     fn eval_module_def(&self, def: &ModuleDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let def_scope = Scope::new_child_scope(scope.clone());
-        let module = make_shared(Module::new(&def.name));
+        let name = if let Some(ref name) = def.name {
+            name
+        } else {
+            "<anonymous>"
+        };
+
+        let module = make_shared(Module::new(&name));
 
         {
             def_scope.borrow_mut().assign(Variable {
@@ -158,10 +166,12 @@ impl Interpreter {
 
         let module_value = Value::Module(module);
 
-        scope.borrow_mut().assign(Variable {
-            name: def.name.clone(),
-            value: module_value.clone()
-        });
+        if let Some(ref name) = def.name {
+            scope.borrow_mut().assign(Variable {
+                name: name.to_string(),
+                value: module_value.clone()
+            });
+        }
 
         Ok(module_value)
     }
@@ -183,66 +193,22 @@ impl Interpreter {
 
     fn eval_fn_call(&self, fn_call: &FnCall, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let target = self.eval_ast(&fn_call.target, scope.clone())?;
-        let has_self_arg;
-
-        let function = match target {
-            Value::Struct(ref object) => {
-                has_self_arg = true;
-
-                let function = self.find_name_in_struct("__module__", object.clone())
-                    .and_then( |module| {
-                        let module = match module {
-                            Value::Module(ref module) => module.clone(),
-                            _ => return None
-                        };
-
-                        let module = module.borrow();
-                        module.get(&fn_call.name)
-                    });
-
-                match function {
-                    Some(ref function) => function.clone(),
-                    None => {
-                        let value = self.find_name_in_struct(&fn_call.name, object.clone());
-
-                        match value {
-                            Some(ref value) => return Ok(value.clone()),
-                            None => return Err(InterpreterError { message: format!("No property or method '{}' present on {:?}", &fn_call.name, target) })
-                        }
-                    }
-                }
-            },
-
-            // TODO: This is wrong, this should be the handler for the `::` syntax, not the `.` syntax
-            Value::Module(ref module) => {
-                has_self_arg = false;
-
-                module.borrow().get(&fn_call.name)
-                    .ok_or_else( || InterpreterError { message: format!("No function '{}' present in module '{}'", &fn_call.name, &module.borrow().name) } )?
-            },
-
-            Value::String(_) => {
-                has_self_arg = true;
-
-                self.core.string_module.borrow().get(&fn_call.name)
-                    .ok_or_else(|| error(format!("No method '{}' on String", fn_call.name)))?
-            },
-
-            // TODO: Support methods on base values (int, string, etc.)
-            _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", target) })
-        };
-
         let mut args = Vec::new();
 
-        if has_self_arg {
-            args.push(target);
+        // TODO: If calling a lambda this should also skip the self param
+        if !fn_call.module_resolve {
+            args.push(target.clone());
         }
 
         for ast in &fn_call.args {
             args.push(self.eval_ast(ast, scope.clone())?);
         }
 
-        self.call_fn(function, &args)
+        if fn_call.module_resolve {
+            self.call_fn_on_module(&target, &fn_call.name, &args)
+        } else {
+            self.call_method(&target, &fn_call.name, &args)
+        }
     }
 
     fn call_fn(&self, function: Shared<Function>, args: &[Value]) -> Result<Value, InterpreterError> {
@@ -272,22 +238,60 @@ impl Interpreter {
         }
     }
 
-    fn find_fn_on_module(&self, scope: &Scope, module_name: &str, fn_name: &str)
+    fn find_fn_on_module(&self, module: &Value, fn_name: &str)
             -> Result<Shared<Function>, InterpreterError> {
-        let shared_module = scope.get(module_name)
-            .map( |var| var.value )
-            .and_then( |value| value.expect_module() )
-            .ok_or_else(|| error(format!("Cannot find module '{}'", module_name)))?;
+        let shared_module = module.expect_module()
+            .ok_or_else(|| error(format!("Value '{:?}' is not a module", module)))?;
 
         let module = shared_module.borrow();
 
         module.get(fn_name)
-            .ok_or_else(|| error(format!("Cannot find method '{}' in module '{}'", fn_name, module_name)))
+            .ok_or_else(|| error(format!("Cannot find method '{}' in module '{}'", fn_name, module.name)))
     }
 
-    fn call_fn_on_module(&self, scope: &Scope, module_name: &str, fn_name: &str, args: &[Value])
+    fn call_fn_on_module(&self, module: &Value, fn_name: &str, args: &[Value])
             -> Result<Value, InterpreterError> {
-        let function = self.find_fn_on_module(scope, module_name, fn_name)?;
+        let function = self.find_fn_on_module(module, fn_name)?;
+
+        self.call_fn(function, args)
+    }
+
+    fn call_method(&self, value: &Value, name: &str, args: &[Value])
+            -> Result<Value, InterpreterError> {
+        let function = match value {
+            Value::Struct(ref object) => {
+                let function = self.find_name_in_struct("$module", object.clone())
+                    .and_then( |module| {
+                        let module = match module {
+                            Value::Module(ref module) => module.clone(),
+                            _ => return None
+                        };
+
+                        let module = module.borrow();
+                        module.get(name)
+                    });
+
+                match function {
+                    Some(ref function) => function.clone(),
+                    None => {
+                        let value = self.find_name_in_struct(name, object.clone());
+
+                        match value {
+                            Some(ref value) => return Ok(value.clone()),
+                            None => return Err(InterpreterError { message: format!("No property or method '{}' present on {:?}", name, object) })
+                        }
+                    }
+                }
+            },
+
+            Value::String(_) => {
+                self.core.string_module.borrow().get(name)
+                    .ok_or_else(|| error(format!("No method '{}' on String", name)))?
+            },
+
+            // TODO: Support methods on base values (int, string, etc.)
+            _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", value) })
+        };
 
         self.call_fn(function, args)
     }

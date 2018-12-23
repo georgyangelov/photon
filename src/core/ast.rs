@@ -11,7 +11,6 @@ pub enum AST {
     Name { name: String },
 
     TypeHint(TypeHint),
-    Subname(Subname),
     Assignment(Assignment),
     Block(Block),
     FnCall(FnCall),
@@ -45,7 +44,7 @@ pub struct FnDef {
 
 #[derive(Clone)]
 pub struct ModuleDef {
-    pub name: String,
+    pub name: Option<String>,
     pub body: Block
 }
 
@@ -60,7 +59,8 @@ pub struct FnCall {
     pub target: Box<AST>,
     pub name: String,
     pub args: Vec<AST>,
-    pub may_be_var_call: bool
+    pub may_be_var_call: bool,
+    pub module_resolve: bool
 }
 
 #[derive(Clone)]

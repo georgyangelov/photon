@@ -70,7 +70,8 @@ impl<'a> Parser<'a> {
                     target: Box::new(left),
                     name: op.string,
                     args: vec![right],
-                    may_be_var_call: false
+                    may_be_var_call: false,
+                    module_resolve: false
                 })
             }
         }
@@ -88,7 +89,8 @@ impl<'a> Parser<'a> {
                     name: String::from("-"),
                     target: Box::new(expression),
                     args: vec![],
-                    may_be_var_call: false
+                    may_be_var_call: false,
+                    module_resolve: false
                 })
             };
 
@@ -137,7 +139,8 @@ impl<'a> Parser<'a> {
                 name: self.read()?.string,
                 target: Box::new(self.parse_primary()?),
                 args: vec![],
-                may_be_var_call: false
+                may_be_var_call: false,
+                module_resolve: false
             })),
 
             TokenType::OpenParen => {
@@ -232,11 +235,16 @@ impl<'a> Parser<'a> {
     fn parse_module(&mut self) -> Result<AST, ParseError> {
         self.read()?; // module
 
-        if self.token().token_type != TokenType::Name {
+        if !self.newline && self.token().token_type != TokenType::Name {
             return Err(self.parse_error());
         }
 
-        let name = self.read()?.string;
+        let name = if self.newline {
+            None
+        } else {
+            Some(self.read()?.string)
+        };
+
         let body = self.parse_block()?;
 
         if self.token().token_type != TokenType::End {
@@ -461,10 +469,14 @@ impl<'a> Parser<'a> {
             }
 
             let name = self.read()?;
+            let args = self.parse_arguments()?;
 
-            return Ok(AST::Subname(Subname {
+            return Ok(AST::FnCall(FnCall {
                 name: name.string,
-                target: Box::new(target)
+                target: Box::new(target),
+                args: args,
+                may_be_var_call: false,
+                module_resolve: true
             }));
         }
 
@@ -483,7 +495,8 @@ impl<'a> Parser<'a> {
                 name: name.string,
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false
+                may_be_var_call: false,
+                module_resolve: false
             }));
         }
 
@@ -499,7 +512,8 @@ impl<'a> Parser<'a> {
                         name: String::from("self")
                     }),
                     args: args,
-                    may_be_var_call: true
+                    may_be_var_call: true,
+                    module_resolve: false
                 }));
             }
 
@@ -522,7 +536,8 @@ impl<'a> Parser<'a> {
                 name: String::from("call"),
                 target: Box::new(target),
                 args: args,
-                may_be_var_call: false
+                may_be_var_call: false,
+                module_resolve: false
             }));
         }
 
@@ -544,7 +559,8 @@ impl<'a> Parser<'a> {
                 name: String::from("Array")
             }),
             args: elements,
-            may_be_var_call: false
+            may_be_var_call: false,
+            module_resolve: false
         }))
     }
 

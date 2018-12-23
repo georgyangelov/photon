@@ -52,10 +52,10 @@ fn test_scope_nesting() {
 
 #[test]
 fn test_simple_fn_definitions() {
-    assert_match!(Value::Int(42), run("module Test; def answer 42 end; end; Test.answer()"));
-    assert_match!(Value::Int(42), run("module Test; def answer 42 end; end; Test.answer"));
-    assert_match!(Value::Int(42), run("module Test; def answer(a: _) a end; end; Test.answer(42)"));
-    assert_match!(Value::Int(42), run("module Test; def answer(a: _) a end; end; Test.answer 42"));
+    assert_match!(Value::Int(42), run("module Test; def answer 42 end; end; Test::answer()"));
+    assert_match!(Value::Int(42), run("module Test; def answer 42 end; end; Test::answer"));
+    assert_match!(Value::Int(42), run("module Test; def answer(a: _) a end; end; Test::answer(42)"));
+    assert_match!(Value::Int(42), run("module Test; def answer(a: _) a end; end; Test::answer 42"));
 }
 
 #[test]
@@ -72,4 +72,15 @@ fn test_struct_modules() {
 #[test]
 fn test_strings() {
     assert_match!(Value::Int(4), run("a = \"test\"; a.size"));
+}
+
+#[test]
+fn test_anonymous_modules() {
+    assert_match!(Value::Int(42), run(r"
+      m = module
+        def answer 42 end
+      end
+
+      m::answer
+    "));
 }

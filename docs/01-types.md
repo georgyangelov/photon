@@ -304,3 +304,111 @@ end
 - Calling functions defined on the module itself: `FunctionsMethods::super_method_1`, `Functions2.super_method_1`
 
 ### Q: Do we need this, or can we use implicit modules?
+
+## Polymorphism: Traits vs OOP
+
+### Trait example
+
+```ruby
+interface ToString
+  - def to_string: String
+end
+
+struct Whatever
+  - name: String
+  - value: Int
+end
+
+implement ToString for Whatever
+  self: Whatever
+
+  def to_string: String
+    "#{name} => #{value}"
+  end
+end
+
+def print(a: ToString)
+  IO.puts a.to_string
+end
+
+print $Whatever{
+  name: "Lucky",
+  value: 100
+}
+```
+
+### OOP example
+
+```ruby
+interface ToString
+  - def to_string: String
+end
+
+struct Whatever
+  - name: String
+  - value: Int
+
+  instance
+    def to_string
+      "#{name} => #{value}"
+    end
+  end
+end
+
+def print(a: ToString)
+  IO.puts a.to_string
+end
+
+print $Whatever{
+  name: "Lucky",
+  value: 100
+}
+```
+
+## Questions
+
+Why do we even need struct definitions? We can have a module with an interface attached to it.
+
+```ruby
+struct Whatever
+  - name: String
+  - value: Int
+
+  static
+    def new
+      # This does not work great, as Whatever is the struct, not the module
+      ${name: "Lucky", value: 100}.include(Whatever)
+    end
+  end
+
+  instance
+    def to_string
+      "#{name} => #{value}"
+    end
+  end
+end
+```
+
+=>
+
+```ruby
+module Whatever
+  self: interface
+    - name: String
+    - value: Int
+  end
+
+  static
+    def new
+      $Whatever{
+        name: "Lucky",
+        value: 100
+      }
+    end
+  end
+
+  def to_string
+    "#{name} => #{value}"
+  end
+end
+```

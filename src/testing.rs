@@ -122,10 +122,6 @@ impl fmt::Debug for ast::AST {
                 write!(f, "{:?}:{:?}", expr, type_expr)
             },
 
-            &ast::AST::Subname(ast::Subname { ref target, ref name }) => {
-                write!(f, "{:?}::{}", target, name)
-            },
-
             &ast::AST::Assignment(ast::Assignment { ref name, ref expr, .. }) => {
                 write!(f, "(= {:?} {:?})", name, expr)?;
 
@@ -203,7 +199,11 @@ impl fmt::Debug for ast::Block {
 
 impl fmt::Debug for ast::ModuleDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "(module {} {:?})", self.name, self.body)
+        if let Some(ref name) = self.name {
+            write!(f, "(module {} {:?})", name, self.body)
+        } else {
+            write!(f, "(module {:?})", self.body)
+        }
     }
 }
 
@@ -229,7 +229,11 @@ impl fmt::Debug for ast::FnDef {
 
 impl fmt::Debug for ast::FnCall {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "({} {:?}", self.name, self.target)?;
+        if self.module_resolve {
+            write!(f, "({:?}::{}", self.target, self.name)?;
+        } else {
+            write!(f, "({} {:?}", self.name, self.target)?;
+        }
 
         for arg in &self.args {
             write!(f, " {:?}", arg)?;

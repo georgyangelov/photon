@@ -81,9 +81,9 @@ fn define_struct_module(scope: &mut Scope) -> Shared<Module> {
         let module = args[1].expect_module()
             .ok_or_else(|| error("Struct#include needs a module as an argument".into()))?;
 
-        let this_module = i.find_name_in_struct("__module__", this)
+        let this_module = i.find_name_in_struct("$module", this)
             .and_then( |value| value.expect_module() )
-            .ok_or_else(|| error("Struct#__module__ is not a module".into()))?;
+            .ok_or_else(|| error("Struct#$module is not a module".into()))?;
 
         this_module.borrow_mut().include(module);
 
