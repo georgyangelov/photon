@@ -85,6 +85,15 @@ fn test_anonymous_modules() {
     "));
 }
 
+#[test]
+fn test_arrays() {
+    assert_match!(Value::Int(0), run("Array.new.size"));
+    assert_match!(Value::Int(0), run("Array::size(Array.new)"));
+    assert_match!(Value::Int(42), run("Array.new.insert(0, 42).get(0)"));
+    assert_match!(Value::Int(42), run("Array.new.insert(0, 1).set(0, 42).get(0)"));
+    assert_match!(Value::Int(2), run("Array.new.insert(0, 1).insert(0, 42).size"));
+}
+
 // #[test]
 // fn test_nested_modules() {
 //     assert_match!(Value::Int(42), run(r"

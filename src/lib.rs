@@ -3,6 +3,7 @@
 
 // #[macro_use]
 extern crate itertools;
+extern crate im;
 
 pub mod core;
 pub mod parser;

@@ -1,4 +1,5 @@
 use ::core::*;
+use im::vector::Vector;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -11,6 +12,7 @@ pub enum Value {
     Function(Shared<Function>),
     Struct(Shared<Struct>),
     Module(Shared<Module>),
+    Array(Vector<Value>),
 
     // Used to support partial evaluation
     Unknown
@@ -62,6 +64,13 @@ impl Value {
     pub fn expect_module(&self) -> Option<Shared<Module>> {
         match self {
             Value::Module(result) => Some(result.clone()),
+            _ => None
+        }
+    }
+
+    pub fn expect_array(&self) -> Option<Vector<Value>> {
+        match self {
+            Value::Array(result) => Some(result.clone()),
             _ => None
         }
     }

@@ -305,6 +305,11 @@ impl Interpreter {
                     .ok_or_else(|| error(format!("No method '{}' on String", name)))?
             },
 
+            Value::Array(_) => {
+                self.core.array_module.borrow().get(name)
+                    .ok_or_else(|| error(format!("No method '{}' on Array", name)))?
+            },
+
             // TODO: Support methods on base values (int, string, etc.)
             _ => return Err(InterpreterError { message: format!("Cannot call methods on {:?}", value) })
         };
