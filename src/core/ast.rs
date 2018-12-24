@@ -30,6 +30,7 @@ pub enum AST {
 
 #[derive(Clone)]
 pub struct StructLiteral {
+    // pub module: Option<Box<AST>>,
     pub tuples: Vec<(String, Box<AST>)>
 }
 
@@ -79,12 +80,6 @@ pub struct Branch {
 pub struct TypeHint {
     pub expr: Box<AST>,
     pub type_expr: Box<AST>
-}
-
-#[derive(Clone)]
-pub struct Subname {
-    pub target: Box<AST>,
-    pub name: String
 }
 
 #[derive(Clone)]

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use ::core::*;
 use ::interpreter::InterpreterError;
 use im::vector::Vector;
@@ -5,10 +6,14 @@ use im::vector::Vector;
 pub struct CoreLib {
     pub root_scope: Shared<Scope>,
 
+    pub none: Value,
+
+    pub global_module: Shared<Module>,
     pub module_module: Shared<Module>,
     pub string_module: Shared<Module>,
     pub struct_module: Shared<Module>,
-    pub array_module:  Shared<Module>
+    pub array_module:  Shared<Module>,
+    pub maybe_module:  Shared<Module>
 }
 
 impl CoreLib {
@@ -16,27 +21,58 @@ impl CoreLib {
         let scope = Scope::new();
 
         let module_module;
+        let global_module;
         let string_module;
         let struct_module;
         let array_module;
+        let maybe_module;
 
         {
             let mut scope = scope.borrow_mut();
 
             module_module = define_module_module(&mut scope);
+            global_module = define_global(&mut scope);
             string_module = define_string(&mut scope);
-            struct_module = define_struct_module(&mut scope);
+            struct_module = define_struct(&mut scope);
             array_module  = define_array(&mut scope);
+            maybe_module  = define_maybe(&mut scope);
         }
+
+        let none = {
+            let mut none_fields = HashMap::new();
+            none_fields.insert("$module".into(), Value::Module(maybe_module.clone()));
+            none_fields.insert("present".into(), Value::Bool(false));
+
+            Value::Struct(make_shared(Struct {
+                values: none_fields
+            }))
+        };
 
         CoreLib {
             root_scope: scope,
+
+            none,
+
             module_module,
+            global_module,
             string_module,
             struct_module,
-            array_module
+            array_module,
+            maybe_module
         }
     }
+}
+
+fn define_global(scope: &mut Scope) -> Shared<Module> {
+    let module = define_module(scope, "Global");
+    extend(module.clone(), module.clone());
+
+    scope.assign(Variable {
+        name: "self".into(),
+        value: Value::Module(module.clone())
+    });
+
+    module
 }
 
 fn define_module_module(scope: &mut Scope) -> Shared<Module> {
@@ -65,6 +101,18 @@ fn define_module(scope: &mut Scope, name: &str) -> Shared<Module> {
 
     module.supermodules.push(module_module);
 
+    module.def("include", vec!["self", "other_module"], |_i, _scope, args| {
+        let this = args[0].expect_module()
+            .ok_or_else(|| error("Cannot call include on non-modules".into()))?;
+
+        let other_module = args[1].expect_module()
+            .ok_or_else(|| error("Module#include needs a module as an argument".into()))?;
+
+        this.borrow_mut().include(other_module);
+
+        Ok(args[0].clone())
+    });
+
     let shared_module = make_shared(module);
 
     scope.assign(Variable {
@@ -75,7 +123,7 @@ fn define_module(scope: &mut Scope, name: &str) -> Shared<Module> {
     shared_module
 }
 
-fn define_struct_module(scope: &mut Scope) -> Shared<Module> {
+fn define_struct(scope: &mut Scope) -> Shared<Module> {
     let module = define_module(scope, "Struct");
 
     // TODO: Remove this and implement directly in Photon
@@ -162,7 +210,7 @@ fn define_array(scope: &mut Scope) -> Shared<Module> {
         let mut this = args[0].expect_array()
             .ok_or_else(|| error("Must be an array".into()))?;
 
-        let value = args[2].clone();
+        let value = args[1].clone();
 
         this.push_back(value);
 
@@ -189,6 +237,29 @@ fn define_array(scope: &mut Scope) -> Shared<Module> {
         this.insert(index as usize, value);
 
         Ok(Value::Array(this))
+    });
+
+    module
+}
+
+fn define_maybe(scope: &mut Scope) -> Shared<Module> {
+    let module = define_module(scope, "Maybe");
+    let supermodule = define_module(scope, "MaybeStaticModule");
+    extend(module.clone(), supermodule.clone());
+
+    let global = find_module(scope, "Global").expect("Module `Global` does not exist");
+
+    global.borrow_mut().def("None", vec!["self"], |i, _scope, _args| {
+        Ok(i.core.none.clone())
+    });
+
+    global.borrow_mut().def("Some", vec!["self", "value"], |i, _scope, args| {
+        let mut values = HashMap::new();
+        values.insert("$module".into(), Value::Module(i.core.maybe_module.clone()));
+        values.insert("present".into(), Value::Bool(true));
+        values.insert("value".into(), args[1].clone());
+
+        Ok(Value::Struct(make_shared(Struct { values })))
     });
 
     module

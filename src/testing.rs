@@ -1,9 +1,8 @@
 use std::fmt;
 
-use ::parser::*;
-use ::interpreter::*;
-
 use ::core::*;
+use ::parser::*;
+use ::photon::*;
 
 use itertools::Itertools;
 
@@ -51,38 +50,12 @@ pub fn parse_all(source: &str) -> Result<Vec<ast::AST>, ParseError> {
     Ok(nodes)
 }
 
-#[derive(Debug)]
-pub struct ParseOrInterpretError {
-    pub message: String
-}
-
-impl From<ParseError> for ParseOrInterpretError {
-    fn from(error: ParseError) -> Self {
-        Self { message: error.message }
-    }
-}
-
-impl From<InterpreterError> for ParseOrInterpretError {
-    fn from(error: InterpreterError) -> Self {
-        Self { message: error.message }
-    }
-}
-
 pub fn run(source: &str) -> Result<Value, ParseOrInterpretError> {
-    let mut input = source.as_bytes();
-    let lexer = Lexer::new("<testing>", &mut input);
-    let mut parser = Parser::new(lexer);
-    let interpreter = Interpreter::new();
+    let mut photon = Photon::new();
 
-    let mut last_result = None;
+    photon.load("photon/core.y")?;
 
-    while parser.has_more_tokens()? {
-        let token = parser.parse_next()?;
-
-        last_result = Some(interpreter.eval(&token)?);
-    }
-
-    last_result.ok_or(ParseOrInterpretError { message: String::from("Nothing to interpret") })
+    photon.eval("<testing>", source)
 }
 
 impl fmt::Debug for ast::AST {

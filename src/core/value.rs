@@ -3,7 +3,6 @@ use im::vector::Vector;
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    None,
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -12,10 +11,7 @@ pub enum Value {
     Function(Shared<Function>),
     Struct(Shared<Struct>),
     Module(Shared<Module>),
-    Array(Vector<Value>),
-
-    // Used to support partial evaluation
-    Unknown
+    Array(Vector<Value>)
 }
 
 impl Value {

@@ -12,7 +12,7 @@ pub struct InterpreterError {
 }
 
 pub struct Interpreter {
-    core: CoreLib
+    pub core: CoreLib
 }
 
 impl Interpreter {
@@ -57,12 +57,19 @@ impl Interpreter {
             Value::Bool(true)  => self.eval_block(&branch.true_branch, scope),
             Value::Bool(false) => self.eval_block(&branch.false_branch, scope),
 
-            _ => Err(InterpreterError { message: String::from("Condition must be boolean") })
+            value => {
+                match self.call_method(&value, "to_bool", &vec![value.clone()])? {
+                    Value::Bool(true)  => self.eval_block(&branch.true_branch, scope),
+                    Value::Bool(false) => self.eval_block(&branch.false_branch, scope),
+
+                    _ => Err(InterpreterError { message: String::from("Condition must be boolean") })
+                }
+            }
         }
     }
 
     fn eval_block(&self, block: &Block, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let mut last_expr_value = Value::None;
+        let mut last_expr_value = self.core.none.clone();
         let child_scope = Scope::new_child_scope(scope);
 
         for expr in &block.exprs {
@@ -93,8 +100,21 @@ impl Interpreter {
     }
 
     fn eval_name(&self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        // TODO: This may be a method called implicitly on `self`, if there is no variable with this name, try a function call
-        self.find_name_in_scope(name, scope)
+        let value_in_scope = self.find_name_in_scope(name, scope.clone());
+
+        if let Some(value) = value_in_scope {
+            return Ok(value);
+        }
+
+        let fn_call = FnCall {
+            target: Box::new(AST::Name { name: "self".into() }),
+            name: name.into(),
+            args: Vec::new(),
+            may_be_var_call: false,
+            module_resolve: false
+        };
+
+        self.eval_fn_call(&fn_call, scope)
     }
 
     fn eval_struct_literal(&self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
@@ -102,8 +122,6 @@ impl Interpreter {
         let mut struct_module = Module::new("<anonymous>");
         struct_module.include(self.core.struct_module.clone());
 
-        // TODO: Consider using the module directly instead of only adding to it
-        // This way a struct will always have an already-defined module
         values.insert(String::from("$module"), Value::Module(make_shared(struct_module)));
 
         for (name, value_ast) in &struct_literal.tuples {
@@ -114,7 +132,8 @@ impl Interpreter {
     }
 
     fn eval_fn_def(&self, def: &FnDef, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
-        let module = self.find_name_in_scope("$SelfModule", scope.clone())?;
+        let module = self.find_name_in_scope("$SelfModule", scope.clone())
+            .ok_or(InterpreterError { message: "Cannot define a method outside of a module".into() })?;
         let module = match module {
             Value::Module(ref module) => module.clone(),
 
@@ -184,12 +203,11 @@ impl Interpreter {
         Ok(module_value)
     }
 
-    fn find_name_in_scope(&self, name: &str, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
+    fn find_name_in_scope(&self, name: &str, scope: Shared<Scope>) -> Option<Value> {
         let scope = scope.borrow();
 
         scope.get(name)
             .map( |var| var.value.clone() )
-            .ok_or(InterpreterError { message: format!("Cannot find name {}", name) })
     }
 
     fn find_name_in_struct(&self, name: &str, object: Shared<Struct>) -> Option<Value> {
