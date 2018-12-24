@@ -119,10 +119,10 @@ impl Interpreter {
 
     fn eval_struct_literal(&self, struct_literal: &StructLiteral, scope: Shared<Scope>) -> Result<Value, InterpreterError> {
         let mut values = HashMap::new();
-        let mut struct_module = Module::new("<anonymous>");
-        struct_module.include(self.core.struct_module.clone());
+        let struct_module = self.core.new_module("<anonymous>");
+        struct_module.borrow_mut().include(self.core.struct_module.clone());
 
-        values.insert(String::from("$module"), Value::Module(make_shared(struct_module)));
+        values.insert(String::from("$module"), Value::Module(struct_module.clone()));
 
         for (name, value_ast) in &struct_literal.tuples {
             values.insert(name.clone(), self.eval_ast(&value_ast, scope.clone())?);

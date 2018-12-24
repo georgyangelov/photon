@@ -81,6 +81,7 @@ fn test_underscores_in_names() {
 
 #[test]
 fn test_special_symbols_in_names() {
+    assert_eq!("(Name '$a_special_variable') (EOF)", lex("$a_special_variable"));
     assert_eq!("(Name '@an_instance_variable') (EOF)", lex("@an_instance_variable"));
     assert_eq!("(Name 'valid_name?') (Name 'valid_name!') (EOF)", lex("valid_name? valid_name!"));
 

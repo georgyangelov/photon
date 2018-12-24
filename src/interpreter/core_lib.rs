@@ -61,6 +61,16 @@ impl CoreLib {
             maybe_module
         }
     }
+
+    pub fn new_module(&self, name: &str) -> Shared<Module> {
+        let mut module = Module::new(name);
+        let scope = self.root_scope.borrow();
+        let module_module = find_module(&scope, "Module").expect("Module `Module` does not exist");
+
+        module.supermodules.push(module_module);
+
+        make_shared(module)
+    }
 }
 
 fn define_global(scope: &mut Scope) -> Shared<Module> {
@@ -87,6 +97,18 @@ fn define_module_module(scope: &mut Scope) -> Shared<Module> {
         Ok(Value::String(module.name.clone()))
     });
 
+    module.borrow_mut().def("include", vec!["self", "other_module"], |_i, _scope, args| {
+        let this = args[0].expect_module()
+            .ok_or_else(|| error("Cannot call include on non-modules".into()))?;
+
+        let other_module = args[1].expect_module()
+            .ok_or_else(|| error("Module#include needs a module as an argument".into()))?;
+
+        this.borrow_mut().include(other_module);
+
+        Ok(args[0].clone())
+    });
+
     scope.assign(Variable {
         name: module.borrow().name.clone(),
         value: Value::Module(module.clone())
@@ -101,18 +123,6 @@ fn define_module(scope: &mut Scope, name: &str) -> Shared<Module> {
 
     module.supermodules.push(module_module);
 
-    module.def("include", vec!["self", "other_module"], |_i, _scope, args| {
-        let this = args[0].expect_module()
-            .ok_or_else(|| error("Cannot call include on non-modules".into()))?;
-
-        let other_module = args[1].expect_module()
-            .ok_or_else(|| error("Module#include needs a module as an argument".into()))?;
-
-        this.borrow_mut().include(other_module);
-
-        Ok(args[0].clone())
-    });
-
     let shared_module = make_shared(module);
 
     scope.assign(Variable {
@@ -124,26 +134,7 @@ fn define_module(scope: &mut Scope, name: &str) -> Shared<Module> {
 }
 
 fn define_struct(scope: &mut Scope) -> Shared<Module> {
-    let module = define_module(scope, "Struct");
-
-    // TODO: Remove this and implement directly in Photon
-    module.borrow_mut().def("include", vec!["self", "module"], |i, _scope, args| {
-        let this = args[0].expect_struct()
-            .ok_or_else(|| error("Cannot call include on non-structs".into()))?;
-
-        let module = args[1].expect_module()
-            .ok_or_else(|| error("Struct#include needs a module as an argument".into()))?;
-
-        let this_module = i.find_name_in_struct("$module", this)
-            .and_then( |value| value.expect_module() )
-            .ok_or_else(|| error("Struct#$module is not a module".into()))?;
-
-        this_module.borrow_mut().include(module);
-
-        Ok(args[0].clone())
-    });
-
-    module
+    define_module(scope, "Struct")
 }
 
 fn define_string(scope: &mut Scope) -> Shared<Module> {

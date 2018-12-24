@@ -143,7 +143,21 @@ impl<'a> Lexer<'a> {
             ','  => Some(TokenType::Comma),
             '.'  => Some(TokenType::Dot),
             '|'  => Some(TokenType::Pipe),
-            '$'  => Some(TokenType::Dollar),
+            '$'  => {
+                self.next(); // $
+
+                if is_start_part_of_name(self.c) {
+                    self.put_back_char = Some(self.c);
+                    self.c = '$';
+
+                    None
+                } else {
+                    self.put_back_char = Some(self.c);
+                    self.c = '$';
+
+                    Some(TokenType::Dollar)
+                }
+            },
             _    => None
         };
 
@@ -252,10 +266,10 @@ impl<'a> Lexer<'a> {
             });
         }
 
-        if self.c.is_alphabetic() || self.c == '_' || self.c == '@' {
+        if is_start_part_of_name(self.c) {
             string.push(self.next());
 
-            while self.c.is_alphanumeric() || self.c == '_' || self.c == '@' {
+            while is_part_of_name(self.c) {
                 string.push(self.next());
             }
 
@@ -424,4 +438,12 @@ impl<'a> Lexer<'a> {
 
         old_c
     }
+}
+
+fn is_start_part_of_name(c: char) -> bool {
+    c.is_alphabetic() || c == '_' || c == '@' || c == '$'
+}
+
+fn is_part_of_name(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == '@'
 }
