@@ -105,8 +105,8 @@ fn test_arrays() {
 
 #[test]
 fn test_maybe() {
-    assert_match!(Value::Bool(false), run("None.present"));
-    assert_match!(Value::Bool(true), run("Some(42).present"));
+    assert_match!(Value::Bool(false), run("None.present?"));
+    assert_match!(Value::Bool(true), run("Some(42).present?"));
     assert_match!(Value::Int(42), run("Some(42).value"));
 
     assert_match!(Value::Int(42), run("if None; 11 else 42 end"));

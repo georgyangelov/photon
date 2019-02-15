@@ -1,10 +1,10 @@
 Maybe.include module
   def to_bool(self: Maybe)
-    present
+    present?
   end
 
   def unwrap_or(self: Maybe, other: _)
-    if present
+    if present?
       value
     else
       other

@@ -14,9 +14,9 @@
     - `substring(from: Int, to: Int): String`
 
   - `Maybe(T)` - optional value - contains either `None` or a value of type `T`
-    - `None`
-    - `Some(T)`
-    - `present?: Bool`
+    + `None`
+    + `Some(T)`
+    + `present?: Bool`
     - `unwrap!: T`
 
   - `Array(T)` - immutable array

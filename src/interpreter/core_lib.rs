@@ -41,7 +41,7 @@ impl CoreLib {
         let none = {
             let mut none_fields = HashMap::new();
             none_fields.insert("$module".into(), Value::Module(maybe_module.clone()));
-            none_fields.insert("present".into(), Value::Bool(false));
+            none_fields.insert("present?".into(), Value::Bool(false));
 
             Value::Struct(make_shared(Struct {
                 values: none_fields
@@ -247,7 +247,7 @@ fn define_maybe(scope: &mut Scope) -> Shared<Module> {
     global.borrow_mut().def("Some", vec!["self", "value"], |i, _scope, args| {
         let mut values = HashMap::new();
         values.insert("$module".into(), Value::Module(i.core.maybe_module.clone()));
-        values.insert("present".into(), Value::Bool(true));
+        values.insert("present?".into(), Value::Bool(true));
         values.insert("value".into(), args[1].clone());
 
         Ok(Value::Struct(make_shared(Struct { values })))
