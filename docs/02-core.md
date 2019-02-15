@@ -17,6 +17,7 @@
     + `None`
     + `Some(T)`
     + `present?: Bool`
+    + `unwrap_or(T): T`
     - `unwrap!: T`
 
   - `Array(T)` - immutable array
@@ -38,6 +39,9 @@
     - `get(key: K): Maybe(V)`
     - `set(key: K, value: V): Map(K, V)`
     - `remove(key: K): Map(K, V)`
+
+  - `Core.Internal`
+    - `panic!(String)`
 
   - `Core.Module`
     - `name: String`
