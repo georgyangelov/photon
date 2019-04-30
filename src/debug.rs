@@ -101,22 +101,22 @@ impl fmt::Debug for Object {
 
             &Object::Op(Op::Block(ref block)) => block.fmt(f),
 
-            // &ast::AST::Lambda { ref params, ref body } => {
-            //     write!(f, "(lambda [")?;
-            //
-            //     for (i, param) in params.iter().enumerate() {
-            //         if i > 0 {
-            //             write!(f, " ")?;
-            //         }
-            //
-            //         write!(f, "{:?}", param)?;
-            //     }
-            //
-            //     write!(f, "] ")?;
-            //     write!(f, "{:?}", body)?;
-            //
-            //     write!(f, ")")
-            // },
+            &Object::Lambda(Lambda { ref params, ref body }) => {
+                write!(f, "(lambda [")?;
+
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+
+                    write!(f, "{:?}", param)?;
+                }
+
+                write!(f, "] ")?;
+                write!(f, "{:?}", body)?;
+
+                write!(f, ")")
+            },
 
             _ => write!(f, "<unknown>")
         }

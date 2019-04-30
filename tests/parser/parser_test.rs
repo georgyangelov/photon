@@ -188,14 +188,13 @@ fn test_method_call_line_completeness() {
     parse_error("call \"test\" b");
 }
 
-// #[test]
-// fn test_lambdas() {
-//     assert_eq!("(lambda [] { a b })", parse("do a\n b\n end"));
-//     assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("do |a:Int, b:Int| a\n b\n end"));
-//     assert_eq!("(lambda [] { a b })", parse("{ a\n b\n }"));
-//     assert_eq!("(lambda [(param a:Int) (param b:Int)] { a b })", parse("{ |a:Int, b:Int| a\n b\n }"));
-//     assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
-// }
+#[test]
+fn test_lambdas() {
+    assert_eq!("(lambda [] { a b })", parse("{ a\n b\n }"));
+    assert_eq!("(lambda [(param a) (param b)] { a b })", parse("{ |a, b| a\n b\n }"));
+    assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
+    assert_eq!("($call (lambda [] { a }) 42)", parse("{ a\n }(42)"));
+}
 
 // #[test]
 // fn test_simple_type_assertions() {

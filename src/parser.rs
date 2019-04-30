@@ -182,8 +182,7 @@ impl<'a> Parser<'a> {
             },
             TokenType::Dollar => self.parse_struct_literal(),
 
-            // TokenType::OpenBrace |
-            // TokenType::Do          => self.parse_lambda(),
+            TokenType::OpenBrace => self.parse_lambda(),
 
             TokenType::UnaryOperator => {
                 let operator = self.read()?;
@@ -285,53 +284,42 @@ impl<'a> Parser<'a> {
         Ok(values)
     }
 
-    // fn parse_struct(&mut self) -> Result<AST, ParseError> {
-    //     self.read()?; // struct
-    //
-    //     if self.token().token_type != TokenType::Name {
-    //         return Err(self.parse_error());
-    //     }
-    //
-    //     let name = self.read()?.string;
-    //     let body = self.parse_block()?;
-    //
-    //     if self.token().token_type != TokenType::End {
-    //         return Err(self.parse_error());
-    //     }
-    //     self.read()?; // end
-    //
-    //     Ok(AST::StructDef(StructDef { name, body }))
-    // }
+    fn parse_lambda(&mut self) -> Result<Value, Error> {
+        self.read()?; // {
+        let start_location = self.last_location.clone();
 
-    // fn parse_lambda(&mut self) -> Result<AST, ParseError> {
-    //     let is_multiline = self.token().token_type == TokenType::Do;
-    //
-    //     self.read()?; // do or {
-    //
-    //     let params: Vec<UnparsedFnParam>;
-    //
-    //     if self.token().token_type == TokenType::Pipe {
-    //         self.read()?; // |
-    //         params = self.parse_params()?;
-    //
-    //         if self.token().token_type != TokenType::Pipe {
-    //             return Err(self.parse_error());
-    //         }
-    //         self.read()?; // |
-    //     } else {
-    //         params = vec![];
-    //     }
-    //
-    //     let body = self.parse_block()?;
-    //
-    //     if is_multiline && self.token().token_type != TokenType::End ||
-    //        !is_multiline && self.token().token_type != TokenType::CloseBrace {
-    //         return Err(self.parse_error());
-    //     }
-    //     self.read()?; // end or }
-    //
-    //     Ok(AST::Lambda { params: params, body: body })
-    // }
+        let params: Vec<Param>;
+
+        if self.token().token_type == TokenType::Pipe {
+            self.read()?; // |
+            params = self.parse_params()?;
+
+            if self.token().token_type != TokenType::Pipe {
+                return Err(self.parse_error());
+            }
+            self.read()?; // |
+        } else {
+            params = vec![];
+        }
+
+        let body = self.parse_block()?;
+
+        if self.token().token_type != TokenType::CloseBrace {
+            return Err(self.parse_error());
+        }
+        self.read()?; // }
+
+        let end_location = self.last_location.clone();
+
+        Ok(self.as_value(
+            Object::Lambda(Lambda {
+                params,
+                body
+            }),
+            &start_location,
+            &end_location
+        ))
+    }
 
     fn parse_params(&mut self) -> Result<Vec<Param>, Error> {
         let mut params = Vec::new();
@@ -445,7 +433,7 @@ impl<'a> Parser<'a> {
                 Vec::<Value>::new()
             };
 
-            if self.token().token_type != TokenType::CloseBracket {
+            if self.token().token_type != TokenType::CloseParen {
                 return Err(self.parse_error());
             }
             self.read()?; // )
