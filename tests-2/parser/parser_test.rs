@@ -1,7 +1,5 @@
-use photon::types::{Error};
-// use photon::parser::*;
-use photon::debug::{parse_all};
-
+use photon::parser::*;
+use photon::testing::*;
 use itertools::Itertools;
 
 #[test]
@@ -12,8 +10,8 @@ fn test_number_literals() {
 
 #[test]
 fn test_negative_number_literals() {
-    assert_eq!("(- 1234)", parse("-1234"));
-    assert_eq!("(- 1234.5)", parse("-1234.5"));
+    assert_eq!("-1234", parse("-1234"));
+    assert_eq!("-1234.5", parse("-1234.5"));
 }
 
 #[test]
@@ -26,7 +24,7 @@ fn test_constant_object_literals() {
 #[test]
 fn test_negating_expressions() {
     assert_eq!("(- test)", parse("-test"));
-    assert_eq!("(+ (- 5) 5)", parse("-   5 + 5"));
+    assert_eq!("(+ -5 5)", parse("-   5 + 5"));
     assert_eq!("(- (+ 5 5))", parse("-   (5 + 5)"));
 }
 
@@ -34,6 +32,21 @@ fn test_negating_expressions() {
 fn test_string_literals() {
     assert_eq!("\"Hello world!\"", parse("\"Hello world!\""));
     assert_eq!("\"\"\n\"", parse("\"\\\"\\n\""));
+}
+
+#[test]
+fn test_simple_ifs() {
+    assert_eq!("(if a { (b self c) })", parse("if a \n b c end"));
+    assert_eq!("(if a { b c })", parse("if a \n b\n c end"));
+    assert_eq!("(if a { b } { d })", parse("if a \n b else d end"));
+    assert_eq!("(if a { b c } { d e })", parse("if a \n b \n c else d \n e end"));
+    assert_eq!("(if a { (test b) })", parse("if a \n b.test end"));
+}
+
+#[test]
+fn test_elsif() {
+    assert_eq!("(if 1 { 2 } { (if 3 { 4 }) })", parse("if 1\n 2\nelsif 3\n4\nend"));
+    assert_eq!("(if 1 { 2 } { (if 3 { 4 } { 5 }) })", parse("if 1\n 2\nelsif 3\n4\nelse\n5\nend"));
 }
 
 // #[test]
@@ -55,8 +68,8 @@ fn test_infix_operators() {
 
 #[test]
 fn test_assignment() {
-    assert_eq!("($assign $context \"a\" 15)", parse("a = 15"));
-    assert_eq!("($assign $context \"a\" (* 5 5))", parse("a = 5 * 5"));
+    assert_eq!("(= a 15)", parse("a = 15"));
+    assert_eq!("(= a (* 5 5))", parse("a = 5 * 5"));
 }
 
 #[test]
@@ -93,10 +106,10 @@ fn test_unary_operator_precedence() {
 
 #[test]
 fn test_newlines_in_expressions() {
-    assert_eq!("($assign $context \"a\" (* 5 5))", parse("a =\n\n 5 * 5"));
+    assert_eq!("(= a (* 5 5))", parse("a =\n\n 5 * 5"));
 
     assert_eq!("(- (+ 1 2) 5)", parse("1 + 2 - 5"));
-    assert_eq!("(+ 1 2) (- 5)", parse("1 + 2 \n - 5"));
+    assert_eq!("(+ 1 2) -5", parse("1 + 2 \n - 5"));
 
     assert_eq!("(+ 1 (* 2 3))", parse("1 +\n\n 2 * \n\n 3"));
 
@@ -116,7 +129,7 @@ fn test_method_calls() {
     assert_eq!("(method target)", parse("target.method"));
     assert_eq!("(method target)", parse("target.method()"));
 
-    // assert_eq!("(a self (new Array 1))", parse("a [1]"));
+    assert_eq!("(a self (new Array 1))", parse("a [1]"));
     assert_eq!("(a self)", parse("a()"));
 }
 
@@ -149,7 +162,7 @@ fn test_method_calls_with_arguments() {
     assert_eq!("(method target a b c)", parse("target.method(a, b, c)"));
     assert_eq!("(method target a b c)", parse("target.method a, b, c"));
 
-    // assert_eq!("(puts self (new Array 1 2 3))", parse("puts [1, 2, 3]"));
+    assert_eq!("(puts self (new Array 1 2 3))", parse("puts [1, 2, 3]"));
 }
 
 #[test]
@@ -188,6 +201,29 @@ fn test_method_call_line_completeness() {
     parse_error("call \"test\" b");
 }
 
+#[test]
+fn test_simple_method_definitions() {
+    assert_eq!("(def method:None [] { a })", parse("def method\na end"));
+    assert_eq!("(def method:Int [] { a b })", parse("def method:Int\na \n b end"));
+    assert_eq!(
+        "(def method:Int [] { (= a b) (+ a b) })",
+        parse("def method:Int\n a = b\n a + b end")
+    );
+}
+
+#[test]
+fn test_method_definitions_with_params() {
+    assert_eq!(
+        "(def method:Int [(param a:Int) (param b:String)] { a b })",
+        parse("def method(a:Int, b:String):Int\na \n b\n end")
+    );
+}
+
+#[test]
+fn test_standalone_blocks() {
+    assert_eq!("{ a b }", parse("begin a\n b end"));
+}
+
 // #[test]
 // fn test_lambdas() {
 //     assert_eq!("(lambda [] { a b })", parse("do a\n b\n end"));
@@ -197,38 +233,41 @@ fn test_method_call_line_completeness() {
 //     assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
 // }
 
-// #[test]
-// fn test_simple_type_assertions() {
-//     assert_eq!("(= a:Int 5)", parse("a: Int = 5"));
-//     assert_eq!("(+ 5:Int 5:Int)", parse("5: Int + 5: Int"));
-//     assert_eq!("(+ a:Int (* b:Int 55:Float))", parse("a: Int + (b: Int * 55: Float)"));
-//     assert_eq!("(= a 5:Int)", parse("a = 5: Int"));
-//     assert_eq!("(= a 5):Int", parse("(a = 5): Int"));
-//     assert_eq!("(call self 5):Int", parse("call(5): Int"));
-//     assert_eq!("(call self 5:Int)", parse("call 5: Int"));
-//     assert_eq!("(call self 5:Int 6:Int)", parse("call 5: Int, 6: Int"));
-// }
+#[test]
+fn test_array_literals() {
+    assert_eq!("(new Array a b c d)", parse("[a, b\n,\n c,\n d]"));
+}
 
-// #[test]
-// fn test_complex_type_assertions() {
-//     assert_eq!("a:(List self Int)", parse("a: List(Int)"));
-//     assert_eq!("a:(Hash self Int String)", parse("a: Hash(Int, String)"));
-//
-//     assert_eq!("(call self a:(List self Int String))", parse("call a: List Int, String"));
-//
-//     assert_eq!(
-//         "(def method:(List self Int) [(param a:(List self Int)) (param b:(Hash self Int Float))] { a })",
-//         parse("def method(a: List(Int), b: Hash(Int, Float)): List(Int)\n a\n end")
-//     );
-// }
+#[test]
+fn test_simple_type_assertions() {
+    assert_eq!("(= a:Int 5)", parse("a: Int = 5"));
+    assert_eq!("(+ 5:Int 5:Int)", parse("5: Int + 5: Int"));
+    assert_eq!("(+ a:Int (* b:Int 55:Float))", parse("a: Int + (b: Int * 55: Float)"));
+    assert_eq!("(= a 5:Int)", parse("a = 5: Int"));
+    assert_eq!("(= a 5):Int", parse("(a = 5): Int"));
+    assert_eq!("(call self 5):Int", parse("call(5): Int"));
+    assert_eq!("(call self 5:Int)", parse("call 5: Int"));
+    assert_eq!("(call self 5:Int 6:Int)", parse("call 5: Int, 6: Int"));
+}
+
+#[test]
+fn test_complex_type_assertions() {
+    assert_eq!("a:(List self Int)", parse("a: List(Int)"));
+    assert_eq!("a:(Hash self Int String)", parse("a: Hash(Int, String)"));
+
+    assert_eq!("(call self a:(List self Int String))", parse("call a: List Int, String"));
+
+    assert_eq!(
+        "(def method:(List self Int) [(param a:(List self Int)) (param b:(Hash self Int Float))] { a })",
+        parse("def method(a: List(Int), b: Hash(Int, Float)): List(Int)\n a\n end")
+    );
+}
 
 #[test]
 fn test_structs() {
-    assert_eq!("${}", parse("${}"));
-    assert_eq!("${a: 1}", parse("${a: 1}"));
-
-    // TODO: Fix order
-    assert_eq!("${a: 1, b: 2}", parse("${a: 1, b: 2}"));
+    assert_eq!("($ [])", parse("${}"));
+    assert_eq!("($ [(a, 1)])", parse("${a: 1}"));
+    assert_eq!("($ [(a, 1) (b, 2)])", parse("${a: 1, b: 2}"));
 }
 
 // #[test]
@@ -237,12 +276,25 @@ fn test_structs() {
 //     assert_eq!("($ [(a, 1) (b, 2)] [Module1 Module2])", parse("${a: 1, b: 2}.include(Module1, Module2)"));
 // }
 
+#[test]
+fn test_module_definitions() {
+    assert_eq!(
+        "(module Name { })",
+        parse("module Name; end")
+    );
+
+    assert_eq!(
+        "(module Name { (def method:None [] { a }) (def method2:None [] { b }) })",
+        parse("module Name; def method; a; end; def method2; b; end end")
+    );
+}
+
 fn parse(source: &str) -> String {
     parse_all(source).expect("Could not parse").iter()
         .map( |ref ast| format!("{:?}", ast) )
         .join(" ")
 }
 
-fn parse_error(source: &str) -> Error {
+fn parse_error(source: &str) -> ParseError {
     parse_all(source).expect_err("Did not return error")
 }

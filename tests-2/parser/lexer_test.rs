@@ -1,4 +1,4 @@
-use photon::debug::*;
+use photon::testing::*;
 
 #[test]
 fn test_eof() {
@@ -53,6 +53,14 @@ fn test_calls_on_literals() {
     assert_eq!(
         "(String 'test') (Dot) (Name 'length') (Number '3') (EOF)",
         lex("\"test\".length 3")
+    );
+}
+
+#[test]
+fn test_keywords() {
+    assert_eq!(
+        "(Begin) (Do) (End) (If) (Elsif) (Else) (While) (Def) (Catch) (Struct) (Module) (EOF)",
+        lex("begin do end if elsif else while def catch struct module")
     );
 }
 

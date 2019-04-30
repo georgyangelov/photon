@@ -1,12 +1,8 @@
-// #![feature(io)]
-// #![feature(box_patterns)]
-
-// #[macro_use]
 extern crate itertools;
-extern crate im;
 
-pub mod core;
+pub mod types;
+
+mod support;
+pub mod lexer;
 pub mod parser;
-pub mod testing;
-pub mod interpreter;
-pub mod photon;
+pub mod debug;
