@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
                         return Err(self.parse_error());
                     };
                     let name = self.as_value_with_location(
-                        Object::String(name),
+                        Object::from(name),
                         left.meta.location.as_ref().unwrap().clone()
                     );
 
@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
                 let string = self.read()?;
 
                 Ok(self.as_value(
-                    Object::String(string.string.clone()),
+                    Object::from(string.string.clone()),
                     &string.location,
                     &string.location
                 ))
@@ -504,9 +504,9 @@ impl<'a> Parser<'a> {
         let string = self.read()?.string;
 
         if string == "true" {
-            Ok(self.as_value(Object::Bool(true), &self.last_location, &self.last_location))
+            Ok(self.as_value(Object::from(true), &self.last_location, &self.last_location))
         } else if string == "false" {
-            Ok(self.as_value(Object::Bool(false), &self.last_location, &self.last_location))
+            Ok(self.as_value(Object::from(false), &self.last_location, &self.last_location))
         } else {
             Err(self.parse_error())
         }
@@ -519,7 +519,7 @@ impl<'a> Parser<'a> {
             let value = string.parse::<f64>();
 
             if let Ok(value) = value {
-                Ok(self.as_value(Object::Float(value), &self.last_location, &self.last_location))
+                Ok(self.as_value(Object::from(value), &self.last_location, &self.last_location))
             } else {
                 Err(self.parse_error())
             }
@@ -527,7 +527,7 @@ impl<'a> Parser<'a> {
             let value = string.parse::<i64>();
 
             if let Ok(value) = value {
-                Ok(self.as_value(Object::Int(value), &self.last_location, &self.last_location))
+                Ok(self.as_value(Object::from(value), &self.last_location, &self.last_location))
             } else {
                 Err(self.parse_error())
             }

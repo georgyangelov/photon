@@ -33,7 +33,7 @@ fn test_negating_expressions() {
 #[test]
 fn test_string_literals() {
     assert_eq!("\"Hello world!\"", parse("\"Hello world!\""));
-    assert_eq!("\"\"\n\"", parse("\"\\\"\\n\""));
+    assert_eq!("\"\\\"\\n\"", parse("\"\\\"\\n\""));
 }
 
 // #[test]

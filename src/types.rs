@@ -1,3 +1,5 @@
+use std::fmt;
+use std::rc::Rc;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -23,32 +25,33 @@ impl Location {
     }
 }
 
+#[derive(Clone)]
 pub struct Meta {
     pub location: Option<Location>
 }
 
+#[derive(Clone)]
 pub enum Op {
     Block(Block),
     NameRef(NameRef),
     Call(Call)
 }
 
+#[derive(Clone)]
 pub enum Object {
+    Unknown,
     Nothing,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    String(String),
 
     Struct(Struct),
     Lambda(Lambda),
 
-    NativeStruct(NativeStruct),
+    NativeValue(Rc<NativeValue>),
     NativeLambda(NativeLambda),
 
     Op(Op)
 }
 
+#[derive(Clone)]
 pub struct Value {
     pub object: Object,
     pub meta: Meta
@@ -63,14 +66,17 @@ pub enum Error {
 
 // Operations
 
+#[derive(Clone)]
 pub struct Block {
     pub exprs: Vec<Value>
 }
 
+#[derive(Clone)]
 pub struct NameRef {
     pub name: String
 }
 
+#[derive(Clone)]
 pub struct Call {
     pub target: Box<Value>,
     pub name: String,
@@ -81,25 +87,36 @@ pub struct Call {
 
 // Objects
 
+#[derive(Clone)]
 pub struct Struct {
     pub values: HashMap<String, Value>
 }
 
+#[derive(Clone)]
 pub struct Lambda {
     pub params: Vec<Param>,
     pub body: Block
 }
 
+#[derive(Clone)]
 pub struct Param {
     pub name: String
 }
 
-pub struct NativeStruct {
-    pub ptr: *mut ()
+pub trait NativeValue: fmt::Debug {
+    fn call(&self, _name: String, _args: &[Value]) -> Result<Value, Error> {
+        Err(Error::ExecError {
+            message: String::from("Cannot call methods on this native struct"),
+            location: None
+        })
+    }
+
+    fn to_object(self) -> Object;
 }
 
 pub type RustFunction = fn(&[Value]) -> Result<Value, Error>;
 
+#[derive(Clone)]
 pub struct NativeLambda {
     pub function: Box<RustFunction>
 }

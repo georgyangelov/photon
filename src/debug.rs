@@ -67,12 +67,8 @@ impl fmt::Debug for Value {
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            // &ast::AST::NilLiteral => write!(f, "nil"),
-            &Object::Bool(value) => write!(f, "{:?}", value),
-            &Object::Int(value) => write!(f, "{}", value),
-            &Object::Float(value) => write!(f, "{}", value),
+            &Object::NativeValue(ref value) => write!(f, "{:?}", value),
 
-            &Object::String(ref value) => write!(f, "\"{}\"", value),
             &Object::Op(Op::NameRef(NameRef { ref name })) => {
                 write!(f, "{}", name)?;
 

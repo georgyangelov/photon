@@ -159,3 +159,18 @@ print 42
 - `{ method(<compile-time>) } -> compile-time`
 - `{ <runtime> } -> runtime | compile-time`
 - `{ <runtime> & <compile-time> } -> compile-time`
+
+## Special methods
+
+- `struct.method` => `struct.$method('method').$call(struct)`
+- `struct.method(a, b, c)` => `struct.$method('method').$call(struct, a, b, c)`
+- `struct::method` => `struct.$instance_method('method')`
+- `struct::method()` => `struct.$instance_method('method').$call()`
+- `struct::method(a, b, c)` => `struct.$instance_method('method').$call(a, b, c)`
+
+How would these work with types? For example, if `struct: Module1`, then `struct.method` should translate to `Module1::method(struct)`.
+Maybe the struct should have a compile-time-only property `$type` and `$method` should check that?
+
+```
+Struct.define_method '$method', { |name| $type.$instance_method(name) }
+```
