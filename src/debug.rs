@@ -3,6 +3,7 @@ use std::fmt;
 use types::*;
 use lexer::*;
 use parser::*;
+use compiler::Compiler;
 
 use itertools::Itertools;
 
@@ -50,13 +51,13 @@ pub fn parse_all(source: &str) -> Result<Vec<Value>, Error> {
     Ok(nodes)
 }
 
-// pub fn run(source: &str) -> Result<Value, Error> {
-//     let mut photon = Photon::new();
-//
-//     photon.load("photon/core.y")?;
-//
-//     photon.eval("<testing>", source)
-// }
+pub fn eval(source: &str) -> Object {
+    let mut compiler = Compiler::new();
+
+    compiler.eval("<testing>", source)
+        .map( |value| value.object )
+        .unwrap_or_else( |error| panic!(format!("{:?}", error)) )
+}
 
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -67,6 +68,11 @@ impl fmt::Debug for Value {
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
+            &Object::Bool(value)    => write!(f, "{:?}", value),
+            &Object::Int(value)     => write!(f, "{:?}", value),
+            &Object::Float(value)   => write!(f, "{:?}", value),
+            &Object::Str(ref value) => write!(f, "{:?}", value),
+
             &Object::NativeValue(ref value) => write!(f, "{:?}", value),
 
             &Object::Op(Op::NameRef(NameRef { ref name })) => {

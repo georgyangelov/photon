@@ -42,6 +42,11 @@ pub enum Object {
     Unknown,
     Nothing,
 
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(String),
+
     Struct(Struct),
     Lambda(Lambda),
 
@@ -119,4 +124,34 @@ pub type RustFunction = fn(&[Value]) -> Result<Value, Error>;
 #[derive(Clone)]
 pub struct NativeLambda {
     pub function: Box<RustFunction>
+}
+
+impl From<bool> for Object {
+    fn from(value: bool) -> Self {
+        Object::Bool(value)
+    }
+}
+
+impl From<i64> for Object {
+    fn from(value: i64) -> Self {
+        Object::Int(value)
+    }
+}
+
+impl From<f64> for Object {
+    fn from(value: f64) -> Self {
+        Object::Float(value)
+    }
+}
+
+impl From<String> for Object {
+    fn from(value: String) -> Self {
+        Object::Str(value)
+    }
+}
+
+impl From<&str> for Object {
+    fn from(value: &str) -> Self {
+        Object::Str(String::from(value))
+    }
 }

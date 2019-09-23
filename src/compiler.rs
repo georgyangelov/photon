@@ -39,7 +39,7 @@ impl Scope {
     }
 }
 
-struct Compiler {
+pub struct Compiler {
     root_scope: Shared<Scope>
 }
 
@@ -73,9 +73,13 @@ impl Compiler {
         let object = value.object;
 
         Ok(match object {
-            Object::Unknown |
-            Object::Nothing |
-            Object::Struct(_) |
+            Object::Unknown        |
+            Object::Nothing        |
+            Object::Bool(_)        |
+            Object::Int(_)         |
+            Object::Float(_)       |
+            Object::Str(_)         |
+            Object::Struct(_)      |
             Object::NativeValue(_) |
             // TODO: Try to partially evaluate body of lambda
             Object::Lambda(_) |
