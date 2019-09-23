@@ -170,18 +170,67 @@ impl Compiler {
                     });
                 }
 
-                self.call(call)?
+                self.call(call, &location)?
             }
         })
     }
 
-    fn call(&self, call: Call) -> Result<Value, Error> {
+    fn call(&self, call: Call, location: &Option<Location>) -> Result<Value, Error> {
         let target_object = &call.target.object;
 
         match *target_object {
-            // Object::Struct(Struct::Value)
-            _ => panic!("Calling methods is not supported yet")
+            Object::Int(value) => method_call_on_int(value, &call.name, &call.args, location),
+
+            _ => Err(Error::ExecError {
+                message: format!("Cannot call methods on {:?}", target_object),
+                location: location.clone()
+            })
         }
+    }
+}
+
+fn method_call_on_int(
+    value: i64,
+    name: &str,
+    args: &[Value],
+    method_location: &Option<Location>
+) -> Result<Value, Error> {
+    match name {
+        "+" => {
+            let other = one_arg(args, method_location)?;
+            let other = expect_int(&other)?;
+
+            Ok(Value {
+                object: Object::from(value + other),
+                meta: Meta { location: method_location.clone() }
+            })
+        },
+
+        _ => Err(Error::ExecError {
+            message: format!("Unknown method {}", name),
+            location: method_location.clone()
+        })
+    }
+}
+
+fn one_arg<'a>(args: &'a [Value], method_location: &Option<Location>) -> Result<&'a Value, Error> {
+    if args.len() != 1 {
+        return Err(Error::ExecError {
+            message: format!("Expected 1 argument, got {}", args.len()),
+            location: method_location.clone()
+        });
+    }
+
+    Ok(&args[0])
+}
+
+fn expect_int(value: &Value) -> Result<i64, Error> {
+    match &value.object {
+        &Object::Int(result) => Ok(result),
+        _ => Err(Error::ExecError {
+            message: format!("Expected Int, got {:?}", value),
+            location: value.meta.location.clone()
+        })
     }
 }
 
