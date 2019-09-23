@@ -1,43 +1,8 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::collections::HashMap;
 
 use types::*;
 use lexer::Lexer;
 use parser::Parser;
-
-pub type Shared<T> = Rc<RefCell<T>>;
-
-pub fn share<T>(value: T) -> Shared<T> {
-    Rc::new(RefCell::new(value))
-}
-
-struct Scope {
-    parent: Option<Shared<Scope>>,
-    vars: HashMap<String, Value>
-}
-
-impl Scope {
-    fn new_root() -> Self {
-        Scope {
-            parent: None,
-            vars: HashMap::new()
-        }
-    }
-
-    fn new(parent: Shared<Scope>) -> Self {
-        Scope {
-            parent: Some(parent),
-            vars: HashMap::new()
-        }
-    }
-
-    fn get(&self, name: &str) -> Option<Value> {
-        self.vars.get(name)
-            .map(Clone::clone)
-            .or_else( || self.parent.as_ref().and_then( |parent| parent.borrow().get(name) ) )
-    }
-}
 
 pub struct Compiler {
     root_scope: Shared<Scope>
@@ -59,133 +24,145 @@ impl Compiler {
             meta: Meta { location: None }
         };
 
-        let root_scope = self.root_scope.clone();
+        let scope = self.root_scope.clone();
 
         while parser.has_more_tokens()? {
             value = parser.parse_next()?;
-            value = self.eval_value(&root_scope.borrow(), value)?;
+            value = eval_value(scope.clone(), value)?;
         }
 
         Ok(value)
     }
+}
 
-    fn eval_value(&mut self, scope: &Scope, value: Value) -> Result<Value, Error> {
-        let object = value.object;
+fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
+    let object = value.object;
 
-        Ok(match object {
-            Object::Unknown        |
-            Object::Nothing        |
-            Object::Bool(_)        |
-            Object::Int(_)         |
-            Object::Float(_)       |
-            Object::Str(_)         |
-            Object::Struct(_)      |
-            Object::NativeValue(_) |
-            // TODO: Try to partially evaluate body of lambda
-            Object::Lambda(_) |
-            Object::NativeLambda(_) => Value {
-                object,
-                meta: value.meta
-            },
+    Ok(match object {
+        Object::Unknown        |
+        Object::Nothing        |
+        Object::Bool(_)        |
+        Object::Int(_)         |
+        Object::Float(_)       |
+        Object::Str(_)         |
+        Object::Struct(_)      |
+        Object::NativeValue(_) |
+        Object::NativeLambda(_) => Value {
+            object,
+            meta: value.meta
+        },
 
-            Object::Op(Op::Block(block)) => {
-                let mut unevaluated = Vec::new();
-                let mut last_expr = Value {
-                    object: Object::Nothing,
+        // TODO: Try to partially evaluate body of lambda
+        Object::Lambda(Lambda { params, body, scope: _ }) => {
+            Value {
+                object: Object::Lambda(Lambda {
+                    params, body, scope: Some(scope.clone())
+                }),
+                meta: Meta { location: value.meta.location.clone() }
+            }
+        },
+
+        Object::Op(Op::Assign(_)) => panic!("Cannot execute Assign, it's only for source code."),
+
+        Object::Op(Op::Block(block)) => {
+            let mut unevaluated = Vec::new();
+            let mut last_expr = Value {
+                object: Object::Nothing,
+                meta: Meta { location: value.meta.location.clone() }
+            };
+
+            for value in block.exprs {
+                let result = eval_value(scope.clone(), value)?;
+
+                if !is_evaluated(&result) {
+                    unevaluated.push(result);
+                } else {
+                    last_expr = result;
+                }
+            }
+
+            if unevaluated.len() > 0 {
+                Value {
+                    object: Object::Op(Op::Block(Block { exprs: unevaluated })),
                     meta: Meta { location: value.meta.location.clone() }
-                };
-
-                for value in block.exprs {
-                    let result = self.eval_value(scope, value)?;
-
-                    if !is_evaluated(&result) {
-                        unevaluated.push(result);
-                    } else {
-                        last_expr = result;
-                    }
                 }
+            } else {
+                last_expr
+            }
+        },
 
-                if unevaluated.len() > 0 {
+        Object::Op(Op::NameRef(name_ref)) => {
+            if let Some(value_in_scope) = scope.borrow().get(&name_ref.name) {
+                // TODO: Figure out this unknown here...
+                if is_unknown(&value_in_scope) {
                     Value {
-                        object: Object::Op(Op::Block(Block { exprs: unevaluated })),
-                        meta: Meta { location: value.meta.location.clone() }
+                        object: Object::Op(Op::NameRef(name_ref)),
+                        meta: value.meta
                     }
                 } else {
-                    last_expr
+                    value_in_scope
                 }
-            },
+            } else {
+                return Err(Error::ExecError {
+                    message: format!("Undeclared identifier '{}'", name_ref.name),
+                    location: value.meta.location
+                });
+            }
+        },
 
-            Object::Op(Op::NameRef(name_ref)) => {
-                if let Some(value_in_scope) = scope.get(&name_ref.name) {
-                    if is_unknown(&value_in_scope) {
-                        Value {
-                            object: Object::Op(Op::NameRef(name_ref)),
-                            meta: value.meta
-                        }
-                    } else {
-                        value_in_scope
-                    }
-                } else {
-                    return Err(Error::ExecError {
-                        message: format!("Undeclared identifier '{}'", name_ref.name),
-                        location: value.meta.location
-                    });
-                }
-            },
+        Object::Op(Op::Call(call)) => {
+            let mut args = Vec::new();
+            let mut has_unevaluated = false;
 
-            Object::Op(Op::Call(call)) => {
-                let mut args = Vec::new();
-                let mut has_unevaluated = false;
+            let target = eval_value(scope.clone(), *call.target)?;
 
-                let target = self.eval_value(scope, *call.target)?;
+            if !is_evaluated(&target) {
+                has_unevaluated = true;
+            }
 
-                if !is_evaluated(&target) {
+            for arg in call.args {
+                let result = eval_value(scope.clone(), arg)?;
+
+                if !is_evaluated(&result) {
                     has_unevaluated = true;
                 }
 
-                for arg in call.args {
-                    let result = self.eval_value(scope, arg)?;
-
-                    if !is_evaluated(&result) {
-                        has_unevaluated = true;
-                    }
-
-                    args.push(result);
-                }
-
-                let location = value.meta.location.clone();
-
-                let call = Call {
-                    args,
-                    target: Box::new(target),
-                    name: call.name,
-                    module_resolve: call.module_resolve,
-                    may_be_var_call: call.may_be_var_call
-                };
-
-                if has_unevaluated {
-                    return Ok(Value {
-                        object: Object::Op(Op::Call(call)),
-                        meta: Meta { location }
-                    });
-                }
-
-                self.call(call, &location)?
+                args.push(result);
             }
-        })
-    }
 
-    fn call(&self, call: Call, location: &Option<Location>) -> Result<Value, Error> {
-        let target_object = &call.target.object;
+            let location = value.meta.location.clone();
 
-        match *target_object {
-            Object::Int(value) => method_call_on_int(value, &call.name, &call.args, location),
+            let call = Call {
+                args,
+                target: Box::new(target),
+                name: call.name,
+                module_resolve: call.module_resolve,
+                may_be_var_call: call.may_be_var_call
+            };
 
-            _ => Err(Error::ExecError {
-                message: format!("Cannot call methods on {:?}", target_object),
-                location: location.clone()
-            })
+            if has_unevaluated {
+                return Ok(Value {
+                    object: Object::Op(Op::Call(call)),
+                    meta: Meta { location }
+                });
+            }
+
+            call_function(call, &location)?
         }
+    })
+}
+
+fn call_function(call: Call, location: &Option<Location>) -> Result<Value, Error> {
+    let target_object = &call.target.object;
+
+    match *target_object {
+        Object::Int(value) => method_call_on_int(value, &call.name, &call.args, location),
+        Object::Lambda(ref lambda) => method_call_on_lambda(lambda, &call.name, &call.args, location),
+
+        _ => Err(Error::ExecError {
+            message: format!("Cannot call methods on {:?}", target_object),
+            location: location.clone()
+        })
     }
 }
 
@@ -213,13 +190,62 @@ fn method_call_on_int(
     }
 }
 
-fn one_arg<'a>(args: &'a [Value], method_location: &Option<Location>) -> Result<&'a Value, Error> {
-    if args.len() != 1 {
-        return Err(Error::ExecError {
-            message: format!("Expected 1 argument, got {}", args.len()),
+fn method_call_on_lambda(
+    lambda: &Lambda,
+    name: &str,
+    args: &[Value],
+    method_location: &Option<Location>
+) -> Result<Value, Error> {
+    match name {
+        "$call" => call_lambda(lambda, args, method_location),
+
+        _ => Err(Error::ExecError {
+            message: format!("Unknown method {}", name),
             location: method_location.clone()
+        })
+    }
+}
+
+fn call_lambda(lambda: &Lambda, args: &[Value], call_location: &Option<Location>) -> Result<Value, Error> {
+    expect_arg_count(lambda.params.len(), args, call_location)?;
+
+    let mut params = HashMap::new();
+
+    for (i, param) in lambda.params.iter().enumerate() {
+        // TODO: Optimization idea - prevent this value clone here?
+        //       Make Object clone by reference (Rc<Object>)?
+        params.insert(param.name.clone(), args[i].clone());
+    }
+
+    let lambda_scope = lambda.scope.clone().expect("Lambda should have a scope");
+    let scope = Scope::new(lambda_scope, params);
+
+    eval_value(share(scope), Value {
+        // TODO: Make this not clone
+        object: Object::Op(Op::Block(lambda.body.clone())),
+        meta: Meta { location: call_location.clone() }
+    })
+}
+
+fn expect_arg_count(count: usize, args: &[Value], location: &Option<Location>) -> Result<(), Error> {
+    if args.len() != count {
+        return Err(Error::ExecError {
+            message: format!("Expected {} arguments, got {}", count, args.len()),
+            location: location.clone()
         });
     }
+
+    Ok(())
+}
+
+fn no_args(args: &[Value], location: &Option<Location>) -> Result<(), Error> {
+    expect_arg_count(0, args, location)?;
+
+    Ok(())
+}
+
+fn one_arg<'a>(args: &'a [Value], location: &Option<Location>) -> Result<&'a Value, Error> {
+    expect_arg_count(1, args, location)?;
 
     Ok(&args[0])
 }

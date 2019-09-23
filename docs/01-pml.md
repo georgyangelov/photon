@@ -174,3 +174,37 @@ Maybe the struct should have a compile-time-only property `$type` and `$method` 
 ```
 Struct.define_method '$method', { |name| $type.$instance_method(name) }
 ```
+
+## Assignments
+
+```ruby
+answer = 42
+answer + 1
+```
+
+->
+
+```ruby
+{ |answer|
+  answer + 1
+}(42)
+```
+
+This is done to make the scope immutable, which should ease processing.
+
+**Q: How does this handle globals?**
+_A: Maybe just have a method that defines them???_
+
+## Can we transform the scopes somehow so that we can move the lambda definitions around?
+
+```ruby
+{ |a|
+  { |b| a + b }(2)
+}(1)
+```
+
+->
+
+```ruby
+
+```

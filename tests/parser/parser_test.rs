@@ -55,8 +55,8 @@ fn test_infix_operators() {
 
 #[test]
 fn test_assignment() {
-    assert_eq!("($assign $context \"a\" 15)", parse("a = 15"));
-    assert_eq!("($assign $context \"a\" (* 5 5))", parse("a = 5 * 5"));
+    assert_eq!("($assign a 15)", parse("a = 15"));
+    assert_eq!("($assign a (* 5 5))", parse("a = 5 * 5"));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_unary_operator_precedence() {
 
 #[test]
 fn test_newlines_in_expressions() {
-    assert_eq!("($assign $context \"a\" (* 5 5))", parse("a =\n\n 5 * 5"));
+    assert_eq!("($assign a (* 5 5))", parse("a =\n\n 5 * 5"));
 
     assert_eq!("(- (+ 1 2) 5)", parse("1 + 2 - 5"));
     assert_eq!("(+ 1 2) (- 5)", parse("1 + 2 \n - 5"));
@@ -194,6 +194,11 @@ fn test_lambdas() {
     assert_eq!("(lambda [(param a) (param b)] { a b })", parse("{ |a, b| a\n b\n }"));
     assert_eq!("(call (lambda [] { a }) 42)", parse("{ a\n }.call 42"));
     assert_eq!("($call (lambda [] { a }) 42)", parse("{ a\n }(42)"));
+}
+
+#[test]
+fn test_nested_lambda_calls() {
+    assert_eq!("($call ($call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)", parse("{ |a| { |b| a + b } }(1)(41)"));
 }
 
 // #[test]

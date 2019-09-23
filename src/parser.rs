@@ -81,24 +81,10 @@ impl<'a> Parser<'a> {
                     } else {
                         return Err(self.parse_error());
                     };
-                    let name = self.as_value_with_location(
-                        Object::from(name),
-                        left.meta.location.as_ref().unwrap().clone()
-                    );
 
-                    Object::Op(Op::Call(Call {
-                        target: Box::new(Value {
-                            object: Object::Op(Op::NameRef(NameRef {
-                                name: "$context".into(),
-                            })),
-                            meta: Meta {
-                                location: Some(op.location)
-                            }
-                        }),
-                        name: "$assign".into(),
-                        args: vec![name, right],
-                        may_be_var_call: false,
-                        module_resolve: false
+                    Object::Op(Op::Assign(Assign {
+                        name,
+                        value: Box::new(right)
                     }))
                 },
 
@@ -144,7 +130,7 @@ impl<'a> Parser<'a> {
 
             if self.token().token_type != TokenType::Dot &&
                 self.token().token_type != TokenType::DoubleColon && (
-                !self.newline || self.token().token_type != TokenType::OpenParen
+                self.newline || self.token().token_type != TokenType::OpenParen
             ) {
                 break;
             }
@@ -314,7 +300,8 @@ impl<'a> Parser<'a> {
         Ok(self.as_value(
             Object::Lambda(Lambda {
                 params,
-                body
+                body,
+                scope: None
             }),
             &start_location,
             &end_location

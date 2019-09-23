@@ -1,5 +1,6 @@
 use std::fmt;
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -32,9 +33,10 @@ pub struct Meta {
 
 #[derive(Clone)]
 pub enum Op {
+    Assign(Assign),
     Block(Block),
+    Call(Call),
     NameRef(NameRef),
-    Call(Call)
 }
 
 #[derive(Clone)]
@@ -72,6 +74,12 @@ pub enum Error {
 // Operations
 
 #[derive(Clone)]
+pub struct Assign {
+    pub name: String,
+    pub value: Box<Value>
+}
+
+#[derive(Clone)]
 pub struct Block {
     pub exprs: Vec<Value>
 }
@@ -100,7 +108,8 @@ pub struct Struct {
 #[derive(Clone)]
 pub struct Lambda {
     pub params: Vec<Param>,
-    pub body: Block
+    pub body: Block,
+    pub scope: Option<Shared<Scope>>
 }
 
 #[derive(Clone)]
@@ -153,5 +162,39 @@ impl From<String> for Object {
 impl From<&str> for Object {
     fn from(value: &str) -> Self {
         Object::Str(String::from(value))
+    }
+}
+
+pub type Shared<T> = Rc<RefCell<T>>;
+
+pub fn share<T>(value: T) -> Shared<T> {
+    Rc::new(RefCell::new(value))
+}
+
+pub struct Scope {
+    // TODO: This doesn't need to be RefCell now that it's immutable
+    parent: Option<Shared<Scope>>,
+    vars: HashMap<String, Value>
+}
+
+impl Scope {
+    pub fn new_root() -> Self {
+        Scope {
+            parent: None,
+            vars: HashMap::new()
+        }
+    }
+
+    pub fn new(parent: Shared<Scope>, vars: HashMap<String, Value>) -> Self {
+        Scope {
+            parent: Some(parent),
+            vars
+        }
+    }
+
+    pub fn get(&self, name: &str) -> Option<Value> {
+        self.vars.get(name)
+            .map(Clone::clone)
+            .or_else( || self.parent.as_ref().and_then( |parent| parent.borrow().get(name) ) )
     }
 }

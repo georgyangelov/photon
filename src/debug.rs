@@ -85,6 +85,10 @@ impl fmt::Debug for Object {
                 Ok(())
             },
 
+            &Object::Op(Op::Assign(Assign { ref name, ref value })) => {
+                write!(f, "($assign {} {:?})", name, value.object)
+            },
+
             &Object::Struct(Struct { ref values }) => {
                 write!(f, "${{")?;
 
@@ -103,7 +107,7 @@ impl fmt::Debug for Object {
 
             &Object::Op(Op::Block(ref block)) => block.fmt(f),
 
-            &Object::Lambda(Lambda { ref params, ref body }) => {
+            &Object::Lambda(Lambda { ref params, ref body, .. }) => {
                 write!(f, "(lambda [")?;
 
                 for (i, param) in params.iter().enumerate() {
