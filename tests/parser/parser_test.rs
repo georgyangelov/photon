@@ -1,5 +1,4 @@
 use photon::types::{Error};
-// use photon::parser::*;
 use photon::debug::{parse_all};
 
 use itertools::Itertools;
