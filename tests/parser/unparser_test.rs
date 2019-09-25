@@ -19,6 +19,7 @@ fn test_operators() {
     assert_eq!("1./(2)", unparse("1 / 2"));
 
     assert_eq!("true.!()", unparse("!true"));
+    assert_eq!("true.!().!().!()", unparse("!!!true"));
 }
 
 #[test]

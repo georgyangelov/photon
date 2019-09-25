@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use types::*;
 use lexer::Lexer;
 use parser::Parser;
+use transforms::transform_all_assignments;
 
 pub struct Compiler {
     root_scope: Shared<Scope>
@@ -25,10 +26,16 @@ impl Compiler {
         };
 
         let scope = self.root_scope.clone();
+        let mut code = Vec::new();
 
         while parser.has_more_tokens()? {
-            value = parser.parse_next()?;
-            value = eval_value(scope.clone(), value)?;
+            code.push(parser.parse_next()?);
+        }
+
+        let transformed_code = transform_all_assignments(code)?;
+
+        for expr in transformed_code {
+            value = eval_value(scope.clone(), expr)?;
         }
 
         Ok(value)
