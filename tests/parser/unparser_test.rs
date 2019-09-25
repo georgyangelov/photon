@@ -2,8 +2,6 @@ use photon::debug::*;
 use photon::types::*;
 use photon::unparser::{unparse as actual_unparse};
 
-use itertools::Itertools;
-
 #[test]
 fn test_constants() {
     assert_eq!("true", unparse("true"));
@@ -34,6 +32,7 @@ fn test_lambdas() {
     assert_eq!("{ |a| a.+(1) }", unparse("{ |a| a + 1 }"));
     assert_eq!("{ |a| a.+(1) }.$call(41)", unparse("{ |a| a + 1 }(41)"));
 
+    // TODO: Indentation :)
     assert_eq!("{ |a|\na.+(1)\n42\n}", unparse("{ |a| a + 1; 42 }"));
 }
 
