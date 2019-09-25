@@ -41,8 +41,8 @@ num1.+(num2).+(num3)
 #[test]
 fn test_mutliple_consecutive_assignments() {
     assert_eq!(
-        "{ |num1, num2, num3| num1.+(num2).+(num3) }.$call(1, 2, 3)",
-        unparse("num1 = 1; num2 = 2; num3 = 3; num1 + num2 + num3")
+        "{ |num1| { |num2| { |num3| num1.+(num2).+(num3) }.$call(3) }.$call(num1) }.$call(1)",
+        unparse("num1 = 1; num2 = num1; num3 = 3; num1 + num2 + num3")
     );
 }
 

@@ -72,37 +72,14 @@ fn transform_exprs(exprs: &mut Vec<Value>, result: &mut Vec<Value>) -> Result<()
         },
 
         Object::Op(Op::Assign(assign)) => {
-            let mut vars = Vec::new();
-            vars.push(assign);
-
-            loop {
-                if let Some(Value { object: Object::Op(Op::Assign(_)), .. }) = exprs.last() {
-                    if let Object::Op(Op::Assign(assign)) = exprs.pop().unwrap().object {
-                        vars.push(assign);
-                    }
-                } else {
-                    break;
-                }
-            }
-
             if exprs.is_empty() {
-                for var in vars {
-                    result.push(*var.value);
-                }
+                assign.value.object
             } else {
                 let mut body = Vec::new();
                 transform_exprs(exprs, &mut body)?;
 
-                let mut params = Vec::new();
-                let mut param_values = Vec::new();
-
-                for var in vars {
-                    params.push(Param { name: var.name });
-                    param_values.push(*var.value);
-                }
-
                 let lambda = Lambda {
-                    params,
+                    params: vec![Param { name: assign.name }],
                     body: Block { exprs: body },
                     scope: None
                 };
@@ -113,18 +90,13 @@ fn transform_exprs(exprs: &mut Vec<Value>, result: &mut Vec<Value>) -> Result<()
                         meta: Meta { location: location.clone() }
                     }),
                     name: "$call".into(),
-                    args: param_values,
+                    args: vec![*assign.value],
                     may_be_var_call: false,
                     module_resolve: false
                 };
 
-                result.push(Value {
-                    object: Object::Op(Op::Call(lambda_call)),
-                    meta: Meta { location: location.clone() }
-                });
+                Object::Op(Op::Call(lambda_call))
             }
-
-            return Ok(());
         }
     };
 
