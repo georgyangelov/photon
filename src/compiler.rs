@@ -42,6 +42,7 @@ impl Compiler {
     }
 }
 
+// TODO: Does this need to be `Shared`?
 fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
     let object = value.object;
 
@@ -59,11 +60,31 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
             meta: value.meta
         },
 
-        // TODO: Try to partially evaluate body of lambda
         Object::Lambda(Lambda { params, body, scope: _ }) => {
+            let mut partial_eval_vars = HashMap::<String, Value>::new();
+
+            for param in &params {
+                partial_eval_vars.insert(param.name.clone(), Value {
+                    // TODO: Get param location
+                    meta: Meta { location: None },
+                    object: Object::Unknown
+                });
+            }
+
+            let partial_eval_scope = Scope::new(scope.clone(), partial_eval_vars);
+            let result = eval_block(share(partial_eval_scope), body, &value.meta.location)?;
+
+            let evaluated_body = if let Value { object: Object::Op(Op::Block(block)), .. } = result {
+                block
+            } else {
+                Block { exprs: vec![result] }
+            };
+
             Value {
                 object: Object::Lambda(Lambda {
-                    params, body, scope: Some(scope.clone())
+                    params,
+                    body: evaluated_body,
+                    scope: Some(scope.clone())
                 }),
                 meta: Meta { location: value.meta.location.clone() }
             }
@@ -72,38 +93,7 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
         Object::Op(Op::Assign(_)) => panic!("Cannot execute Assign, it's only for source code."),
 
         Object::Op(Op::Block(block)) => {
-            let mut unevaluated = Vec::new();
-            let mut last_expr = None;
-
-            for value in block.exprs {
-                let result = eval_value(scope.clone(), value)?;
-
-                if !is_evaluated(&result) {
-                    unevaluated.push(result);
-                } else {
-                    last_expr = Some(result);
-                }
-            }
-
-            if unevaluated.len() > 0 {
-                if let Some(last_expr) = last_expr {
-                    unevaluated.push(last_expr);
-                }
-
-                if unevaluated.len() == 1 {
-                    unevaluated.into_iter().nth(0).expect("See the line above")
-                } else {
-                    Value {
-                        object: Object::Op(Op::Block(Block { exprs: unevaluated })),
-                        meta: Meta { location: value.meta.location.clone() }
-                    }
-                }
-            } else {
-                last_expr.unwrap_or(Value {
-                    object: Object::Nothing,
-                    meta: Meta { location: value.meta.location.clone() }
-                })
-            }
+            eval_block(scope.clone(), block, &value.meta.location)?
         },
 
         Object::Op(Op::NameRef(name_ref)) => {
@@ -135,7 +125,17 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
             };
 
             let (target, method_name) = if let Some(target) = var_call_target {
-                (target, String::from("$call"))
+                // TODO: Extract this logic from here and the nameref handler
+                let known_target = if let Value { object: Object::Unknown, .. } = target {
+                    Value {
+                        object: Object::Op(Op::NameRef(NameRef { name: call.name.clone() })),
+                        meta: call.target.meta
+                    }
+                } else {
+                    target
+                };
+
+                (known_target, String::from("$call"))
             } else {
                 let target = eval_value(scope.clone(), *call.target)?;
 
@@ -152,6 +152,8 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
                 if !is_evaluated(&result) {
                     has_unevaluated = true;
                 }
+
+                println!("Arg {:?} is evaluated: {:?}", result.object, is_evaluated(&result));
 
                 args.push(result);
             }
@@ -176,6 +178,8 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
             }
 
             let call_2 = call.clone();
+            println!("Evaluating {:?}", call_2);
+
             let result = call_function(call, &location)?;
 
             println!("Evaluated {:?} to {:?}", call_2, result);
@@ -183,6 +187,43 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
             result
         }
     })
+}
+
+fn eval_block(scope: Shared<Scope>, block: Block, location: &Option<Location>) -> Result<Value, Error> {
+    let mut unevaluated = Vec::new();
+    let mut last_expr = None;
+
+    for value in block.exprs {
+        let result = eval_value(scope.clone(), value)?;
+
+        if !is_evaluated(&result) {
+            unevaluated.push(result);
+        } else {
+            last_expr = Some(result);
+        }
+    }
+
+    let result = if unevaluated.len() > 0 {
+        if let Some(last_expr) = last_expr {
+            unevaluated.push(last_expr);
+        }
+
+        if unevaluated.len() == 1 {
+            unevaluated.into_iter().nth(0).expect("See the line above")
+        } else {
+            Value {
+                object: Object::Op(Op::Block(Block { exprs: unevaluated })),
+                meta: Meta { location: location.clone() }
+            }
+        }
+    } else {
+        last_expr.unwrap_or(Value {
+            object: Object::Nothing,
+            meta: Meta { location: location.clone() }
+        })
+    };
+
+    Ok(result)
 }
 
 fn call_function(call: Call, location: &Option<Location>) -> Result<Value, Error> {

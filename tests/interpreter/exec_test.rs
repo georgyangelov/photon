@@ -67,4 +67,22 @@ fn test_partial_evaluation_with_unknowns() {
         "{ |fn| fn(1) + fn(2) + $? }({ |a| a + 1 })",
         "5 + $?"
     );
+
+    assert_eval(
+        "fn = { |a| a + 1 }; fn(1) + fn(2) + $?",
+        "5 + $?"
+    );
+}
+
+#[test]
+fn test_partial_evaluation_inside_nonevaluated_code() {
+    assert_eval(
+        "{ |a| 1 + 2 + a }",
+        "{ |a| 3 + a }"
+    );
+
+    assert_eval(
+        "{ |unknown| { |fn| fn(1) + fn(2) + unknown }({ |a| a + 1 }) }",
+        "{ |unknown| 5 + unknown }"
+    );
 }

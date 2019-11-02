@@ -150,7 +150,8 @@ impl fmt::Debug for Object {
                 write!(f, ")")
             },
 
-            _ => write!(f, "<unknown>")
+            Nothing => write!(f, "<nothing>"),
+            NativeLambda => write!(f, "<NativeLambda>")
         }
     }
 }
