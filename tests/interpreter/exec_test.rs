@@ -52,3 +52,19 @@ fn test_lambda_calls_with_parameters() {
 fn test_closures() {
     assert_matches!(eval("{ |a| { |b| a + b } }(1)(41)"), Object::Int(42));
 }
+
+#[test]
+fn test_passing_lambda_as_parameter() {
+    assert_eval(
+        "{ |fn| fn(1) }({ |a| a + 41 })",
+        "42"
+    );
+}
+
+#[test]
+fn test_partial_evaluation_with_unknowns() {
+    assert_eval(
+        "{ |fn| fn(1) + fn(2) + $? }({ |a| a + 1 })",
+        "5 + $?"
+    );
+}

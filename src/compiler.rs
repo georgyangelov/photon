@@ -73,10 +73,7 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
 
         Object::Op(Op::Block(block)) => {
             let mut unevaluated = Vec::new();
-            let mut last_expr = Value {
-                object: Object::Nothing,
-                meta: Meta { location: value.meta.location.clone() }
-            };
+            let mut last_expr = None;
 
             for value in block.exprs {
                 let result = eval_value(scope.clone(), value)?;
@@ -84,17 +81,28 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
                 if !is_evaluated(&result) {
                     unevaluated.push(result);
                 } else {
-                    last_expr = result;
+                    last_expr = Some(result);
                 }
             }
 
             if unevaluated.len() > 0 {
-                Value {
-                    object: Object::Op(Op::Block(Block { exprs: unevaluated })),
-                    meta: Meta { location: value.meta.location.clone() }
+                if let Some(last_expr) = last_expr {
+                    unevaluated.push(last_expr);
+                }
+
+                if unevaluated.len() == 1 {
+                    unevaluated.into_iter().nth(0).expect("See the line above")
+                } else {
+                    Value {
+                        object: Object::Op(Op::Block(Block { exprs: unevaluated })),
+                        meta: Meta { location: value.meta.location.clone() }
+                    }
                 }
             } else {
-                last_expr
+                last_expr.unwrap_or(Value {
+                    object: Object::Nothing,
+                    meta: Meta { location: value.meta.location.clone() }
+                })
             }
         },
 
@@ -120,8 +128,19 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
         Object::Op(Op::Call(call)) => {
             let mut args = Vec::new();
             let mut has_unevaluated = false;
+            let var_call_target = if call.may_be_var_call {
+                scope.borrow().get(&call.name)
+            } else {
+                None
+            };
 
-            let target = eval_value(scope.clone(), *call.target)?;
+            let (target, method_name) = if let Some(target) = var_call_target {
+                (target, String::from("$call"))
+            } else {
+                let target = eval_value(scope.clone(), *call.target)?;
+
+                (target, call.name)
+            };
 
             if !is_evaluated(&target) {
                 has_unevaluated = true;
@@ -142,19 +161,26 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
             let call = Call {
                 args,
                 target: Box::new(target),
-                name: call.name,
+                name: method_name,
                 module_resolve: call.module_resolve,
-                may_be_var_call: call.may_be_var_call
+                may_be_var_call: false
             };
 
             if has_unevaluated {
+                println!("Cannot evaluate {:?}", call);
+
                 return Ok(Value {
                     object: Object::Op(Op::Call(call)),
                     meta: Meta { location }
                 });
             }
 
-            call_function(call, &location)?
+            let call_2 = call.clone();
+            let result = call_function(call, &location)?;
+
+            println!("Evaluated {:?} to {:?}", call_2, result);
+
+            result
         }
     })
 }
@@ -270,6 +296,7 @@ fn expect_int(value: &Value) -> Result<i64, Error> {
 fn is_evaluated(value: &Value) -> bool {
     match value.object {
         Object::Op(_) => false,
+        Object::Unknown => false,
         _ => true
     }
 }

@@ -157,6 +157,15 @@ impl<'a> Parser<'a> {
                     &string.location
                 ))
             },
+            TokenType::UnknownLiteral => {
+                let literal = self.read()?;
+
+                Ok(self.as_value(
+                    Object::Unknown,
+                    &literal.location,
+                    &literal.location
+                ))
+            },
             TokenType::Name => {
                 let name = self.read()?;
 

@@ -173,8 +173,8 @@ pub fn share<T>(value: T) -> Shared<T> {
 
 pub struct Scope {
     // TODO: This doesn't need to be RefCell now that it's immutable
-    parent: Option<Shared<Scope>>,
-    vars: HashMap<String, Value>
+    pub parent: Option<Shared<Scope>>,
+    pub vars: HashMap<String, Value>
 }
 
 impl Scope {

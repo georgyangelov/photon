@@ -32,7 +32,8 @@ pub enum TokenType {
 
     Number,
     String,
-    Bool
+    Bool,
+    UnknownLiteral
 }
 
 #[derive(Debug, Clone)]
@@ -141,6 +142,8 @@ impl<'a> Lexer<'a> {
                     self.c = '$';
 
                     None
+                } else if self.c == '?' {
+                    Some(TokenType::UnknownLiteral)
                 } else {
                     self.put_back_char = Some(self.c);
                     self.c = '$';

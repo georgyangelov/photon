@@ -1,4 +1,5 @@
 use std::fmt;
+use std::cell::RefCell;
 
 use types::*;
 use lexer::*;
@@ -38,6 +39,14 @@ pub fn lex_result(source: &str) -> Result<String, Error> {
     Ok(result)
 }
 
+pub fn parse(source: &str) -> Result<Value, Error> {
+    let mut input = source.as_bytes();
+    let lexer = Lexer::new("<testing>", &mut input);
+    let mut parser = Parser::new(lexer);
+
+    parser.parse_next()
+}
+
 pub fn parse_all(source: &str) -> Result<Vec<Value>, Error> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
@@ -59,15 +68,32 @@ pub fn eval(source: &str) -> Object {
         .unwrap_or_else( |error| panic!(format!("{:?}", error)) )
 }
 
+pub fn assert_transform(actual: &fmt::Debug, expected: &fmt::Debug) {
+    let actual_string = format!("{:?}", actual);
+    let expected_string = format!("{:?}", expected);
+
+    assert_eq!(actual_string, expected_string)
+}
+
+// TODO: Only supports a single expected expression for now
+pub fn assert_eval(source: &str, expected_source: &str) {
+    let actual = eval(source);
+    let expected = parse(expected_source)
+        .unwrap_or_else( |error| panic!(format!("Cannot parse expected source in assert_eval: {:?}", error)));
+
+    assert_transform(&actual, &expected)
+}
+
 impl fmt::Debug for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.object.fmt(f)
     }
 }
 
 impl fmt::Debug for Object {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            &Object::Unknown        => write!(f, "$?"),
             &Object::Bool(value)    => write!(f, "{:?}", value),
             &Object::Int(value)     => write!(f, "{:?}", value),
             &Object::Float(value)   => write!(f, "{:?}", value),
@@ -130,13 +156,13 @@ impl fmt::Debug for Object {
 }
 
 impl fmt::Debug for Param {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(param {})", self.name)
     }
 }
 
 impl fmt::Debug for Block {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{")?;
 
         for ref expr in &self.exprs {
@@ -154,7 +180,7 @@ impl fmt::Debug for Block {
 }
 
 // impl fmt::Debug for ast::FnDef {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 //         write!(f, "(def {}:{:?}", self.name, self.return_type_expr)?;
 //         write!(f, " [")?;
 //
@@ -174,7 +200,7 @@ impl fmt::Debug for Block {
 // }
 
 impl fmt::Debug for Call {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.module_resolve {
             write!(f, "({:?}::{}", self.target, self.name)?;
         } else {
@@ -192,5 +218,15 @@ impl fmt::Debug for Call {
         // }
 
         Ok(())
+    }
+}
+
+impl fmt::Debug for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(parent) = &self.parent {
+            write!(f, "{:?} -> {:?}", self.vars, parent.borrow())
+        } else {
+            write!(f, "{:?}", self.vars)
+        }
     }
 }

@@ -23,6 +23,11 @@ fn test_constant_object_literals() {
 }
 
 #[test]
+fn test_unknown_literal() {
+    assert_eq!("$?", parse("$?"));
+}
+
+#[test]
 fn test_negating_expressions() {
     assert_eq!("(- test)", parse("-test"));
     assert_eq!("(+ (- 5) 5)", parse("-   5 + 5"));
