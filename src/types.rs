@@ -118,7 +118,7 @@ pub struct Param {
 }
 
 pub trait NativeValue: fmt::Debug {
-    fn call(&self, _name: String, _args: &[Value]) -> Result<Value, Error> {
+    fn call(&self, _name: &str, _args: &[Value]) -> Result<Value, Error> {
         Err(Error::ExecError {
             message: String::from("Cannot call methods on this native struct"),
             location: None

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use core::*;
 use types::*;
 use lexer::Lexer;
 use parser::Parser;
@@ -11,8 +12,15 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn new() -> Self {
+        let mut root_scope = Scope::new_root();
+
+        root_scope.vars.insert(String::from("Core"), Value {
+            object: Core::new().to_object(),
+            meta: Meta { location: None }
+        });
+
         Self {
-            root_scope: share(Scope::new_root())
+            root_scope: share(root_scope)
         }
     }
 
@@ -117,7 +125,7 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
 
         Object::Op(Op::Call(call)) => {
             let mut args = Vec::new();
-            let mut has_unevaluated = false;
+            let mut has_unevaluated_args = false;
             let var_call_target = if call.may_be_var_call {
                 scope.borrow().get(&call.name)
             } else {
@@ -142,18 +150,14 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
                 (target, call.name)
             };
 
-            if !is_evaluated(&target) {
-                has_unevaluated = true;
-            }
+            let target_evaluated = is_evaluated(&target);
 
             for arg in call.args {
                 let result = eval_value(scope.clone(), arg)?;
 
                 if !is_evaluated(&result) {
-                    has_unevaluated = true;
+                    has_unevaluated_args = true;
                 }
-
-                println!("Arg {:?} is evaluated: {:?}", result.object, is_evaluated(&result));
 
                 args.push(result);
             }
@@ -168,7 +172,7 @@ fn eval_value(scope: Shared<Scope>, value: Value) -> Result<Value, Error> {
                 may_be_var_call: false
             };
 
-            if has_unevaluated {
+            if !target_evaluated || has_unevaluated_args {
                 println!("Cannot evaluate {:?}", call);
 
                 return Ok(Value {
@@ -232,6 +236,7 @@ fn call_function(call: Call, location: &Option<Location>) -> Result<Value, Error
     match *target_object {
         Object::Int(value) => method_call_on_int(value, &call.name, &call.args, location),
         Object::Lambda(ref lambda) => method_call_on_lambda(lambda, &call.name, &call.args, location),
+        Object::NativeValue(ref native_value) => native_value.clone().call(&call.name, &call.args),
 
         _ => Err(Error::ExecError {
             message: format!("Cannot call methods on {:?}", target_object),

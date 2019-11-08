@@ -1,14 +1,32 @@
-// mod bool_value;
-// mod float_value;
-// mod int_value;
-// mod string_value;
+use std::rc::Rc;
+use types::*;
 
-// pub use self::bool_value::*;
-// pub use self::float_value::*;
-// pub use self::int_value::*;
-// pub use self::string_value::*;
-
+#[derive(Debug)]
 pub struct Core {
+}
+
+impl NativeValue for Core {
+    fn call(&self, name: &str, _args: &[Value]) -> Result<Value, Error> {
+        match name {
+            // TODO: Pass location to these (but only compile-time)?
+            "fourty_two" => Ok(Value {
+                object: Object::from(42),
+                meta: Meta { location: None }
+            }),
+
+            // TODO
+            // "define_macro" => Ok(Value)
+
+            _ => Err(Error::ExecError {
+                message: String::from(format!("Unknown method '{}' on Core", name)),
+                location: None
+            })
+        }
+    }
+
+    fn to_object(self) -> Object {
+        Object::NativeValue(Rc::new(self))
+    }
 }
 
 impl Core {

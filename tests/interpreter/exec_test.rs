@@ -59,6 +59,11 @@ fn test_passing_lambda_as_parameter() {
         "{ |fn| fn(1) }({ |a| a + 41 })",
         "42"
     );
+
+    assert_eval(
+        "{ |fn| fn(1) }({ |a| b = a; b + 41 })",
+        "42"
+    );
 }
 
 #[test]
@@ -72,7 +77,38 @@ fn test_partial_evaluation_with_unknowns() {
         "fn = { |a| a + 1 }; fn(1) + fn(2) + $?",
         "5 + $?"
     );
+
+    assert_eval(
+        "inc = { |a| a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?",
+        "9 + $?"
+    );
+
+    assert_eval(
+        "{ |a| { |b| { |c| a + b + c }(2) }($?) }(1)",
+        "{ |b| 1 + b + 2 }($?)"
+    );
+
+    assert_eval(
+        "a = 1; b = $?; c = 2; a + b + c",
+        "b = $?; 1 + b + 2"
+    );
 }
+
+// #[test]
+// fn test_partial_eval_through_unknown_call() {
+//     assert_eval(
+//         "{ |a| { |b| a + b } }($?)(1)",
+//         "{ |a| a + 1 }($?)"
+//     );
+// }
+
+// #[test]
+// fn test_partial_eval_through_unknown_call_2() {
+//     assert_eval(
+//         "{ |a| { |b| { |c| a + b + c } } }($?)($?)(1)",
+//         "{ |a| { |b| a + b + 1 } }($?)($?)"
+//     );
+// }
 
 #[test]
 fn test_partial_evaluation_inside_nonevaluated_code() {
@@ -84,5 +120,47 @@ fn test_partial_evaluation_inside_nonevaluated_code() {
     assert_eval(
         "{ |unknown| { |fn| fn(1) + fn(2) + unknown }({ |a| a + 1 }) }",
         "{ |unknown| 5 + unknown }"
+    );
+
+    assert_eval(
+        "{ |a| { |c| { |b| a + b + c }($?) }(2) }(1)",
+        "{ |b| 1 + b + 2 }($?)"
+    );
+}
+
+// #[test]
+// fn test_partial_evaluation_with_some_arguments() {
+//     assert_eval(
+//         "{ |a, b| 1 + a + b }(1, $?)",
+//         "{ |b| 2 + b }($?)"
+//     );
+//
+//     assert_eval(
+//         "{ |a, b, c| a + b + c }(1, $?, 2)",
+//         "{ |b| 1 + b + 2 }($?)"
+//     );
+// }
+
+// #[test]
+// fn test_partial_eval_with_unusable_knowns() {
+//     assert_eval(
+//         "{ |a| $? + a }(1)",
+//         "$? + 1"
+//     );
+// }
+
+#[test]
+fn test_simple_macros() {
+    assert_eval(
+        "Core.define_macro('add_one', { |parser| e = parser.read_expr(); e + 1 }); add_one $?",
+        "$? + 1"
+    );
+}
+
+#[test]
+fn test_calling_methods_on_core() {
+    assert_eval(
+        "Core.fourty_two",
+        "42"
     );
 }

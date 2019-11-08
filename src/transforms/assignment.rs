@@ -52,7 +52,7 @@ fn transform_exprs(exprs: &mut Vec<Value>, result: &mut Vec<Value>) -> Result<()
         Object::Float(_) |
         Object::Str(_) |
         Object::Struct(_) |
-        Object::Op(Op::Call(_)) |
+        // Object::Op(Op::Call(_)) |
         Object::Op(Op::NameRef(_)) |
         Object::NativeValue(_) |
         Object::NativeLambda(_) => object,
@@ -69,6 +69,24 @@ fn transform_exprs(exprs: &mut Vec<Value>, result: &mut Vec<Value>) -> Result<()
 
         Object::Op(Op::Block(block)) => {
             Object::Op(Op::Block(transform_block(block)?))
+        },
+
+        Object::Op(Op::Call(call)) => {
+            let mut args = Vec::new();
+
+            for arg in call.args.into_iter() {
+                args.push(transform_assignments(arg)?);
+            }
+
+            let target = transform_assignments(*call.target)?;
+
+            Object::Op(Op::Call(Call {
+                target: Box::new(target),
+                name: call.name,
+                args,
+                may_be_var_call: call.may_be_var_call,
+                module_resolve: call.module_resolve
+            }))
         },
 
         Object::Op(Op::Assign(assign)) => {

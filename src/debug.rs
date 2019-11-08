@@ -5,6 +5,7 @@ use types::*;
 use lexer::*;
 use parser::*;
 use compiler::Compiler;
+use transforms::transform_assignments;
 
 use itertools::Itertools;
 
@@ -60,6 +61,15 @@ pub fn parse_all(source: &str) -> Result<Vec<Value>, Error> {
     Ok(nodes)
 }
 
+pub fn parse_all_as_block(source: &str) -> Result<Value, Error> {
+    let exprs = parse_all(source)?;
+
+    Ok(Value {
+        meta: Meta { location: None },
+        object: Object::Op(Op::Block(Block { exprs: exprs }))
+    })
+}
+
 pub fn eval(source: &str) -> Object {
     let mut compiler = Compiler::new();
 
@@ -69,16 +79,16 @@ pub fn eval(source: &str) -> Object {
 }
 
 pub fn assert_transform(actual: &fmt::Debug, expected: &fmt::Debug) {
-    let actual_string = format!("{:?}", actual);
+    let actual_string = format!("{{ {:?} }}", actual);
     let expected_string = format!("{:?}", expected);
 
     assert_eq!(actual_string, expected_string)
 }
 
-// TODO: Only supports a single expected expression for now
 pub fn assert_eval(source: &str, expected_source: &str) {
     let actual = eval(source);
-    let expected = parse(expected_source)
+    let expected = parse_all_as_block(expected_source)
+        .and_then( |value| transform_assignments(value) )
         .unwrap_or_else( |error| panic!(format!("Cannot parse expected source in assert_eval: {:?}", error)));
 
     assert_transform(&actual, &expected)
@@ -150,8 +160,8 @@ impl fmt::Debug for Object {
                 write!(f, ")")
             },
 
-            Nothing => write!(f, "<nothing>"),
-            NativeLambda => write!(f, "<NativeLambda>")
+            &Object::Nothing => write!(f, "<nothing>"),
+            &Object::NativeLambda(_) => write!(f, "<NativeLambda>")
         }
     }
 }
