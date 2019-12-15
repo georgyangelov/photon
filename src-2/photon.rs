@@ -35,7 +35,7 @@ impl Photon {
     pub fn eval(&mut self, file_name: &str, source: &str) -> Result<Value, ParseOrInterpretError> {
         let mut input = source.as_bytes();
         let lexer = Lexer::new(file_name, &mut input);
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, None);
 
         let mut last_result = None;
 

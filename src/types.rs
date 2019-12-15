@@ -117,11 +117,11 @@ pub struct Param {
     pub name: String
 }
 
-pub trait NativeValue: fmt::Debug {
-    fn call(&self, _name: &str, _args: &[Value]) -> Result<Value, Error> {
+pub trait NativeValue {
+    fn call(&self, _name: &str, _args: &[Value], location: Option<Location>) -> Result<Value, Error> {
         Err(Error::ExecError {
             message: String::from("Cannot call methods on this native struct"),
-            location: None
+            location: location.clone()
         })
     }
 
@@ -169,6 +169,12 @@ pub type Shared<T> = Rc<RefCell<T>>;
 
 pub fn share<T>(value: T) -> Shared<T> {
     Rc::new(RefCell::new(value))
+}
+
+#[derive(Clone)]
+pub struct Macro {
+    pub name: String,
+    pub handler: Lambda
 }
 
 pub struct Scope {

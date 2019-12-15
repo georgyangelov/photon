@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use core::*;
 use types::*;
@@ -7,27 +8,49 @@ use parser::Parser;
 use transforms::transform_all_assignments;
 
 pub struct Compiler {
+    core: Rc<Core>,
     root_scope: Shared<Scope>
 }
 
 impl Compiler {
     pub fn new() -> Self {
         let mut root_scope = Scope::new_root();
+        let core = Rc::new(Core::new());
 
         root_scope.vars.insert(String::from("Core"), Value {
-            object: Core::new().to_object(),
+            object: Object::NativeValue(core.clone()),
             meta: Meta { location: None }
         });
 
         Self {
+            core,
             root_scope: share(root_scope)
         }
+    }
+
+    pub fn has_macro(&self, name: &str) -> bool {
+        self.core.get_macro(name).is_some()
+    }
+
+    pub fn handle_macro(&self, name: &str, parser: &mut Parser, location: &Location) -> Result<Object, Error> {
+        let m = self.core.get_macro(name)
+            .expect("Macro does not exist");
+
+        let parser_value = ParserValue { parser };
+        let args = [
+            Value {
+                object: Object::NativeValue(Rc::new(parser_value)),
+                meta: Meta { location: Some(location.clone()) }
+            }
+        ];
+
+        call_lambda(&m.handler, &args, &Some(location.clone())).map( |a| a.object )
     }
 
     pub fn eval(&mut self, file_name: &str, source: &str) -> Result<Value, Error> {
         let mut input = source.as_bytes();
         let lexer = Lexer::new(file_name, &mut input);
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, Some(self));
         let mut value = Value {
             object: Object::Nothing,
             meta: Meta { location: None }
@@ -236,7 +259,7 @@ fn call_function(call: Call, location: &Option<Location>) -> Result<Value, Error
     match *target_object {
         Object::Int(value) => method_call_on_int(value, &call.name, &call.args, location),
         Object::Lambda(ref lambda) => method_call_on_lambda(lambda, &call.name, &call.args, location),
-        Object::NativeValue(ref native_value) => native_value.clone().call(&call.name, &call.args),
+        Object::NativeValue(ref native_value) => native_value.clone().call(&call.name, &call.args, location.clone()),
 
         _ => Err(Error::ExecError {
             message: format!("Cannot call methods on {:?}", target_object),
@@ -304,39 +327,6 @@ fn call_lambda(lambda: &Lambda, args: &[Value], call_location: &Option<Location>
         object: Object::Op(Op::Block(lambda.body.clone())),
         meta: Meta { location: call_location.clone() }
     })
-}
-
-fn expect_arg_count(count: usize, args: &[Value], location: &Option<Location>) -> Result<(), Error> {
-    if args.len() != count {
-        return Err(Error::ExecError {
-            message: format!("Expected {} arguments, got {}", count, args.len()),
-            location: location.clone()
-        });
-    }
-
-    Ok(())
-}
-
-fn no_args(args: &[Value], location: &Option<Location>) -> Result<(), Error> {
-    expect_arg_count(0, args, location)?;
-
-    Ok(())
-}
-
-fn one_arg<'a>(args: &'a [Value], location: &Option<Location>) -> Result<&'a Value, Error> {
-    expect_arg_count(1, args, location)?;
-
-    Ok(&args[0])
-}
-
-fn expect_int(value: &Value) -> Result<i64, Error> {
-    match &value.object {
-        &Object::Int(result) => Ok(result),
-        _ => Err(Error::ExecError {
-            message: format!("Expected Int, got {:?}", value),
-            location: value.meta.location.clone()
-        })
-    }
 }
 
 fn is_evaluated(value: &Value) -> bool {

@@ -151,8 +151,10 @@ fn test_partial_evaluation_inside_nonevaluated_code() {
 
 #[test]
 fn test_simple_macros() {
-    assert_eval(
-        "Core.define_macro('add_one', { |parser| e = parser.read_expr(); e + 1 }); add_one $?",
+    assert_eval_2(
+        "Core.define_macro('add_one', { |parser| e = parser.read_expr(); e + 1 })",
+        "add_one $?",
+
         "$? + 1"
     );
 }

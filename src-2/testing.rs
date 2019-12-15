@@ -40,7 +40,7 @@ pub fn lex_result(source: &str) -> Result<String, ParseError> {
 pub fn parse_all(source: &str) -> Result<Vec<ast::AST>, ParseError> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, None);
     let mut nodes = Vec::new();
 
     while parser.has_more_tokens()? {

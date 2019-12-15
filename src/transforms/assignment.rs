@@ -52,7 +52,6 @@ fn transform_exprs(exprs: &mut Vec<Value>, result: &mut Vec<Value>) -> Result<()
         Object::Float(_) |
         Object::Str(_) |
         Object::Struct(_) |
-        // Object::Op(Op::Call(_)) |
         Object::Op(Op::NameRef(_)) |
         Object::NativeValue(_) |
         Object::NativeLambda(_) => object,

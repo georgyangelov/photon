@@ -43,7 +43,7 @@ pub fn lex_result(source: &str) -> Result<String, Error> {
 pub fn parse(source: &str) -> Result<Value, Error> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, None);
 
     parser.parse_next()
 }
@@ -51,7 +51,7 @@ pub fn parse(source: &str) -> Result<Value, Error> {
 pub fn parse_all(source: &str) -> Result<Vec<Value>, Error> {
     let mut input = source.as_bytes();
     let lexer = Lexer::new("<testing>", &mut input);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, None);
     let mut nodes = Vec::new();
 
     while parser.has_more_tokens()? {
@@ -78,6 +78,17 @@ pub fn eval(source: &str) -> Object {
         .unwrap_or_else( |error| panic!(format!("{:?}", error)) )
 }
 
+pub fn eval_2(source_1: &str, source_2: &str) -> Object {
+    let mut compiler = Compiler::new();
+
+    compiler.eval("<testing-1>", source_1)
+        .unwrap_or_else( |error| panic!(format!("{:?}", error)) );
+
+    compiler.eval("<testing-2>", source_2)
+        .map( |value| value.object )
+        .unwrap_or_else( |error| panic!(format!("{:?}", error)) )
+}
+
 pub fn assert_transform(actual: &fmt::Debug, expected: &fmt::Debug) {
     let actual_string = format!("{{ {:?} }}", actual);
     let expected_string = format!("{:?}", expected);
@@ -87,6 +98,15 @@ pub fn assert_transform(actual: &fmt::Debug, expected: &fmt::Debug) {
 
 pub fn assert_eval(source: &str, expected_source: &str) {
     let actual = eval(source);
+    let expected = parse_all_as_block(expected_source)
+        .and_then( |value| transform_assignments(value) )
+        .unwrap_or_else( |error| panic!(format!("Cannot parse expected source in assert_eval: {:?}", error)));
+
+    assert_transform(&actual, &expected)
+}
+
+pub fn assert_eval_2(source_1: &str, source_2: &str, expected_source: &str) {
+    let actual = eval_2(source_1, source_2);
     let expected = parse_all_as_block(expected_source)
         .and_then( |value| transform_assignments(value) )
         .unwrap_or_else( |error| panic!(format!("Cannot parse expected source in assert_eval: {:?}", error)));
@@ -109,7 +129,8 @@ impl fmt::Debug for Object {
             &Object::Float(value)   => write!(f, "{:?}", value),
             &Object::Str(ref value) => write!(f, "{:?}", value),
 
-            &Object::NativeValue(ref value) => write!(f, "{:?}", value),
+            // &Object::NativeValue(ref value) => write!(f, "{:?}", value),
+            &Object::NativeValue(_) => write!(f, "<NativeValue>"),
 
             &Object::Op(Op::NameRef(NameRef { ref name })) => {
                 write!(f, "{}", name)?;

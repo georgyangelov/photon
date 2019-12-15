@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use types::*;
 use lexer::{Lexer, Token, TokenType};
+use compiler::Compiler;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    compiler: Option<&'a Compiler>,
 
     t: Option<Token>,
     last_location: Location,
@@ -12,11 +14,12 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Parser<'a> {
+    pub fn new(lexer: Lexer<'a>, compiler: Option<&'a Compiler>) -> Parser<'a> {
         let file_name = lexer.file_name().into();
 
         Parser {
-            lexer: lexer,
+            lexer,
+            compiler,
 
             t: None,
             last_location: Location {
@@ -168,6 +171,18 @@ impl<'a> Parser<'a> {
             },
             TokenType::Name => {
                 let name = self.read()?;
+
+                if let Some(ref compiler) = self.compiler {
+                    if compiler.has_macro(&name.string) {
+                        let result = compiler.handle_macro(&name.string, self, &name.location)?;
+
+                        return Ok(self.as_value(
+                            result,
+                            &name.location,
+                            &self.last_location
+                        ));
+                    }
+                }
 
                 Ok(self.as_value(
                     Object::Op(Op::NameRef(NameRef { name: name.string.clone() })),

@@ -1,36 +1,60 @@
-use std::rc::Rc;
 use types::*;
 
-#[derive(Debug)]
-pub struct Core {
-}
+mod parser_value;
+pub use self::parser_value::*;
 
-impl NativeValue for Core {
-    fn call(&self, name: &str, _args: &[Value]) -> Result<Value, Error> {
-        match name {
-            // TODO: Pass location to these (but only compile-time)?
-            "fourty_two" => Ok(Value {
-                object: Object::from(42),
-                meta: Meta { location: None }
-            }),
+mod core;
+pub use self::core::*;
 
-            // TODO
-            // "define_macro" => Ok(Value)
-
-            _ => Err(Error::ExecError {
-                message: String::from(format!("Unknown method '{}' on Core", name)),
-                location: None
-            })
-        }
+pub fn expect_arg_count(count: usize, args: &[Value], location: &Option<Location>) -> Result<(), Error> {
+    if args.len() != count {
+        return Err(Error::ExecError {
+            message: format!("Expected {} arguments, got {}", count, args.len()),
+            location: location.clone()
+        });
     }
 
-    fn to_object(self) -> Object {
-        Object::NativeValue(Rc::new(self))
+    Ok(())
+}
+
+pub fn no_args(args: &[Value], location: &Option<Location>) -> Result<(), Error> {
+    expect_arg_count(0, args, location)?;
+
+    Ok(())
+}
+
+pub fn one_arg<'a>(args: &'a [Value], location: &Option<Location>) -> Result<&'a Value, Error> {
+    expect_arg_count(1, args, location)?;
+
+    Ok(&args[0])
+}
+
+pub fn expect_int(value: &Value) -> Result<i64, Error> {
+    match &value.object {
+        &Object::Int(result) => Ok(result),
+        _ => Err(Error::ExecError {
+            message: format!("Expected Int, got {:?}", value),
+            location: value.meta.location.clone()
+        })
     }
 }
 
-impl Core {
-    pub fn new() -> Self {
-        Core {}
+pub fn expect_string(value: &Value) -> Result<&str, Error> {
+    match &value.object {
+        &Object::Str(ref result) => Ok(result),
+        _ => Err(Error::ExecError {
+            message: format!("Expected String, got {:?}", value),
+            location: value.meta.location.clone()
+        })
+    }
+}
+
+pub fn expect_lambda(value: &Value) -> Result<&Lambda, Error> {
+    match &value.object {
+        &Object::Lambda(ref result) => Ok(result),
+        _ => Err(Error::ExecError {
+            message: format!("Expected Lambda, got {:?}", value),
+            location: value.meta.location.clone()
+        })
     }
 }
