@@ -1,5 +1,9 @@
+package photon
+
 import java.io._
 import java.lang.StringBuilder
+
+import photon.lib.PushbackStringReader
 
 import scala.util.control.Breaks._
 
@@ -121,15 +125,14 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       case ',' => singleCharToken(TokenType.Comma, startLocation, hadWhitespace)
       case '.' => singleCharToken(TokenType.Dot, startLocation, hadWhitespace)
       case '|' => singleCharToken(TokenType.Pipe, startLocation, hadWhitespace)
+      case '$' if peek() == '?' =>
+        next() // $
+        next() // ?
+
+        Token(TokenType.UnknownLiteral, "$?", startLocation.extendWith(currentLocation), hadWhitespace)
 
       case '$' if !isStartPartOfName(peek()) =>
-        next() // $
-
-        if (next() == '?') {
-          Token(TokenType.UnknownLiteral, "$?", startLocation.extendWith(currentLocation), hadWhitespace)
-        } else {
-          Token(TokenType.Dollar, "$", startLocation.extendWith(currentLocation), hadWhitespace)
-        }
+        singleCharToken(TokenType.Dollar, startLocation, hadWhitespace)
 
       case '=' | '+' | '-' | '*' | '/' | '<' | '>' =>
         string.appendCodePoint(next())
@@ -319,7 +322,8 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
     nextC
   }
 
-  private def currentLocation: Location = Location.at(fileName, line, column)
+  def currentLocation: Location =
+    Location.at(fileName, line, column)
 
   private def singleCharToken(tokenType: TokenType, startLocation: Location, hadWhitespaceBefore: Boolean): Token = {
     val string = Character.toString(next())
@@ -327,11 +331,9 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
     Token(tokenType, string, startLocation.extendWith(currentLocation), hadWhitespaceBefore)
   }
 
-  private def isStartPartOfName(c: Int): Boolean = {
+  private def isStartPartOfName(c: Int): Boolean =
     Character.isAlphabetic(c) || c == '_' || c == '@' || c == '$'
-  }
 
-  private def isPartOfName(c: Int): Boolean = {
+  private def isPartOfName(c: Int): Boolean =
     Character.isAlphabetic(c) || Character.isDigit(c) || c == '_' || c == '@'
-  }
 }

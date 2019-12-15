@@ -1,3 +1,5 @@
+package photon.lib
+
 import java.io.{FilterReader, Reader}
 import java.nio.CharBuffer
 
