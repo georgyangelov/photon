@@ -173,11 +173,11 @@ class ParserTest extends FunSuite {
     assert(parse("{ a\n b\n }") == "(lambda [] { a b })")
     assert(parse("{ |a, b| a\n b\n }") == "(lambda [(param a) (param b)] { a b })")
     assert(parse("{ a\n }.call 42") == "(call (lambda [] { a }) 42)")
-    assert(parse("{ a\n }(42)") == "($call (lambda [] { a }) 42)")
+    assert(parse("{ a\n }(42)") == "(call (lambda [] { a }) 42)")
   }
 
   test("test_nested_lambda_calls") {
-    assert(parse("{ |a| { |b| a + b } }(1)(41)") == "($call ($call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
+    assert(parse("{ |a| { |b| a + b } }(1)(41)") == "(call (call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
   }
 
   test("test_structs") {

@@ -191,7 +191,7 @@ class Parser(
 
       return Value.Operation(Operation.Call(
         target = target,
-        name = "$call",
+        name = "call",
         arguments = arguments,
         mayBeVarCall = false
       ), target.location.map(_.extendWith(lastLocation)))

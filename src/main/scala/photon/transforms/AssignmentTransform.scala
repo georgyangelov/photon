@@ -50,7 +50,7 @@ object AssignmentTransform {
         body = Operation.Block(scope.toSeq),
         scope = None
       ), location),
-      name = "$call",
+      name = "call",
       arguments = Vector(value),
       mayBeVarCall = false
     ), location)

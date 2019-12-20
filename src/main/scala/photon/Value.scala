@@ -46,6 +46,8 @@ sealed abstract class Value {
       case _ => false
     }
   }
+
+  def isKnownValue: Boolean = !isOperation
 }
 
 object Value {

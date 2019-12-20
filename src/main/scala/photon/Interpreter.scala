@@ -88,11 +88,11 @@ class Interpreter() {
         if (mayBeVarCall) {
           scope.find(name) match {
             case Some(Value.Unknown(_)) => value
-            case Some(lambda @ Value.Lambda(_, _)) => callLambda(lambda, arguments, scope)
-            case None => callMethod(target, name, arguments, scope)
+            case Some(lambda @ Value.Lambda(_, _)) => callLambda(lambda, arguments, scope, location)
+            case None => callMethod(target, name, arguments, scope, location)
           }
         } else {
-          callMethod(target, name, arguments, scope)
+          callMethod(target, name, arguments, scope, location)
         }
     }
   }
@@ -101,24 +101,48 @@ class Interpreter() {
     target: Value,
     name: String,
     arguments: Seq[Value],
-    scope: Scope
+    scope: Scope,
+    location: Option[Location]
   ): Value = {
     val evalTarget = evaluate(target, scope)
     val evalArguments = arguments.map(evaluate(_, scope))
-    val nativeObject = Core.nativeObjectFor(evalTarget)
+    val canEvaluate = evalTarget.isKnownValue && evalArguments.forall(_.isKnownValue)
 
-    nativeObject.call(CallContext(this), name, evalTarget +: evalArguments, target.location)
+    if (canEvaluate) {
+      Core
+        .nativeObjectFor(evalTarget)
+        .call(CallContext(this), name, evalTarget +: evalArguments, location)
+    } else {
+      Value.Operation(Operation.Call(
+        target = evalTarget,
+        name = name,
+        arguments = evalArguments,
+        mayBeVarCall = false
+      ), location)
+    }
   }
 
   private def callLambda(
     lambda: Value.Lambda,
     arguments: Seq[Value],
-    scope: Scope
+    scope: Scope,
+    location: Option[Location]
   ): Value = {
     val evalArguments = arguments.map(evaluate(_, scope))
-    val nativeObject = Core.nativeObjectFor(lambda)
+    val canEvaluate = evalArguments.forall(_.isKnownValue)
 
-    nativeObject.call(CallContext(this), "call", lambda +: evalArguments, lambda.location)
+    if (canEvaluate) {
+      Core
+        .nativeObjectFor(lambda)
+        .call(CallContext(this), "call", lambda +: evalArguments, location)
+    } else {
+      Value.Operation(Operation.Call(
+        target = lambda,
+        name = "call",
+        arguments = evalArguments,
+        mayBeVarCall = false
+      ), location)
+    }
   }
 
   private def evaluate(block: Operation.Block, scope: Scope): Operation.Block =

@@ -29,4 +29,14 @@ class InterpreterTest extends FunSuite {
     expect("1 + 41", "42")
     expect("1 + 40 + 1 + 1 - 1", "42")
   }
+
+  test("can call lambdas") {
+    expect("{ 42 }()", "42")
+    expect("{ |a| a + 41 }(1)", "42")
+  }
+
+  test("can partially evaluate code") {
+    expect("{ |a| 1 + 41 + a }", "{ |a| 42 + a }")
+    expect("{ |a| a + (1 + 41) }", "{ |a| a + 42 }")
+  }
 }
