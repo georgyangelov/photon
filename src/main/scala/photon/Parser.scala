@@ -332,7 +332,7 @@ class Parser(
     read() // }
 
     Value.Lambda(
-      Lambda(parameters, body),
+      Lambda(parameters, None, body),
       Some(startLocation.extendWith(lastLocation))
     )
   }

@@ -1,8 +1,11 @@
 package photon
 
 object Location {
-  def beginningOfFile(fileName: String) = Location(fileName, 0, 0, 0, 0)
-  def at(fileName: String, line: Int, column: Int) = Location(fileName, line, column, line, column)
+  def beginningOfFile(fileName: String): Location =
+    Location(fileName, 0, 0, 0, 0)
+
+  def at(fileName: String, line: Int, column: Int): Location =
+    Location(fileName, line, column, line, column)
 }
 
 case class Location(

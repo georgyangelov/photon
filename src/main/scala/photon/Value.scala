@@ -32,6 +32,20 @@ sealed abstract class Value {
       case Value.Operation(operation, _) => operation.inspect
     }
   }
+
+  def isOperation: Boolean = {
+    this match {
+      case Value.Operation(_, _) => true
+      case _ => false
+    }
+  }
+
+  def isUnknown: Boolean = {
+    this match {
+      case Value.Unknown(_) => true
+      case _ => false
+    }
+  }
 }
 
 object Value {
@@ -50,7 +64,7 @@ object Value {
 }
 
 case class Struct(props: Map[String, Value])
-case class Lambda(params: Seq[String], body: Operation.Block)
+case class Lambda(params: Seq[String], scope: Option[Scope], body: Operation.Block)
 
 sealed class Operation {
   def inspect: String = {
