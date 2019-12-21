@@ -5,37 +5,44 @@ import photon._
 import scala.collection.View
 import scala.util.control.Breaks
 
-object AssignmentTransform {
-  def transform(value: Value): Value = value match {
-    case Value.Operation(Operation.Block(values), location) =>
-      val resultValues = Vector.newBuilder[Value]
+object AssignmentTransform extends Transform {
+  override def transform(value: Value): Value = next(value) match {
+    case Value.Operation(block @ Operation.Block(_), location) =>
+      Value.Operation(transformBlock(block), location)
 
-      Breaks.breakable {
-        for (value <- values) {
-          var done = false
+    case Value.Lambda(Lambda(params, scope, body), location) =>
+      Value.Lambda(Lambda(params, scope, transformBlock(body)), location)
 
-          resultValues += (value match {
-            case Value.Operation(Operation.Assignment(name, expression), location) =>
-              done = true
-              transformAssignment(
-                name,
-                expression,
-                values.view.dropWhile(_ != value).drop(1),
-                location
-              )
+    case value @ _ => value
+  }
 
-            case _ => value
-          })
+  private def transformBlock(block: Operation.Block): Operation.Block = {
+    val resultValues = Vector.newBuilder[Value]
 
-          if (done) {
-            Breaks.break
-          }
+    Breaks.breakable {
+      for (value <- block.values) {
+        var done = false
+
+        resultValues += (value match {
+          case Value.Operation(Operation.Assignment(name, expression), location) =>
+            done = true
+            transformAssignment(
+              name,
+              expression,
+              block.values.view.dropWhile(_ != value).drop(1),
+              location
+            )
+
+          case _ => value
+        })
+
+        if (done) {
+          Breaks.break
         }
       }
+    }
 
-      Value.Operation(Operation.Block(resultValues.result), location)
-
-    case _ => value
+    Operation.Block(resultValues.result)
   }
 
   private def transformAssignment(

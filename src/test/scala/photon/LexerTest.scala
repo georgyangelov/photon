@@ -9,45 +9,45 @@ class LexerTest extends FunSuite {
       .mkString(" ")
   }
 
-  test("test_eof") {
+  test("EOF") {
     assert(lex("") == "(EOF)")
   }
 
-  test("test_skip_whitespace") {
+  test("skip whitespace") {
     assert(lex("   \t 12 \n ") == "(Number '12') (NewLine) (EOF)")
   }
 
-  test("test_inline_comments") {
+  test("inline comments") {
     assert(lex("# test") == "(EOF)")
     assert(lex("# # # # # test") == "(EOF)")
     assert(lex("# test \n 1234") == "(Number '1234') (EOF)")
   }
 
-  test("test_simple_tokens") {
+  test("simple tokens") {
     assert(
       lex("()[],|.:12345\"test\"\ndoend") ==
       "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) (Pipe) (Dot) (Colon) (Number '12345') (String 'test') (NewLine) (Name 'doend') (EOF)"
     )
   }
 
-  test("test_single_quote_strings") {
+  test("single quote strings") {
     assert(lex("'test'") == "(String 'test') (EOF)")
     assert(lex("'te\\ns\\t'") == "(String 'te\\ns\\t') (EOF)")
     assert(lex("'te\\'st\\\\'") == "(String 'te'st\\') (EOF)")
   }
 
-  test("test_numbers") {
+  test("numbers") {
     assert(lex("1234") == "(Number '1234') (EOF)")
     assert(lex("1234.5678") == "(Number '1234.5678') (EOF)")
   }
 
-  test("test_literals") {
+  test("literals") {
     // asselex("nil") == rt("(Nil) (EOF)")
     assert(lex("true") == "(Bool 'true') (EOF)")
     assert(lex("false") == "(Bool 'false') (EOF)")
   }
 
-  test("test_calls_on_literals") {
+  test("calls on literals") {
     assert(lex("42.2.abs") == "(Number '42.2') (Dot) (Name 'abs') (EOF)")
     assert(lex("42.abs") == "(Number '42') (Dot) (Name 'abs') (EOF)")
     assert(
@@ -57,19 +57,19 @@ class LexerTest extends FunSuite {
     )
   }
 
-  test("test_escape_sequences") {
+  test("escape sequences") {
     assert(lex("\"a\\nb\\\\c\\td\"") == "(String 'a\nb\\c\td') (EOF)")
   }
 
-  test("test_unicode") {
+  test("unicode") {
     assert(lex("тест \"тест\"") == "(Name 'тест') (String 'тест') (EOF)")
   }
 
-  test("test_underscores_in_names") {
+  test("underscores in names") {
     assert(lex(" _this_is_a_valid_name ") == "(Name '_this_is_a_valid_name') (EOF)")
   }
 
-  test("test_special_symbols_in_names") {
+  test("special symbols in names") {
     assert(lex("$a_special_variable") == "(Name '$a_special_variable') (EOF)")
     assert(lex("@an_instance_variable") == "(Name '@an_instance_variable') (EOF)")
     assert(lex("valid_name? valid_name!") == "(Name 'valid_name?') (Name 'valid_name!') (EOF)")
@@ -85,16 +85,16 @@ class LexerTest extends FunSuite {
 //    lex_error("test %")
 //  }
 
-  test("test_braces") {
+  test("braces") {
     assert(lex("{}") == "(OpenBrace) (CloseBrace) (EOF)")
   }
 
-  test("test_unary_operators") {
+  test("unary operators") {
     assert(lex("!") == "(UnaryOperator '!') (EOF)")
     assert(lex("!!") == "(UnaryOperator '!') (UnaryOperator '!') (EOF)")
   }
 
-  test("test_binary_operators") {
+  test("binary operators") {
     assert(lex("a== b") == "(Name 'a') (BinaryOperator '==') (Name 'b') (EOF)")
     assert(lex("+ -") == "(BinaryOperator '+') (BinaryOperator '-') (EOF)")
     assert(lex("and or") == "(BinaryOperator 'and') (BinaryOperator 'or') (EOF)")
@@ -106,7 +106,7 @@ class LexerTest extends FunSuite {
     assert(lex("a = b") == "(Name 'a') (BinaryOperator '=') (Name 'b') (EOF)")
   }
 
-  test("test_method_resolves") {
+  test("method resolves") {
     assert(lex("a::b") == "(Name 'a') (DoubleColon) (Name 'b') (EOF)")
   }
 }

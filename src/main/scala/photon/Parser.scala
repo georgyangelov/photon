@@ -8,8 +8,11 @@ import scala.util.control.Breaks._
 class ParseError(message: String, location: Location) extends PhotonError(message, Some(location)) {}
 
 object Parser {
-  trait MacroHandler {}
-  val BlankMacroHandler: MacroHandler = new MacroHandler {}
+  trait MacroHandler {
+    def apply(name: String, parser: Parser): Option[Value]
+  }
+
+  val BlankMacroHandler: MacroHandler = (_: String, _: Parser) => None
 }
 
 class Parser(

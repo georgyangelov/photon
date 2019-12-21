@@ -17,10 +17,12 @@ case class Scope(parent: Option[Scope], values: Map[String, Value]) {
 class Interpreter() {
   private val rootScope = Scope(None, Map.empty)
 
+  def macroHandler: Parser.MacroHandler = processMacro
+
   def evaluate(value: Value): Value =
     evaluate(AssignmentTransform.transform(value), rootScope)
 
-  def evaluate(value: Value, scope: Scope = rootScope): Value = {
+  def evaluate(value: Value, scope: Scope): Value = {
     value match {
       case
         Value.Unknown(_) |
@@ -96,6 +98,8 @@ class Interpreter() {
         }
     }
   }
+
+  private def processMacro(name: String, parser: Parser): Option[Value] = None
 
   private def callMethod(
     target: Value,
