@@ -29,7 +29,7 @@ object AssignmentTransform extends Transform {
             transformAssignment(
               name,
               expression,
-              block.values.view.dropWhile(_ != value).drop(1),
+              block.values.dropWhile(_ != value).drop(1),
               location
             )
 
@@ -48,13 +48,13 @@ object AssignmentTransform extends Transform {
   private def transformAssignment(
     name: String,
     value: Value,
-    scope: View[Value],
+    scope: Seq[Value],
     location: Option[Location]
   ): Value =
     Value.Operation(Operation.Call(
       target = Value.Lambda(Lambda(
         params = Vector(name),
-        body = Operation.Block(scope.toSeq),
+        body = transformBlock(Operation.Block(scope.toSeq)),
         scope = None
       ), location),
       name = "call",

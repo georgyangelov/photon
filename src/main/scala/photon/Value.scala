@@ -5,6 +5,8 @@ import scala.collection.immutable.ListMap
 sealed abstract class Value {
   def location: Option[Location]
 
+  override def toString: String = Unparser.unparse(this)
+
   def inspect: String = {
     this match {
       case Value.Unknown(_) => "$?"
@@ -47,7 +49,7 @@ sealed abstract class Value {
     }
   }
 
-  def isKnownValue: Boolean = !isOperation
+  def isKnownValue: Boolean = !isUnknown && !isOperation
 }
 
 object Value {
@@ -65,10 +67,17 @@ object Value {
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
 }
 
-case class Struct(props: Map[String, Value])
-case class Lambda(params: Seq[String], scope: Option[Scope], body: Operation.Block)
+case class Struct(props: Map[String, Value]) {
+  override def toString: String = Unparser.unparse(this)
+}
+
+case class Lambda(params: Seq[String], scope: Option[Scope], body: Operation.Block) {
+  override def toString: String = Unparser.unparse(this)
+}
 
 sealed class Operation {
+  override def toString: String = Unparser.unparse(this)
+
   def inspect: String = {
     this match {
       case Operation.Assignment(name, value) => s"($$assign $name ${value.inspect})"

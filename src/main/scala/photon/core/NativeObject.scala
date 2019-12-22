@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{EvalError, Interpreter, Lambda, Location, Value}
+import photon.{EvalError, Interpreter, Lambda, Location, Scope, Value}
 
 object NativeObject {
   implicit class ValueAssert(value: Value) {
@@ -39,7 +39,7 @@ object NativeObject {
   }
 }
 
-case class CallContext(interpreter: Interpreter)
+case class CallContext(interpreter: Interpreter, scope: Scope)
 
 case class NativeObject(methods: Map[String, NativeObject#MethodHandler]) {
   type MethodHandler = (CallContext, Seq[Value], Option[Location]) => Value;
