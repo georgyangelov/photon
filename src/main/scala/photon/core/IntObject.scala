@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.Value
-import photon.core.NativeObject._
+import photon.core.NativeValue._
 
 object IntObject extends NativeObject(Map(
   "+" -> { (_, args, l) => Value.Int(args.getInt(0) + args.getInt(1), l) },

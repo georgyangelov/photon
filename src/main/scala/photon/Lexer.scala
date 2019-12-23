@@ -170,7 +170,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
           startLocation.extendWith(currentLocation),
           hadWhitespace
         )
-      case '!' => singleCharToken(TokenType.UnaryOperator, startLocation, hadWhitespace)
+      case '!' | '#' => singleCharToken(TokenType.UnaryOperator, startLocation, hadWhitespace)
 
       case _ if Character.isDigit(c) =>
         val string = readNumber()
@@ -282,7 +282,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
           next()
         } else if (Character.isWhitespace(c) && c != '\n') {
           next()
-        } else if (c == '#') {
+        } else if (c == '#' && Character.isWhitespace(peek())) {
           next()
           inComment = true
         } else {

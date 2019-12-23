@@ -19,8 +19,21 @@ class InterpreterTest extends FunSuite {
     interpreter.evaluate(value)
   }
 
+  def eval(prelude: String, code: String): Value = {
+    val interpreter = new Interpreter()
+    val preludeValue = parseAsBlock(prelude, interpreter.macroHandler)
+    interpreter.evaluate(preludeValue)
+
+    val value = parseAsBlock(code, interpreter.macroHandler)
+    interpreter.evaluate(value)
+  }
+
   def expect(actualCode: String, expectedCode: String): Unit = {
     assert(s"{ ${eval(actualCode).inspect} }" == parseAsBlock(expectedCode).inspect)
+  }
+
+  def expect(prelude: String, actualCode: String, expectedCode: String): Unit = {
+    assert(s"{ ${eval(prelude, actualCode).inspect} }" == parseAsBlock(expectedCode).inspect)
   }
 
   test("can eval simple values") {
@@ -75,4 +88,27 @@ class InterpreterTest extends FunSuite {
 //    expect("{ |a| { |b| { |c| a + b + c }(2) }($?) }(1)", "{ |b| 1 + b + 2 }($?)")
 //    expect("a = 1; b = $?; c = 2; a + b + c", "b = $?; 1 + b + 2")
 //  }
+
+  test("simple macros") {
+    expect(
+      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); #e + 1 })",
+      "add_one $?",
+
+      "$? + 1"
+    )
+
+    expect(
+      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); #e + 1 })",
+      "{ |a| add_one(a + 2) }",
+
+      "{ |a| a + 2 + 1 }"
+    )
+
+    expect(
+      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); 42 })",
+      "{ |a| add_one(a + 2) }",
+
+      "{ |a| 42 }"
+    )
+  }
 }

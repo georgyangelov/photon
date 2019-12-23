@@ -1,5 +1,7 @@
 package photon
 
+import photon.core.NativeValue
+
 import scala.collection.immutable.ListMap
 
 sealed abstract class Value {
@@ -19,6 +21,8 @@ sealed abstract class Value {
         val escapedString = value.replaceAll("([\"\\\\])", "\\\\$1").replaceAllLiterally("\n", "\\n")
 
         '"' + escapedString + '"'
+
+      case Value.Native(native, _) => s"<${native.toString}>"
 
       case Value.Struct(struct, _) =>
         val values = struct.props.iterator.map { case (key, value) => s"$key: ${value.inspect}" }
@@ -61,6 +65,7 @@ object Value {
   case class Float(value: scala.Double, location: Option[Location]) extends Value
   case class String(value: java.lang.String, location: Option[Location]) extends Value
 
+  case class Native(native: NativeValue, location: Option[Location]) extends Value
   case class Struct(value: photon.Struct, location: Option[Location]) extends Value
   case class Lambda(value: photon.Lambda, location: Option[Location]) extends Value
 
@@ -75,7 +80,7 @@ case class Lambda(params: Seq[String], scope: Option[Scope], body: Operation.Blo
   override def toString: String = Unparser.unparse(this)
 }
 
-sealed class Operation {
+sealed abstract class Operation {
   override def toString: String = Unparser.unparse(this)
 
   def inspect: String = {

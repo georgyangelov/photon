@@ -55,6 +55,8 @@ class ParserTest extends FunSuite {
   }
 
   test("prefix operators") {
+    assert(parse("#a") == "(# a)")
+    assert(parse("#(a)") == "(# a)")
     assert(parse("!a") == "(! a)")
     assert(parse("!!a") == "(! (! a))")
   }

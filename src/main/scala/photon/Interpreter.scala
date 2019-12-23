@@ -23,12 +23,13 @@ case class Scope(parent: Option[Scope], values: Map[String, Value]) {
 
 class Interpreter() {
   private val logger = Logger[Interpreter]
-  private val rootScope = Scope(None, Map.empty)
+  private val core = new Core
 
-  def macroHandler: Parser.MacroHandler = processMacro
+  def macroHandler(name: String, parser: Parser): Option[Value] =
+    core.macroHandler(CallContext(this), name, parser)
 
   def evaluate(value: Value): Value =
-    evaluate(AssignmentTransform.transform(value), rootScope, partial = true)
+    evaluate(AssignmentTransform.transform(value), core.rootScope, partial = true)
 
   def evaluate(value: Value, scope: Scope, partial: Boolean = false): Value = {
     logger.debug(s"Evaluating $value in $scope")
@@ -40,7 +41,8 @@ class Interpreter() {
         Value.Boolean(_, _) |
         Value.Int(_, _) |
         Value.Float(_, _) |
-        Value.String(_, _) => value
+        Value.String(_, _) |
+        Value.Native(_, _) => value
 
       case Value.Struct(Struct(properties), location) =>
         val evaluatedProperties = properties
@@ -110,6 +112,7 @@ class Interpreter() {
             case Some(Value.Unknown(_)) => value
             case Some(lambda @ Value.Lambda(_, _)) =>
               callMethod(lambda, "call", arguments, scope, location)
+            case Some(value) => evalError(value, "Cannot call this object as a function")
             case None =>
               callMethod(target, name, arguments, scope, location, shouldEvalTarget = true)
           }
@@ -118,8 +121,6 @@ class Interpreter() {
         }
     }
   }
-
-  private def processMacro(name: String, parser: Parser): Option[Value] = None
 
   private def callMethod(
     target: Value,
@@ -157,8 +158,8 @@ class Interpreter() {
       logger.debug(s"Will evaluate call $call in $scope")
 
       val result = Core
-        .nativeObjectFor(evalTarget)
-        .call(CallContext(this, scope), name, evalTarget +: evalArguments, location)
+        .nativeValueFor(evalTarget)
+        .call(CallContext(this), name, evalTarget +: evalArguments, location)
 
       logger.debug(s"$call -> $result")
 

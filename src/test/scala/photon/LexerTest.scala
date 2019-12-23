@@ -91,6 +91,7 @@ class LexerTest extends FunSuite {
 
   test("unary operators") {
     assert(lex("!") == "(UnaryOperator '!') (EOF)")
+    assert(lex("#") == "(UnaryOperator '#') (EOF)")
     assert(lex("!!") == "(UnaryOperator '!') (UnaryOperator '!') (EOF)")
   }
 

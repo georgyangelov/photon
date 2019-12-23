@@ -128,9 +128,9 @@ class Parser(
       case TokenType.Name =>
         val token = read()
 
-        // TODO: Macros
-
-        Value.Operation(Operation.NameReference(token.string), Some(lastLocation))
+        macroHandler.apply(token.string, this) getOrElse {
+          Value.Operation(Operation.NameReference(token.string), Some(lastLocation))
+        }
 
       case TokenType.Dollar => parseStruct()
       case TokenType.OpenBrace => parseLambda()

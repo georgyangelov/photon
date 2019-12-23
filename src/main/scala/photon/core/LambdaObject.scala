@@ -2,7 +2,7 @@ package photon.core
 
 import com.typesafe.scalalogging.Logger
 import photon.{EvalError, Scope, Value}
-import photon.core.NativeObject._
+import photon.core.NativeValue._
 
 object LambdaObject extends NativeObject(Map(
   "call" -> { (c, args, l) =>
