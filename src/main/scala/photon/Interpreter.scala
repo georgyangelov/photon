@@ -7,20 +7,6 @@ import transforms._
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
-case class Scope(parent: Option[Scope], values: Map[String, Value]) {
-  override def toString: String = {
-    if (parent.isDefined) {
-      s"$values -> ${parent.get.toString}"
-    } else {
-      values.toString
-    }
-  }
-
-  def find(name: String): Option[Value] = {
-    values.get(name) orElse { parent.flatMap(_.find(name)) }
-  }
-}
-
 class Interpreter() {
   private val logger = Logger[Interpreter]
   private val core = new Core
@@ -55,7 +41,7 @@ class Interpreter() {
 
       case Value.Lambda(Lambda(params, _, body), location) =>
         if (partial) {
-          val evalScope = Scope(
+          val evalScope = LambdaScope(
             Some(scope),
             params.map((_, Value.Unknown(None))).toMap
           )
@@ -65,7 +51,10 @@ class Interpreter() {
             location
           )
         } else {
-          value
+          Value.Lambda(
+            Lambda(params, Some(scope), body),
+            location
+          )
         }
 
       case Value.Operation(Operation.Block(values), location) =>
@@ -139,7 +128,7 @@ class Interpreter() {
     } else target
 
     val evalArguments = arguments.map(evaluate(_, scope, partial = false))
-    val canEvaluate = evalTarget.isKnownValue && evalArguments.forall(_.isKnownValue)
+    val canEvaluate = evalTarget.isStatic && evalArguments.forall(_.isStatic)
 
     if (canEvaluate) {
       logger.debug(s"Can evaluate $evalTarget.$name(${evalArguments.mkString(", ")})")
@@ -165,8 +154,6 @@ class Interpreter() {
 
       result
     } else {
-//      logger.debug(s"Cannot evaluate call $call in $scope")
-
       Value.Operation(Operation.Call(
         target = evalTarget,
         name = name,
@@ -175,29 +162,6 @@ class Interpreter() {
       ), location)
     }
   }
-
-//  private def callLambda(
-//    lambda: Value.Lambda,
-//    arguments: Seq[Value],
-//    scope: Scope,
-//    location: Option[Location]
-//  ): Value = {
-//    val evalArguments = arguments.map(evaluate(_, scope))
-//    val canEvaluate = evalArguments.forall(_.isKnownValue)
-//
-//    if (canEvaluate) {
-//      Core
-//        .nativeObjectFor(lambda)
-//        .call(CallContext(this), "call", lambda +: evalArguments, location)
-//    } else {
-//      Value.Operation(Operation.Call(
-//        target = lambda,
-//        name = "call",
-//        arguments = evalArguments,
-//        mayBeVarCall = false
-//      ), location)
-//    }
-//  }
 
   private def evaluate(block: Operation.Block, scope: Scope, partial: Boolean): Operation.Block =
     Operation.Block(

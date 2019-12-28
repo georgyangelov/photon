@@ -1,6 +1,5 @@
 package photon.core
 
-import photon.Parser.MacroHandler
 import photon.{EvalError, Lambda, Location, Parser, Scope, Value}
 import photon.core.NativeValue._
 
@@ -10,16 +9,16 @@ object Core {
   def nativeValueFor(value: Value): NativeValue = value match {
     case Value.Unknown(location) => error(location)
     case Value.Nothing(location) => error(location)
-    case Value.Boolean(value, location) => error(location)
 
+    case Value.Boolean(_, _) => BoolObject
     case Value.Int(_, _) => IntObject
     case Value.Lambda(_, _) => LambdaObject
+    case Value.String(_, _) => StringObject
     case Value.Native(native, _) => native
 
-    case Value.Float(value, location) => error(location)
-    case Value.String(value, location) => error(location)
-    case Value.Struct(value, location) => error(location)
-    case Value.Operation(operation, location) => error(location)
+    case Value.Float(_, location) => error(location)
+    case Value.Struct(_, location) => error(location)
+    case Value.Operation(_, location) => error(location)
   }
 
   def nativeValueFor(lambda: Lambda): NativeValue = LambdaObject

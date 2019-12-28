@@ -4,6 +4,12 @@ import photon.{EvalError, Interpreter, Lambda, Location, Scope, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
+    def asBool: Boolean = value match {
+      case Value.Boolean(value, _) => value
+      // TODO: Message and location
+      case _ => throw EvalError("Invalid value type ...", None)
+    }
+
     def asInt: Int = value match {
       case Value.Int(value, _) => value
       // TODO: Message and location
@@ -30,12 +36,13 @@ object NativeValue {
   }
 
   implicit class ArgListAssert(argumentList: Seq[Value]) {
+    def getBool(index: Int): Boolean = get(index).asBool
     def getInt(index: Int): Int = get(index).asInt
     def getDouble(index: Int): Double = get(index).asDouble
     def getString(index: Int): String = get(index).asString
     def getLambda(index: Int): Lambda = get(index).asLambda
 
-    private def get(index: Int): Value = {
+    def get(index: Int): Value = {
       if (index >= argumentList.size) {
         // TODO: Message and location
         throw EvalError("No argument ...", None)

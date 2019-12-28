@@ -7,7 +7,7 @@ import photon.lib.PushbackStringReader
 
 import scala.util.control.Breaks._
 
-sealed class TokenType(val name: String) {
+sealed abstract class TokenType(val name: String) {
   override def toString: String = name
 }
 

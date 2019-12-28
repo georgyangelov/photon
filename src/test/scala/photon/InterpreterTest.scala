@@ -65,6 +65,12 @@ class InterpreterTest extends FunSuite {
     expect("{ |a| { |b| a + b } }(1)(41)", "42")
   }
 
+  test("nested usages of variables") {
+    expect("{ |a| { { a } } }(42)", "{ { 42 } }")
+    expect("{ |a| { { a + 1 } } }(41)", "{ { 42 } }")
+    expect("{ |a| $? + { a } }(42)", "$? + { 42 }")
+  }
+
   test("higher-order functions") {
     expect("{ |fn| fn(1) }({ |a| a + 41 })", "42")
     expect("{ |fn| fn(1) }({ |a| b = a; b + 41 })", "42")

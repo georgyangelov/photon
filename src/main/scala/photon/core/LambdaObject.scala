@@ -18,5 +18,7 @@ object LambdaObject extends NativeObject(Map(
     val evalBlock = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, partial = true)
 
     evalBlock
-  }
+  },
+
+  "to_bool" -> { (_, _, l) => Value.Boolean(true, l) }
 ))

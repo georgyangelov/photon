@@ -2,7 +2,6 @@ package photon.transforms
 
 import photon._
 
-import scala.collection.View
 import scala.util.control.Breaks
 
 object AssignmentTransform extends Transform {
@@ -54,7 +53,7 @@ object AssignmentTransform extends Transform {
     Value.Operation(Operation.Call(
       target = Value.Lambda(Lambda(
         params = Vector(name),
-        body = transformBlock(Operation.Block(scope.toSeq)),
+        body = transformBlock(Operation.Block(scope)),
         scope = None
       ), location),
       name = "call",

@@ -15,7 +15,8 @@ abstract class Transform {
            Value.Int(_, _)     |
            Value.Float(_, _)   |
            Value.Operation(Operation.NameReference(_), _) |
-           Value.String(_, _) => value
+           Value.String(_, _) |
+           Value.Native(_, _) => value
 
       case Value.Struct(Struct(props), location) =>
         val newProps = props.map { case (key, value) => (key, transform(value)) }

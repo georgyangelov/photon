@@ -18,7 +18,9 @@ sealed abstract class Value {
       case Value.Int(value, _) => value.toString
       case Value.Float(value, _) => value.toString
       case Value.String(value, _) =>
-        val escapedString = value.replaceAll("([\"\\\\])", "\\\\$1").replaceAllLiterally("\n", "\\n")
+        val escapedString = value
+          .replaceAll("([\"\\\\])", "\\\\$1")
+          .replaceAllLiterally("\n", "\\n")
 
         '"' + escapedString + '"'
 
@@ -53,7 +55,8 @@ sealed abstract class Value {
     }
   }
 
-  def isKnownValue: Boolean = !isUnknown && !isOperation
+  def isStatic: Boolean = !isUnknown && !isOperation
+  def isDynamic: Boolean = !isStatic
 }
 
 object Value {
