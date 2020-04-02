@@ -1,10 +1,15 @@
 package photon
 
+import java.util.UUID
+
 import photon.core.NativeValue
 
-import scala.collection.immutable.ListMap
-
 sealed abstract class Value {
+  type ID = String
+
+  // TODO: This is a big overkill to have on every value...
+  val id: ID = UUID.randomUUID().toString
+
   def location: Option[Location]
 
   override def toString: String = Unparser.unparse(this)
@@ -55,6 +60,8 @@ sealed abstract class Value {
     }
   }
 
+  // TODO: If the value is a Lambda which closes over dynamic values, then it is dynamic as well
+  //       Maybe the Analysis functionality should say what value is static and what is dynamic...
   def isStatic: Boolean = !isUnknown && !isOperation
   def isDynamic: Boolean = !isStatic
 }
