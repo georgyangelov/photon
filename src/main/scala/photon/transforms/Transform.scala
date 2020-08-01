@@ -2,12 +2,12 @@ package photon.transforms
 
 import photon.{Lambda, Operation, Struct, Value}
 
-abstract class Transform {
+abstract class Transform[Context] {
   type Next = Value => Value;
 
-  def transform(value: Value): Value
+  def transform(value: Value, context: Context): Value
 
-  def next(value: Value): Value = {
+  def next(value: Value, context: Context): Value = {
     value match {
       case Value.Unknown(_)    |
            Value.Nothing(_)    |
@@ -19,21 +19,21 @@ abstract class Transform {
            Value.Native(_, _) => value
 
       case Value.Struct(Struct(props), location) =>
-        val newProps = props.map { case (key, value) => (key, transform(value)) }
+        val newProps = props.map { case (key, value) => (key, transform(value, context)) }
 
         Value.Struct(Struct(newProps), location)
 
       case Value.Lambda(Lambda(params, scope, body), location) =>
-        val newBody = Operation.Block(body.values.map(transform))
+        val newBody = Operation.Block(body.values.map(transform(_, context)))
 
         Value.Lambda(Lambda(params, scope, newBody), location)
 
       case Value.Operation(Operation.Block(values), location) =>
-        Value.Operation(Operation.Block(values.map(transform)), location)
+        Value.Operation(Operation.Block(values.map(transform(_, context))), location)
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-        val newTarget = transform(target)
-        val newArguments = arguments.map(transform)
+        val newTarget = transform(target, context)
+        val newArguments = arguments.map(transform(_, context))
 
         Value.Operation(Operation.Call(
           target = newTarget,
@@ -43,7 +43,7 @@ abstract class Transform {
         ), location)
 
       case Value.Operation(Operation.Assignment(name, value), location) =>
-        val newValue = transform(value)
+        val newValue = transform(value, context)
 
         Value.Operation(Operation.Assignment(name, newValue), location)
     }

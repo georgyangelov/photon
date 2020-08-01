@@ -1,15 +1,22 @@
 package photon
 
-import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 import photon.core.NativeValue
 
-sealed abstract class Value {
-  type ID = String
+sealed case class ObjectId(id: Long) extends AnyVal
 
-  // TODO: This is a big overkill to have on every value...
-  val id: ID = UUID.randomUUID().toString
+object ObjectId {
+  val idCounter = new AtomicLong(1)
 
+  def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
+}
+
+trait WithObjectId {
+  val id: ObjectId = ObjectId()
+}
+
+sealed abstract class Value extends WithObjectId {
   def location: Option[Location]
 
   override def toString: String = Unparser.unparse(this)
@@ -80,6 +87,20 @@ object Value {
   case class Lambda(value: photon.Lambda, location: Option[Location]) extends Value
 
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
+}
+
+case class Scope(parent: Option[Scope], values: Map[String, Value]) {
+  override def toString: String = {
+    if (parent.isDefined) {
+      s"$values -> ${parent.get.toString}"
+    } else {
+      values.toString
+    }
+  }
+
+  def find(name: String): Option[Value] = {
+    values.get(name) orElse { parent.flatMap(_.find(name)) }
+  }
 }
 
 case class Struct(props: Map[String, Value]) {

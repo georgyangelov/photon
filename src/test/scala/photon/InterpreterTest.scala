@@ -65,6 +65,13 @@ class InterpreterTest extends FunSuite {
     expect("{ |a| { |b| a + b } }(1)(41)", "42")
   }
 
+//  test("closure binding") {
+//    expect("{ |a| { a } }", "{ |a| { |a| a }.bind(a) }")
+//    expect("{ |a| { |b| a + b }(42) }", "{ |a| { |a, b| a + b }.bind(a)(42) }")
+//    expect("{ |a| { |b| a + b }(42) }", "{ |a| { |a| a + 42 }.bind(a) }")
+//    expect("{ |a, c| { |b| a + b }(c) }", "{ |a, c| { |a, b| a + b }.bind(a)(c) }")
+//  }
+
   test("nested usages of variables") {
     expect("{ |a| { { a } } }(42)", "{ { 42 } }")
     expect("{ |a| { { a + 1 } } }(41)", "{ { 42 } }")

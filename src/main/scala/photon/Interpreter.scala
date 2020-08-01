@@ -7,20 +7,6 @@ import transforms._
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
-case class Scope(parent: Option[Scope], values: Map[String, Value]) {
-  override def toString: String = {
-    if (parent.isDefined) {
-      s"$values -> ${parent.get.toString}"
-    } else {
-      values.toString
-    }
-  }
-
-  def find(name: String): Option[Value] = {
-    values.get(name) orElse { parent.flatMap(_.find(name)) }
-  }
-}
-
 class Interpreter() {
   private val logger = Logger[Interpreter]
   private val core = new Core
@@ -126,6 +112,8 @@ class Interpreter() {
     }
   }
 
+  // TODO: Make sure to not change the IDs of the values when not changing the values
+  //       This will make the cache of Analysis behave better
   private def evaluatePartially(value: Value, scope: Scope): Value = {
     value match {
       case Value.Unknown(_) |
