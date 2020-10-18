@@ -5,7 +5,7 @@ import photon.{EvalError, Scope, Value}
 import photon.core.NativeValue._
 
 object LambdaObject extends NativeObject(Map(
-  "call" -> { (c, args, l) =>
+  "call" -> ScalaMethod({ (c, args, l) =>
     val lambda = args.getLambda(0)
 
     if (args.size != 1 + lambda.params.size) {
@@ -15,10 +15,11 @@ object LambdaObject extends NativeObject(Map(
     Logger("LambdaObject").debug(s"Calling $lambda with (${args.drop(1).mkString(", ")}) in ${lambda.scope}")
 
     val scope = Scope(lambda.scope, lambda.params.zip(args.drop(1)).toMap)
-    val evalBlock = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, partial = true)
+    // TODO: Why is this partial = true?
+    val evalBlock = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.compileTime, c.partial)
 
     evalBlock
-  },
+  }),
 
-  "to_bool" -> { (_, _, l) => Value.Boolean(true, l) }
+  "to_bool" -> ScalaMethod({ (_, _, l) => Value.Boolean(true, l) })
 ))

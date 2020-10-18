@@ -14,7 +14,7 @@ class CoreTest extends FunSuite {
     macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler
   ): Value = {
     val parser = new Parser(new Lexer(fileName, code), macroHandler)
-    val values = parser.parseAll();
+    val values = parser.parseAll()
 
     Value.Operation(Operation.Block(values), None)
   }
@@ -31,7 +31,7 @@ class CoreTest extends FunSuite {
   }
 
   def expect(actualCode: String, expectedCode: String): Unit = {
-    assert(s"{ ${eval(actualCode).inspect} }" == parseAsBlock(expectedCode, "<expected>").inspect)
+    assert(s"{ ${eval(actualCode).toString} }" == parseAsBlock(expectedCode, "<expected>").toString)
   }
 
   test("can expand if expressions") {
@@ -40,6 +40,6 @@ class CoreTest extends FunSuite {
   }
 
   test("can expand dynamic if expressions") {
-    expect("if $? { 42 }", "$?.to_bool.if_else { 42 }, {}")
+    expect("if $? { 42 }", "$?.to_bool.if_else({ 42 }, {})")
   }
 }

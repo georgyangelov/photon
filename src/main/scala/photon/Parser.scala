@@ -440,7 +440,7 @@ class Parser(
 
   private def parseError(explanation: String = "") = {
     throw new ParseError(
-      s"Unexpected token ${token.tokenType.name} '${token.string}. $explanation".strip(),
+      s"Unexpected token ${token.tokenType.name} '${token.string}'. $explanation".strip(),
       token.location
     )
   }

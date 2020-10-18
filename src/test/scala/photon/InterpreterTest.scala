@@ -7,7 +7,7 @@ import photon.transforms.AssignmentTransform
 class InterpreterTest extends FunSuite {
   def parseAsBlock(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): Value = {
     val parser = new Parser(new Lexer("<testing>", code), macroHandler)
-    val values = parser.parseAll();
+    val values = parser.parseAll()
 
     Value.Operation(Operation.Block(values), None)
   }
@@ -86,7 +86,7 @@ class InterpreterTest extends FunSuite {
   test("assignment transform") {
     val block = parseAsBlock("inc = { |a| a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?")
 
-    AssignmentTransform.transform(block).inspect should equal("{ (call (lambda [(param inc)] { (call (lambda [(param a)] { (call (lambda [(param b)] { (+ (+ (inc self a) (inc self b)) $?) }) (+ a 1)) }) 3) }) (lambda [(param a)] { (+ a 1) })) }")
+    AssignmentTransform.transform(block, None).inspect should equal("{ (call (lambda [(param inc)] { (call (lambda [(param a)] { (call (lambda [(param b)] { (+ (+ (inc self a) (inc self b)) $?) }) (+ a 1)) }) 3) }) (lambda [(param a)] { (+ a 1) })) }")
   }
 
   test("partial evaluation with unknowns") {

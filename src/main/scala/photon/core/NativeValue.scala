@@ -53,31 +53,59 @@ object NativeValue {
   }
 }
 
-case class CallContext(interpreter: Interpreter)
+case class CallContext(interpreter: Interpreter, compileTime: Boolean, partial: Boolean)
 
 trait NativeValue {
-  def call(
+  def method(
     context: CallContext,
     name: String,
-    arguments: Seq[Value],
+    location: Option[Location]
+  ): Option[NativeMethod]
+
+  def callOrThrowError(
+    context: CallContext,
+    name: String,
+    args: Seq[Value],
     location: Option[Location]
   ): Value = {
-    throw EvalError(s"Cannot call method $name on ${this.toString}", location)
+    method(context, name, location) match {
+      case Some(value) => value.call(context, args, location)
+      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
+    }
   }
 }
 
-class NativeObject(methods: Map[String, NativeObject#MethodHandler]) extends NativeValue {
-  type MethodHandler = (CallContext, Seq[Value], Option[Location]) => Value;
+trait NativeMethod {
+  val withSideEffects: Boolean
 
-  override def call(
+  def call(
     context: CallContext,
-    name: String,
     arguments: Seq[Value],
     location: Option[Location]
-  ): Value = {
+  ): Value
+}
+
+case class LambdaMetadata(withSideEffects: Boolean = false)
+case class ScalaMethod(
+  handler: ScalaMethod#MethodHandler,
+  override val withSideEffects: Boolean = false
+) extends NativeMethod {
+  type MethodHandler = (CallContext, Seq[Value], Option[Location]) => Value
+
+  override def call(context: CallContext, arguments: Seq[Value], location: Option[Location]): Value = {
+    handler.apply(context, arguments, location)
+  }
+}
+
+class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
+  override def method(
+    context: CallContext,
+    name: String,
+    location: Option[Location]
+  ): Option[NativeMethod] = {
     methods.get(name) match {
-      case Some(handler) => handler.apply(context, arguments, location)
-      case None => super.call(context, name, arguments, location)
+      case Some(method) => Some(method)
+      case None => None
     }
   }
 }

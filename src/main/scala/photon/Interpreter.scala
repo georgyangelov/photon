@@ -10,15 +10,14 @@ case class EvalError(message: String, override val location: Option[Location])
 class Interpreter() {
   private val logger = Logger[Interpreter]
   private val core = new Core
-  private val analysis = new Analysis
 
   def macroHandler(name: String, parser: Parser): Option[Value] =
-    core.macroHandler(CallContext(this), name, parser)
+    core.macroHandler(CallContext(this, compileTime = true, partial = false), name, parser)
 
   def evaluate(value: Value): Value =
-    evaluate(AssignmentTransform.transform(value), core.rootScope, partial = true)
+    evaluate(AssignmentTransform.transform(value, None), core.rootScope, compileTime = true, partial = false)
 
-  def evaluate(value: Value, scope: Scope, partial: Boolean = false): Value = {
+  def evaluate(value: Value, scope: Scope, compileTime: Boolean, partial: Boolean): Value = {
     logger.debug(s"Evaluating $value in $scope")
 
     value match {
@@ -33,7 +32,7 @@ class Interpreter() {
 
       case Value.Struct(Struct(properties), location) =>
         val evaluatedProperties = properties
-          .map { case (key, value) => (key, evaluate(value, scope, partial)) }
+          .map { case (key, value) => (key, evaluate(value, scope, compileTime, partial)) }
 
         Value.Struct(
           Struct(evaluatedProperties),
@@ -41,14 +40,14 @@ class Interpreter() {
         )
 
       case Value.Lambda(Lambda(params, _, body), location) =>
-        if (partial) {
+        if (compileTime) {
           val evalScope = Scope(
             Some(scope),
             params.map((_, Value.Unknown(None))).toMap
           )
 
           Value.Lambda(
-            Lambda(params, Some(scope), evaluate(body, evalScope, partial)),
+            Lambda(params, Some(scope), evaluate(body, evalScope, compileTime, partial = true)),
             location
           )
         } else {
@@ -66,7 +65,7 @@ class Interpreter() {
         val lastIndex = values.size - 1
 
         val newValues = values
-          .map(evaluate(_, scope, partial))
+          .map(evaluate(_, scope, compileTime, partial))
           .zipWithIndex
           .filter { case (value, index) => value.isOperation || index == lastIndex }
           .map { case (value, _) => value }
@@ -101,96 +100,16 @@ class Interpreter() {
           scope.find(name) match {
             case Some(Value.Unknown(_)) => value
             case Some(lambda @ Value.Lambda(_, _)) =>
-              callMethod(lambda, "call", arguments, scope, location)
+              callMethod(lambda, "call", arguments, scope, location, shouldEvalTarget = false, compileTime, partial)
             case Some(value) => evalError(value, "Cannot call this object as a function")
             case None =>
-              callMethod(target, name, arguments, scope, location, shouldEvalTarget = true)
+              callMethod(target, name, arguments, scope, location, shouldEvalTarget = true, compileTime, partial)
           }
         } else {
-          callMethod(target, name, arguments, scope, location, shouldEvalTarget = true)
+          callMethod(target, name, arguments, scope, location, shouldEvalTarget = true, compileTime, partial)
         }
     }
   }
-
-  // TODO: Make sure to not change the IDs of the values when not changing the values
-  //       This will make the cache of Analysis behave better
-  private def evaluatePartially(value: Value, scope: Scope): Value = {
-    value match {
-      case Value.Unknown(_) |
-           Value.Nothing(_) |
-           Value.Boolean(_, _) |
-           Value.Int(_, _) |
-           Value.Float(_, _) |
-           Value.String(_, _) |
-           Value.Native(_, _) => value
-
-      case Value.Struct(Struct(props), location) =>
-        val evalProps = props.map { case (key, value) => (key, evaluatePartially(value, scope)) }
-
-        Value.Struct(Struct(evalProps), location)
-
-      case Value.Lambda(Lambda(params, _, body), location) =>
-        val innerScope = Scope(Some(scope), params.map((_, Value.Unknown(location))).toMap)
-        val evalBody = evaluatePartially(body, innerScope)
-
-        Value.Lambda(Lambda(params, Some(scope), evalBody), location)
-
-      case Value.Operation(block @ Operation.Block(_), location) => Value.Operation(evaluatePartially(block, scope), location)
-      case Value.Operation(Operation.NameReference(_), _) => value
-      case Value.Operation(Operation.Assignment(_, _), _) =>
-        evalError(value, "This should have been transformed to a lambda call")
-
-      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-        // TODO: What about var call?
-
-        if (analysis.isStatic(target) && arguments.forall(analysis.isStatic)) {
-          // Call the function
-          // TODO: This `callMethod` does the same isStatic checks itself, should we use that or create another?
-          callMethod(target, name, arguments, scope, location, shouldEvalTarget = true)
-        } else {
-          // Just partially evaluate the arguments and the target
-
-        }
-    }
-  }
-
-  private def evaluatePartially(block: Operation.Block, scope: Scope): Operation.Block =
-    Operation.Block(
-      block.values.map(evaluatePartially(_, scope))
-    )
-
-//  private def evaluatePartially(value: Value, scope: Scope): Value = {
-//    value match {
-//      case Value.Unknown(_) |
-//           Value.Nothing(_) |
-//           Value.Boolean(_, _) |
-//           Value.Int(_, _) |
-//           Value.Float(_, _) |
-//           Value.String(_, _) |
-//           Value.Native(_, _) => value
-//
-//      case Value.Struct(Struct(props), location) =>
-//        val evalProps = props.map { case (key, value) => (key, evaluatePartially(value, scope)) }
-//
-//        Value.Struct(Struct(evalProps), location)
-//
-//      case Value.Lambda(Lambda(params, _, body), location) =>
-//        val innerScope = Scope(Some(scope), params.map((_, Value.Unknown(location))).toMap)
-//        val evalBody = evaluatePartially(body, innerScope)
-//
-//        Value.Lambda(Lambda(params, Some(scope), evalBody), location)
-//
-//      case Value.Operation(Operation.Block(body), location) =>
-//      case Value.Operation(Operation.NameReference(name), location) =>
-//      case Value.Operation(Operation.Assignment(name, value), location) => ???
-//      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-//
-//    }
-//  }
-
-//  private def evaluatePartially(block: Operation.Block, scope: Scope): Operation.Block = {
-//
-//  }
 
   private def callMethod(
     target: Value,
@@ -198,20 +117,22 @@ class Interpreter() {
     arguments: Seq[Value],
     scope: Scope,
     location: Option[Location],
-    shouldEvalTarget: Boolean = false
+    shouldEvalTarget: Boolean = false,
+    compileTime: Boolean,
+    partial: Boolean
   ): Value = {
     val evalTarget = if (shouldEvalTarget) {
       target match {
-        case Value.Operation(_, _) => evaluate(target, scope, partial = false)
+        case Value.Operation(_, _) => evaluate(target, scope, compileTime, partial)
         case Value.Lambda(Lambda(params, _, body), l) => Value.Lambda(Lambda(params, Some(scope), body), l)
         case _ => target
       }
     } else target
 
-    val evalArguments = arguments.map(evaluate(_, scope, partial = false))
-    val canEvaluate = evalTarget.isStatic && evalArguments.forall(_.isStatic)
+    val evalArguments = arguments.map(evaluate(_, scope, compileTime, partial))
+    val shouldTryToEvaluate = evalTarget.isStatic && evalArguments.forall(_.isStatic)
 
-    if (canEvaluate) {
+    if (shouldTryToEvaluate) {
       logger.debug(s"Can evaluate $evalTarget.$name(${evalArguments.mkString(", ")})")
     } else {
       logger.debug(s"Cannot evaluate $evalTarget.$name(${evalArguments.mkString(", ")})")
@@ -224,29 +145,34 @@ class Interpreter() {
       mayBeVarCall = false
     ), location)
 
-    if (canEvaluate) {
+    if (shouldTryToEvaluate) {
       logger.debug(s"Will evaluate call $call in $scope")
 
-      val result = Core
-        .nativeValueFor(evalTarget)
-        .call(CallContext(this), name, evalTarget +: evalArguments, location)
+      val context = CallContext(this, compileTime = compileTime, partial = partial)
 
-      logger.debug(s"$call -> $result")
+      Core.nativeValueFor(evalTarget).method(context, name, location) match {
+        case Some(method) =>
+          if (partial && method.withSideEffects) {
+            logger.debug(s"Not partially evaluating $call because it has side-effects")
+            call
+          } else {
+            val result = method.call(context, evalTarget +: evalArguments, location)
 
-      result
+            logger.debug(s"$call -> $result")
+
+            result
+          }
+
+        case None => throw EvalError(s"Cannot call method $name on ${evalTarget.toString}", location)
+      }
     } else {
-      Value.Operation(Operation.Call(
-        target = evalTarget,
-        name = name,
-        arguments = evalArguments,
-        mayBeVarCall = false
-      ), location)
+      call
     }
   }
 
-  private def evaluate(block: Operation.Block, scope: Scope, partial: Boolean): Operation.Block =
+  private def evaluate(block: Operation.Block, scope: Scope, compileTime: Boolean, partial: Boolean): Operation.Block =
     Operation.Block(
-      block.values.map(evaluate(_, scope, partial))
+      block.values.map(evaluate(_, scope, compileTime, partial))
     )
 
   private def evalError(value: Value, message: String): Nothing = {

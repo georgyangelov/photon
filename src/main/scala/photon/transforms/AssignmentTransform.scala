@@ -4,8 +4,8 @@ import photon._
 
 import scala.util.control.Breaks
 
-object AssignmentTransform extends Transform[Nothing] {
-  override def transform(value: Value, context: Nothing): Value = next(value, context) match {
+object AssignmentTransform extends Transform[Unit] {
+  override def transform(value: Value, context: Unit): Value = next(value, context) match {
     case Value.Operation(block @ Operation.Block(_), location) =>
       Value.Operation(transformBlock(block), location)
 

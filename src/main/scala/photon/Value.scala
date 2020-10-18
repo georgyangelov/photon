@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import photon.core.NativeValue
 
-sealed case class ObjectId(id: Long) extends AnyVal
+case class ObjectId(id: Long) extends AnyVal
 
 object ObjectId {
   val idCounter = new AtomicLong(1)

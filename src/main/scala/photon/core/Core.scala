@@ -36,26 +36,27 @@ class Core extends NativeValue {
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[Value] = {
     macros.get(name) match {
-      case Some(handler) => Some(Core.nativeValueFor(handler).call(
-        context,
-        "call",
-        Vector(handler, Value.Native(ParserObject(parser), None)),
-        // TODO
-        None
-      ))
+      case Some(handler) => Some(
+        Core.nativeValueFor(handler).callOrThrowError(
+          context,
+          "call",
+          Vector(handler, Value.Native(ParserObject(parser), None)),
+          // TODO
+          None
+        )
+      )
       case None => None
     }
   }
 
-  override def call(
+  override def method(
     context: CallContext,
     name: String,
-    args: Seq[Value],
     location: Option[Location]
-  ): Value = {
+  ): Option[NativeMethod] = {
     name match {
-      case "define_macro" => defineMacro(args.getString(1), Value.Lambda(args.getLambda(2), location))
-      case _ => super.call(context, name, args, location)
+      case "define_macro" => Some(ScalaMethod({ (c, args, l) => defineMacro(args.getString(1), Value.Lambda(args.getLambda(2), l)) }))
+      case _ => None
     }
   }
 
