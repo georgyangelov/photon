@@ -65,17 +65,18 @@ class InterpreterTest extends FunSuite {
     expect("{ |a| { |b| a + b } }(1)(41)", "42")
   }
 
-//  test("closure binding") {
-//    expect("{ |a| { a } }", "{ |a| { |a| a }.bind(a) }")
-//    expect("{ |a| { |b| a + b }(42) }", "{ |a| { |a, b| a + b }.bind(a)(42) }")
-//    expect("{ |a| { |b| a + b }(42) }", "{ |a| { |a| a + 42 }.bind(a) }")
-//    expect("{ |a, c| { |b| a + b }(c) }", "{ |a, c| { |a, b| a + b }.bind(a)(c) }")
-//  }
-
   test("nested usages of variables") {
     expect("{ |a| { { a } } }(42)", "{ { 42 } }")
     expect("{ |a| { { a + 1 } } }(41)", "{ { 42 } }")
     expect("{ |a| $? + { a } }(42)", "$? + { 42 }")
+  }
+
+//  test("partial evaluation should not inline multiple times") {
+//    expect("{ |a| { |b| a + b + a } }(42)", "{ |a| { |b| a + b + a } }(42)")
+//  }
+
+  test("evaluation of partial lambdas") {
+    expect("{ |a| { |b| a + b }(42) }", "{ |a| a + 42 }")
   }
 
   test("higher-order functions") {
@@ -97,10 +98,10 @@ class InterpreterTest extends FunSuite {
     expect("fn = { |a| a + 1 }; fn(1) + fn(2) + $?", "5 + $?")
   }
 
-//  test("advanced partial evaluation") {
-//    expect("{ |a| { |b| { |c| a + b + c }(2) }($?) }(1)", "{ |b| 1 + b + 2 }($?)")
-//    expect("a = 1; b = $?; c = 2; a + b + c", "b = $?; 1 + b + 2")
-//  }
+  test("advanced partial evaluation") {
+    expect("{ |a| { |b| { |c| a + b + c }(2) }($?) }(1)", "{ |b| 1 + b + 2 }($?)")
+    expect("a = 1; b = $?; c = 2; a + b + c", "{ |b| 1 + b + 2 }($?)")
+  }
 
   test("simple macros") {
     expect(

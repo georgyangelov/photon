@@ -15,10 +15,13 @@ object LambdaObject extends NativeObject(Map(
     Logger("LambdaObject").debug(s"Calling $lambda with (${args.drop(1).mkString(", ")}) in ${lambda.scope}")
 
     val scope = Scope(lambda.scope, lambda.params.zip(args.drop(1)).toMap)
-    // TODO: Why is this partial = true?
-    val evalBlock = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.compileTime, c.partial)
+    val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.shouldTryToPartiallyEvaluate, c.isInPartialEvaluation)
 
-    evalBlock
+    if (!c.shouldTryToPartiallyEvaluate && !result.isStatic) {
+      throw EvalError(s"Cannot evaluate $lambda with (${args.drop(1).mkString(", ")}) in ${lambda.scope}", l)
+    }
+
+    result
   }),
 
   "to_bool" -> ScalaMethod({ (_, _, l) => Value.Boolean(true, l) })

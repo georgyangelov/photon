@@ -53,7 +53,7 @@ object NativeValue {
   }
 }
 
-case class CallContext(interpreter: Interpreter, compileTime: Boolean, partial: Boolean)
+case class CallContext(interpreter: Interpreter, shouldTryToPartiallyEvaluate: Boolean, isInPartialEvaluation: Boolean)
 
 trait NativeValue {
   def method(
