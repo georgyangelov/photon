@@ -32,6 +32,12 @@ class InterpreterTest extends FunSuite {
     assert(s"{ ${eval(actualCode).inspect} }" == parseAsBlock(expectedCode).inspect)
   }
 
+  def expectFail(actualCode: String, message: String): Unit = {
+    val evalError = intercept[EvalError] { eval(actualCode) }
+
+    assert(evalError.message == message);
+  }
+
   def expect(prelude: String, actualCode: String, expectedCode: String): Unit = {
     assert(s"{ ${eval(prelude, actualCode).inspect} }" == parseAsBlock(expectedCode).inspect)
   }
@@ -124,5 +130,23 @@ class InterpreterTest extends FunSuite {
 
       "{ |a| 42 }"
     )
+  }
+
+  test("simple structs") {
+    expect("${ a: 42 }.a", "42")
+    expect("struct = ${ a: 42 }; struct.a", "42")
+    expectFail("struct = ${ a: 42 }; struct.b", "Cannot call method b on ${ a: 42 }")
+  }
+
+  test("calling methods on structs") {
+    expect("${ a: { 42 } }.a", "{ 42 }")
+    expect("${ a: { 42 } }.a()", "{ 42 }")
+    expect("${ a: { 42 } }.a.call", "42")
+    expect("${ a: { 42 } }.a()()", "42")
+    expect("struct = ${ a: { 42 } }; lambda = struct.a; lambda()", "42")
+  }
+
+  test("method handler on structs") {
+    expect("struct = ${ $method: { |name| { name } } }; struct.hello", "'hello'")
   }
 }

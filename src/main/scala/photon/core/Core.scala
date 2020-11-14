@@ -15,9 +15,9 @@ object Core {
     case Value.Lambda(_, _) => LambdaObject
     case Value.String(_, _) => StringObject
     case Value.Native(native, _) => native
+    case Value.Struct(_, location) => StructObject
 
     case Value.Float(_, location) => error(location)
-    case Value.Struct(_, location) => error(location)
     case Value.Operation(_, location) => error(location)
   }
 
@@ -52,6 +52,7 @@ class Core extends NativeValue {
   override def method(
     context: CallContext,
     name: String,
+    target: Value,
     location: Option[Location]
   ): Option[NativeMethod] = {
     name match {

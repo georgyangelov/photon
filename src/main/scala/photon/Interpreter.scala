@@ -153,7 +153,7 @@ class Interpreter() {
 
       val context = CallContext(this, shouldTryToPartiallyEvaluate = shouldTryToPartiallyEvaluate, isInPartialEvaluation = isInPartialEvaluation)
 
-      Core.nativeValueFor(evalTarget).method(context, name, location) match {
+      Core.nativeValueFor(evalTarget).method(context, name, evalTarget, location) match {
         case Some(method) =>
           if (isInPartialEvaluation && method.withSideEffects) {
             logger.debug(s"Not partially evaluating $call because it has side-effects")

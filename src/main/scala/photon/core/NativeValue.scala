@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{EvalError, Interpreter, Lambda, Location, Scope, Value}
+import photon.{EvalError, Interpreter, Lambda, Location, Scope, Struct, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -26,12 +26,17 @@ object NativeValue {
     def asString: String = value match {
       case Value.String(value, _) => value
       // TODO: Message and location
-      case _ => throw EvalError(s"Invalid value type $value, expected String", None)
+      case _ => throw EvalError(s"Invalid value type $value, expected String", value.location)
     }
 
     def asLambda: Lambda = value match {
       case Value.Lambda(lambda, _) => lambda
-      case _ => throw EvalError("Invalid value type ...", None)
+      case _ => throw EvalError(s"Expected lambda, got $value", value.location)
+    }
+
+    def asStruct: Struct = value match {
+      case Value.Struct(struct, _) => struct
+      case _ => throw EvalError(s"Invalid value type $value, expected Struct", value.location)
     }
   }
 
@@ -59,6 +64,7 @@ trait NativeValue {
   def method(
     context: CallContext,
     name: String,
+    target: Value,
     location: Option[Location]
   ): Option[NativeMethod]
 
@@ -68,7 +74,7 @@ trait NativeValue {
     args: Seq[Value],
     location: Option[Location]
   ): Value = {
-    method(context, name, location) match {
+    method(context, name, args.head, location) match {
       case Some(value) => value.call(context, args, location)
       case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
     }
@@ -101,6 +107,7 @@ class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(
     context: CallContext,
     name: String,
+    target: Value,
     location: Option[Location]
   ): Option[NativeMethod] = {
     methods.get(name) match {
