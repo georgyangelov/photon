@@ -12,16 +12,16 @@ object Core {
 
     case Value.Boolean(_, _) => BoolObject
     case Value.Int(_, _) => IntObject
-    case Value.Lambda(_, _) => LambdaObject
+    case Value.Lambda(lambda, _) => LambdaObject(lambda)
     case Value.String(_, _) => StringObject
     case Value.Native(native, _) => native
-    case Value.Struct(_, location) => StructObject
+    case Value.Struct(struct, location) => StructObject(struct, location)
 
     case Value.Float(_, location) => error(location)
     case Value.Operation(_, location) => error(location)
   }
 
-  def nativeValueFor(lambda: Lambda): NativeValue = LambdaObject
+  def nativeValueFor(lambda: Lambda): NativeValue = LambdaObject(lambda)
 
   private def error(l: Option[Location]): Nothing = {
     throw EvalError("Cannot call methods on this object (yet)", l)
@@ -52,7 +52,6 @@ class Core extends NativeValue {
   override def method(
     context: CallContext,
     name: String,
-    target: Value,
     location: Option[Location]
   ): Option[NativeMethod] = {
     name match {

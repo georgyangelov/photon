@@ -1,13 +1,11 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Scope, Value}
+import photon.{EvalError, Lambda, Scope, Value}
 import photon.core.NativeValue._
 
-object LambdaObject extends NativeObject(Map(
+case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
   "call" -> ScalaMethod({ (c, args, l) =>
-    val lambda = args.getLambda(0)
-
     if (args.size != 1 + lambda.params.size) {
       throw EvalError("Wrong number of arguments for this lambda", l)
     }

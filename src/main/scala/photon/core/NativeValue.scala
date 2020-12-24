@@ -64,7 +64,6 @@ trait NativeValue {
   def method(
     context: CallContext,
     name: String,
-    target: Value,
     location: Option[Location]
   ): Option[NativeMethod]
 
@@ -74,7 +73,7 @@ trait NativeValue {
     args: Seq[Value],
     location: Option[Location]
   ): Value = {
-    method(context, name, args.head, location) match {
+    method(context, name, location) match {
       case Some(value) => value.call(context, args, location)
       case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
     }
@@ -107,7 +106,6 @@ class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(
     context: CallContext,
     name: String,
-    target: Value,
     location: Option[Location]
   ): Option[NativeMethod] = {
     methods.get(name) match {

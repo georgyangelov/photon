@@ -18,34 +18,34 @@ case class StructGetter(propertyName: String) extends NativeMethod {
   }
 }
 
-object StructObject extends NativeObject(Map(
+case class StructObject(struct: Struct, structLocation: Option[Location]) extends NativeObject(Map(
   "to_bool" -> ScalaMethod({ (_, _, l) => Value.Boolean(true, l) })
 )) {
-  override def method(context: CallContext, name: String, target: Value, location: Option[Location]): Option[NativeMethod] = {
-    val struct = target.asStruct
-
+  override def method(context: CallContext, name: String, location: Option[Location]): Option[NativeMethod] = {
     if (struct.props.contains(name)) {
       return Some(StructGetter(name))
     }
 
     val method = struct.props.get("$method")
     method match {
-      case Some(Value.Lambda(lambda, _)) => invokeMethodHandler(context, target, lambda, name, location)
+      case Some(Value.Lambda(lambda, _)) => return invokeMethodHandler(context, lambda, name, location)
       case Some(_) => throw EvalError("$method must be a lambda", location)
       case None => ()
     }
 
-    super.method(context, name, target, location)
+    super.method(context, name, location)
   }
 
-  private def invokeMethodHandler(context: CallContext, structValue: Value, lambda: Lambda, name: String, location: Option[Location]): Option[NativeMethod] = {
+  private def invokeMethodHandler(context: CallContext, lambda: Lambda, name: String, callLocation: Option[Location]): Option[NativeMethod] = {
+    val structValue = Value.Struct(struct, structLocation)
+
     // TODO: Verify this is side-effect-free
-    val methodHandlerResult = Core.nativeValueFor(lambda).callOrThrowError(context, "call", Seq(structValue, Value.String(name, None)), location)
+    val methodHandlerResult = Core.nativeValueFor(lambda).callOrThrowError(context, "call", Seq(structValue, Value.String(name, None)), callLocation)
 
     methodHandlerResult match {
       case Value.Nothing(_) => None
-      case Value.Lambda(lambda, _) => Some(Core.nativeValueFor(lambda).method(context, "call", structValue, location).get)
-      case _ => throw EvalError(s"$$method must return either $$nothing or a lambda, got $methodHandlerResult", location)
+      case Value.Lambda(lambda, _) => Some(Core.nativeValueFor(lambda).method(context, "call", callLocation).get)
+      case _ => throw EvalError(s"$$method must return either $$nothing or a lambda, got $methodHandlerResult", callLocation)
     }
   }
 }

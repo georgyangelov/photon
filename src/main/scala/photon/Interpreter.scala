@@ -31,6 +31,11 @@ class Interpreter() {
         Value.Native(_, _) => value
 
       case Value.Struct(Struct(properties), location) =>
+        // TODO: How should this reference the same struct after the evaluation?
+//        val scopeWithSelf = Scope(
+//          Some(scope),
+//          Map(("self", ))
+//        )
         val evaluatedProperties = properties
           .map { case (key, value) => (key, evaluate(value, scope, shouldTryToPartiallyEvaluate, isInPartialEvaluation)) }
 
@@ -153,7 +158,7 @@ class Interpreter() {
 
       val context = CallContext(this, shouldTryToPartiallyEvaluate = shouldTryToPartiallyEvaluate, isInPartialEvaluation = isInPartialEvaluation)
 
-      Core.nativeValueFor(evalTarget).method(context, name, evalTarget, location) match {
+      Core.nativeValueFor(evalTarget).method(context, name, location) match {
         case Some(method) =>
           if (isInPartialEvaluation && method.withSideEffects) {
             logger.debug(s"Not partially evaluating $call because it has side-effects")
