@@ -1,8 +1,10 @@
 package photon
 
 import photon.Operation.Block
+import photon.lib.LookAheadReader
 
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
 import scala.util.control.Breaks._
 
 class ParseError(message: String, location: Location) extends PhotonError(message, Some(location)) {}
@@ -19,6 +21,8 @@ class Parser(
   private val lexer: Lexer,
   private val macroHandler: Parser.MacroHandler
 ) {
+  val reader = new LookAheadReader(() => lexer.nextToken())
+
   var token: Token = _
   var atStart = true
   var lastLocation: Location = _
@@ -109,7 +113,7 @@ class Parser(
       target = tryToParseCall(target)
 
       val isFollowedByMethodCall = token.tokenType == TokenType.Dot
-      val isFollowedByAnotherArgumentList = !newline && token.tokenType == TokenType.OpenParen
+      val isFollowedByAnotherArgumentList = !newline && !token.hadWhitespaceBefore && token.tokenType == TokenType.OpenParen
 
       if (!isFollowedByMethodCall && !isFollowedByAnotherArgumentList) {
         return target
@@ -136,16 +140,82 @@ class Parser(
       case TokenType.OpenBrace => parseLambda()
       case TokenType.UnaryOperator => parseUnaryOperator()
       case TokenType.OpenParen =>
-        read() // (
-        val value = parseOne()
-        if (token.tokenType != TokenType.CloseParen) {
-          parseError("Unmatched parentheses or extra expressions. Expected ')'")
-        }
-        read() // )
+        if (isOpenBraceForLambda) {
+          parseLambda()
+        } else {
+          read() // (
 
-        value
+          val value = parseOne()
+
+          if (token.tokenType != TokenType.CloseParen) {
+            parseError("Unmatched parentheses or extra expressions. Expected ')'")
+          }
+
+          read() // )
+
+          value
+        }
 
       case _ => parseError()
+    }
+  }
+
+  private def isOpenBraceForLambda: Boolean = {
+    val reader = this.reader.lookAhead()
+    var nestedParenLevel = 1
+
+    var token = reader.nextToken() // (
+
+    while (nestedParenLevel > 0) {
+      if (token.tokenType == TokenType.EOF) {
+        return false
+      }
+
+      token.tokenType match {
+        case TokenType.OpenParen => nestedParenLevel += 1
+        case TokenType.CloseParen => nestedParenLevel -= 1
+        case _ => ()
+      }
+
+      token = reader.nextToken()
+    }
+
+    token.tokenType match {
+      case TokenType.EOF => false
+      case TokenType.NewLine => false
+
+      // This is intentionally false, because it is ambiguous:
+      // (thisIsAfunction)(42)
+      // (function.call + something)(42)
+      // (argument) (42 + argument)
+      case TokenType.OpenParen => false
+
+      case TokenType.CloseParen => false
+      case TokenType.OpenBrace => true
+      case TokenType.CloseBrace => false
+      case TokenType.OpenBracket => true
+      case TokenType.CloseBracket => false
+      case TokenType.Comma => false
+      case TokenType.Dot => false
+
+      // TODO: Support return type for lambda
+      // Examples:
+      // (1 + 2): Int
+      // (a: Int): Int { a + 42 }
+      case TokenType.Colon => false
+
+      case TokenType.Dollar => true
+      case TokenType.BinaryOperator => false
+      case TokenType.Name => true
+      case TokenType.NumberLiteral => true
+      case TokenType.StringLiteral => true
+      case TokenType.BoolLiteral => true
+      case TokenType.UnknownLiteral => true
+
+      // TODO: Are these correct?
+      case TokenType.Pipe => false
+      case TokenType.DoubleColon => true
+      case TokenType.UnaryOperator => true
     }
   }
 
@@ -206,7 +276,7 @@ class Parser(
   private def parseArguments(): Seq[Value] = {
     var withParentheses = false
 
-    if (token.tokenType == TokenType.OpenParen) {
+    if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
       read() // (
       withParentheses = true
     }
@@ -319,20 +389,28 @@ class Parser(
   }
 
   private def parseLambda(): Value.Lambda = {
-    read() // {
-
     val startLocation = lastLocation
 
-    val parameters = if (token.tokenType == TokenType.Pipe) {
+    val hasParameterParens = token.tokenType == TokenType.OpenParen
+    val parameters = if (hasParameterParens) {
       parseLambdaParameters()
     } else {
       Seq.empty
     }
 
-    val body = parseBlock()
+    val hasBlock = token.tokenType == TokenType.OpenBrace
+    val body = if (hasBlock) {
+      read() // {
 
-    if (token.tokenType != TokenType.CloseBrace) parseError("Expected CloseBrace '}'")
-    read() // }
+      val block = parseBlock()
+
+      if (token.tokenType != TokenType.CloseBrace) parseError("Expected CloseBrace '}'")
+      read() // }
+
+      block
+    } else {
+      Block(Seq(parseOne()))
+    }
 
     Value.Lambda(
       Lambda(parameters, None, body),
@@ -343,21 +421,25 @@ class Parser(
   private def parseLambdaParameters(): Seq[String] = {
     val names = Vector.newBuilder[String]
 
-    read() // |
+    read() // (
 
-    breakable {
-      while (true) {
-        if (token.tokenType != TokenType.Name) parseError("Expected Name")
+    val hasArguments = token.tokenType != TokenType.CloseParen
 
-        names += read().string
+    if (hasArguments) {
+      breakable {
+        while (true) {
+          if (token.tokenType != TokenType.Name) parseError("Expected Name")
 
-        if (token.tokenType != TokenType.Comma) break
-        read() // ,
+          names += read().string
+
+          if (token.tokenType != TokenType.Comma) break
+          read() // ,
+        }
       }
     }
 
-    if (token.tokenType != TokenType.Pipe) parseError("Expected Pipe '|'")
-    read() // |
+    if (token.tokenType != TokenType.CloseParen) parseError("Expected CloseParen ')'")
+    read() // )
 
     names.result
   }
@@ -419,11 +501,11 @@ class Parser(
     newline = false
 
     val oldToken = token
-    var nextToken = lexer.nextToken()
+    var nextToken = reader.next()
 
     while (nextToken.tokenType == TokenType.NewLine) {
       newline = true
-      nextToken = lexer.nextToken()
+      nextToken = reader.next()
     }
 
     token = nextToken

@@ -173,13 +173,48 @@ class ParserTest extends FunSuite {
 
   test("lambdas") {
     assert(parse("{ a\n b\n }") == "(lambda [] { a b })")
-    assert(parse("{ |a, b| a\n b\n }") == "(lambda [(param a) (param b)] { a b })")
+    assert(parse("(a, b) { a\n b\n }") == "(lambda [(param a) (param b)] { a b })")
     assert(parse("{ a\n }.call 42") == "(call (lambda [] { a }) 42)")
     assert(parse("{ a\n }(42)") == "(call (lambda [] { a }) 42)")
   }
 
+  test("lambdas with a single expression") {
+    assert(parse("(a, b) a + b") == "(lambda [(param a) (param b)] { (+ a b) })")
+    assert(parse("((a, b) a + b)()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
+
+    // (a) (a + b)
+    // (a)(a + b)
+
+    // TODO: These should be errors
+    // assert(parse("(a, b) (a + b)") == "(lambda [(param a) (param b)] { (+ a b) })")
+    // assert(parse("((a, b) (a + b))()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
+    // assert(parse("((a, b) (a) + (b))()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
+    // assert(parse("((a, b) ((a) + (b)))()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
+
+    assert(parse("() a + b") == "(lambda [] { (+ a b) })")
+    assert(parse("(() a + b)()") == "(call (lambda [] { (+ a b) }))")
+  }
+
+  test("Ambiguous lambda cases") {
+    assert(parse("array.forEach (element) { element + 1 }") == "(forEach array (lambda [(param element)] { (+ element 1) }))")
+    assert(parse("forEach (element) { element + 1 }") == "(forEach self (lambda [(param element)] { (+ element 1) }))")
+
+    // TODO: This should be an error
+    // assert(parse("array.forEach(element) { element + 1 }") == "(forEach array (lambda [(param element)] { (+ element 1) }))")
+    // assert(parse("forEach (element) { element + 1 }") == "(forEach self (lambda [(param element)] { (+ element 1) }))")
+
+    assert(parse("array.forEach(element)") == "(forEach array element)")
+    assert(parse("forEach(element)") == "(forEach self element)")
+
+    assert(parse("(a){ a + 41 }(1)") == "(call (lambda [(param a)] { (+ a 41) }) 1)")
+    assert(parse("((a){ a + 41 })(1)") == "(call (lambda [(param a)] { (+ a 41) }) 1)")
+
+    // TODO: Make this an error, the argument list must not have whitespace before the open paren
+    assert(parse("(a){ a + 41 } (1)") == "(lambda [(param a)] { (+ a 41) }) 1")
+  }
+
   test("nested lambda calls") {
-    assert(parse("{ |a| { |b| a + b } }(1)(41)") == "(call (call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
+    assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
   }
 
   test("structs") {

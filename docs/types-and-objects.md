@@ -481,6 +481,11 @@ end
 
 `def` should probably be a macro like `def <name>: <type>` => `self.defineProperty "<name>", "<type>"`.
 
+### 1.2. Implementation
+
+- Structs with arbitrary properties
+- Compile-time-only functions
+
 ### 2. A way to run procedures / functions
 
 Lambda functions

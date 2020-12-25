@@ -54,13 +54,13 @@ class InterpreterTest extends FunSuite {
   test("can call lambdas") {
     expect("{ 42 }()", "42")
     expect("{ 42 }.call", "42")
-    expect("{ |a| a + 41 }(1)", "42")
-    expect("{ |a| a + 41 }.call 1", "42")
+    expect("(a){ a + 41 }(1)", "42")
+    expect("(a){ a + 41 }.call 1", "42")
   }
 
   test("can partially evaluate code") {
-    expect("{ |a| 1 + 41 + a }", "{ |a| 42 + a }")
-    expect("{ |a| a + (1 + 41) }", "{ |a| a + 42 }")
+    expect("(a) { 1 + 41 + a }", "(a) { 42 + a }")
+    expect("(a) { a + (1 + 41) }", "(a) { a + 42 }")
   }
 
   test("assignment") {
@@ -68,13 +68,13 @@ class InterpreterTest extends FunSuite {
   }
 
   test("closures") {
-    expect("{ |a| { |b| a + b } }(1)(41)", "42")
+    expect("(a){ (b){ a + b } }(1)(41)", "42")
   }
 
   test("nested usages of variables") {
-    expect("{ |a| { { a } } }(42)", "{ { 42 } }")
-    expect("{ |a| { { a + 1 } } }(41)", "{ { 42 } }")
-    expect("{ |a| $? + { a } }(42)", "$? + { 42 }")
+    expect("(a){ { { a } } }(42)", "{ { 42 } }")
+    expect("(a){ { { a + 1 } } }(41)", "{ { 42 } }")
+    expect("(a){ $? + { a } }(42)", "$? + { 42 }")
   }
 
 //  test("partial evaluation should not inline multiple times") {
@@ -82,53 +82,53 @@ class InterpreterTest extends FunSuite {
 //  }
 
   test("evaluation of partial lambdas") {
-    expect("{ |a| { |b| a + b }(42) }", "{ |a| a + 42 }")
+    expect("(a){ (b){ a + b }(42) }", "(a){ a + 42 }")
   }
 
   test("higher-order functions") {
-    expect("{ |fn| fn(1) }({ |a| a + 41 })", "42")
-    expect("{ |fn| fn(1) }({ |a| b = a; b + 41 })", "42")
+    expect("(fn){ fn(1) }((a){ a + 41 })", "42")
+    expect("(fn){ fn(1) }((a){ b = a; b + 41 })", "42")
   }
 
   test("assignment transform") {
-    val block = parseAsBlock("inc = { |a| a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?")
+    val block = parseAsBlock("inc = (a){ a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?")
 
     AssignmentTransform.transform(block, None).inspect should equal("{ (call (lambda [(param inc)] { (call (lambda [(param a)] { (call (lambda [(param b)] { (+ (+ (inc self a) (inc self b)) $?) }) (+ a 1)) }) 3) }) (lambda [(param a)] { (+ a 1) })) }")
   }
 
   test("partial evaluation with unknowns") {
-    expect("{ |a| a + 1 + $? }(3)", "4 + $?")
+    expect("(a){ a + 1 + $? }(3)", "4 + $?")
     expect("a = 3; b = a + 1; a + b + $?", "7 + $?")
-    expect("{ |fn| fn(1) + fn(2) + $? }({ |a| a + 1 })", "5 + $?")
-    expect("inc = { |a| a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?", "9 + $?")
-    expect("fn = { |a| a + 1 }; fn(1) + fn(2) + $?", "5 + $?")
+    expect("(fn){ fn(1) + fn(2) + $? }((a){ a + 1 })", "5 + $?")
+    expect("inc = (a){ a + 1 }; a = 3; b = a + 1; inc(a) + inc(b) + $?", "9 + $?")
+    expect("fn = (a){ a + 1 }; fn(1) + fn(2) + $?", "5 + $?")
   }
 
   test("advanced partial evaluation") {
-    expect("{ |a| { |b| { |c| a + b + c }(2) }($?) }(1)", "{ |b| 1 + b + 2 }($?)")
-    expect("a = 1; b = $?; c = 2; a + b + c", "{ |b| 1 + b + 2 }($?)")
+    expect("(a){ (b){ (c){ a + b + c }(2) }($?) }(1)", "(b){ 1 + b + 2 }($?)")
+    expect("a = 1; b = $?; c = 2; a + b + c", "(b){ 1 + b + 2 }($?)")
   }
 
   test("simple macros") {
     expect(
-      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); #e + 1 })",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); #e + 1 })",
       "add_one $?",
 
       "$? + 1"
     )
 
     expect(
-      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); #e + 1 })",
-      "{ |a| add_one(a + 2) }",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); #e + 1 })",
+      "(a){ add_one(a + 2) }",
 
-      "{ |a| a + 2 + 1 }"
+      "(a){ a + 2 + 1 }"
     )
 
     expect(
-      "Core.define_macro('add_one', { |parser| e = parser.parse_one(); 42 })",
-      "{ |a| add_one(a + 2) }",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); 42 })",
+      "(a){ add_one(a + 2) }",
 
-      "{ |a| 42 }"
+      "(a){ 42 }"
     )
   }
 
@@ -147,15 +147,15 @@ class InterpreterTest extends FunSuite {
   }
 
   test("method handler on structs") {
-    expect("struct = ${ $method: { |name| { name } } }; struct.hello", "'hello'")
+    expect("struct = ${ $method: (name){ { name } } }; struct.hello", "'hello'")
   }
 
-  test("self value in struct") {
-    expect("struct = ${ answer: 42, giveAnswer: { self.answer } }; struct.giveAnswer", "42")
-    expect(
-      "struct = ${ answer: 42, giveAnswer: { self.answer } }; " +
-        "giveAnswer = struct.$method('giveAnswer'); " +
-        "giveAnswer()"
-      , "42")
-  }
+//  test("self value in struct") {
+//    expect("struct = ${ answer: 42, giveAnswer: { self.answer } }; struct.giveAnswer", "42")
+//    expect(
+//      "struct = ${ answer: 42, giveAnswer: { self.answer } }; " +
+//        "giveAnswer = struct.$method('giveAnswer'); " +
+//        "giveAnswer()"
+//      , "42")
+//  }
 }
