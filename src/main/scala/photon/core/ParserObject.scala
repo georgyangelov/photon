@@ -13,8 +13,8 @@ case class TokenObject(token: Token) extends NativeObject(Map(
 ))
 
 case class ParserObject(parser: Parser) extends NativeObject(Map(
-  "parse_one" -> ScalaMethod(
-    { (c, args, l) => Value.Native(MetaValueObject(parser.parseOne()), None) },
+  "parse_next" -> ScalaMethod(
+    { (c, args, l) => Value.Native(MetaValueObject(parser.parseNext()), None) },
     withSideEffects = true
   ),
 

@@ -38,13 +38,25 @@ class Parser(
     val tokens = Vector.newBuilder[Value]
 
     while (hasMoreTokens) {
-      tokens += parseOne()
+      tokens += parseCompleteExpression()
     }
 
     tokens.result
   }
 
-  def parseOne(): Value = {
+  def parseCompleteExpression(): Value = {
+    if (atStart) read()
+
+    val expression = parseExpression()
+
+    if (token.tokenType != TokenType.EOF && !newline) {
+      parseError("Expected newline or semicolon")
+    }
+
+    expression
+  }
+
+  def parseNext(): Value = {
     if (atStart) read()
 
     parseExpression()
@@ -145,7 +157,7 @@ class Parser(
         } else {
           read() // (
 
-          val value = parseOne()
+          val value = parseExpression()
 
           if (token.tokenType != TokenType.CloseParen) {
             parseError("Unmatched parentheses or extra expressions. Expected ')'")
@@ -307,14 +319,14 @@ class Parser(
 
   private def parseASTList(): Seq[Value] = {
     var values = Vector.newBuilder[Value]
-    var value = parseOne()
+    var value = parseExpression()
 
     values += value
 
     while (token.tokenType == TokenType.Comma) {
       read() // ,
 
-      value = parseOne()
+      value = parseExpression()
       values += value
     }
 
@@ -376,7 +388,7 @@ class Parser(
         if (token.tokenType != TokenType.Colon) parseError("Expected Colon ':'")
         read() // :
 
-        val value = parseOne()
+        val value = parseExpression()
 
         map.addOne(key, value)
 
@@ -409,7 +421,7 @@ class Parser(
 
       block
     } else {
-      Block(Seq(parseOne()))
+      Block(Seq(parseExpression()))
     }
 
     Value.Lambda(
@@ -448,7 +460,7 @@ class Parser(
     val values = Vector.newBuilder[Value]
 
     while (token.tokenType != TokenType.CloseBrace) {
-      values += parseOne()
+      values += parseExpression()
     }
 
     Block(values.result)

@@ -111,21 +111,21 @@ class InterpreterTest extends FunSuite {
 
   test("simple macros") {
     expect(
-      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); #e + 1 })",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_next(); #e + 1 })",
       "add_one $?",
 
       "$? + 1"
     )
 
     expect(
-      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); #e + 1 })",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_next(); #e + 1 })",
       "(a){ add_one(a + 2) }",
 
       "(a){ a + 2 + 1 }"
     )
 
     expect(
-      "Core.define_macro('add_one', (parser) { e = parser.parse_one(); 42 })",
+      "Core.define_macro('add_one', (parser) { e = parser.parse_next(); 42 })",
       "(a){ add_one(a + 2) }",
 
       "(a){ 42 }"

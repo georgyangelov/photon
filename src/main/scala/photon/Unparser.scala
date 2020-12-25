@@ -8,7 +8,7 @@ object Unparser {
     case Value.Int(value, _) => value.toString
     case Value.Float(value, _) => value.toString
     case Value.String(value, _) =>
-      "\"" + value.toString.replace("\n", "\\n").replace("\"", "\\\"") + "\""
+      "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""
 
     case Value.Native(native, _) => s"<${native.toString}>"
     case Value.Struct(struct, _) => unparse(struct)
@@ -25,9 +25,9 @@ object Unparser {
     case Operation.Block(values) =>
       s"{ ${values.map(unparse).mkString("; ")} }"
 
-    case Operation.Call(t, name, arguments, mayBeVarCall) =>
+    case Operation.Call(t, name, arguments, _) =>
       val target = unparse(t)
-      s"${if (target == "self") "" else s"${target}."}${name}(${arguments.map(unparse).mkString(", ")})"
+      s"${if (target == "self") "" else s"$target."}$name(${arguments.map(unparse).mkString(", ")})"
 
     case Operation.NameReference(name) => name
   }
