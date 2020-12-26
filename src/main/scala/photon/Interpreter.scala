@@ -106,7 +106,9 @@ class Interpreter() {
             case Some(Value.Unknown(_)) => value
             case Some(lambda @ Value.Lambda(_, _)) =>
               callMethod(lambda, "call", arguments, scope, location, shouldEvalTarget = false, shouldTryToPartiallyEvaluate, isInPartialEvaluation)
-            case Some(value) => evalError(value, "Cannot call this object as a function")
+            case Some(value) =>
+              callMethod(value, "call", arguments, scope, location, shouldEvalTarget = false, shouldTryToPartiallyEvaluate, isInPartialEvaluation)
+              // evalError(value, "Cannot call this object as a function")
             case None =>
               callMethod(target, name, arguments, scope, location, shouldEvalTarget = true, shouldTryToPartiallyEvaluate, isInPartialEvaluation)
           }

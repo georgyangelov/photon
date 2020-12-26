@@ -132,16 +132,16 @@ class InterpreterTest extends FunSuite {
     )
   }
 
-  test("simple structs") {
-    expect("${ a = 42 }.a", "42")
-    expect("struct = ${ a = 42 }; struct.a", "42")
-    expectFail("struct = ${ a = 42 }; struct.b", "Cannot call method b on ${ a = 42 }")
-  }
-
   test("named arguments") {
     expect("(a) { 41 + a }(a = 1)", "42")
     expect("(a, b) { 41 - a + b }(1, b = 2)", "42")
     expect("(a, b, c) { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
+  }
+
+  test("simple structs") {
+    expect("Struct(a = 42).a", "42")
+    expect("struct = Struct(a = 42); struct.a", "42")
+    expectFail("struct = Struct(a = 42); struct.b", "Cannot call method b on Struct(a = 42)")
   }
 
   // TODO: Implement this

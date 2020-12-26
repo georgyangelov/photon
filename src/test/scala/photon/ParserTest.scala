@@ -237,12 +237,4 @@ class ParserTest extends FunSuite {
     assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) 1 (param b 2))")
     assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) (param a 1) (param b 2))")
   }
-
-  test("structs") {
-    assert(parse("${}") == "${}")
-    assert(parse("${ a = 1 }") == "${a = 1}")
-
-    // TODO: Fix order
-    assert(parse("${ a = 1, b = 2 }") == "${a = 1, b = 2}")
-  }
 }

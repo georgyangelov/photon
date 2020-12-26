@@ -4,7 +4,6 @@ import photon.Operation.Block
 import photon.lib.LookAheadReader
 
 import scala.collection.immutable.ListMap
-import scala.collection.mutable
 import scala.util.control.Breaks._
 
 class ParseError(message: String, location: Location) extends PhotonError(message, Some(location)) {}
@@ -148,7 +147,6 @@ class Parser(
           Value.Operation(Operation.NameReference(token.string), Some(lastLocation))
         }
 
-      case TokenType.Dollar => parseStruct()
       case TokenType.OpenBrace => parseLambda()
       case TokenType.UnaryOperator => parseUnaryOperator()
       case TokenType.OpenParen =>
@@ -334,28 +332,6 @@ class Parser(
     Arguments(positionalArguments.result(), namedArguments.result())
   }
 
-//  private def parseSingleArgument(): Either[Value, (String, Value)] = {
-//    val expressionOrName = parseExpression()
-//
-//
-//  }
-
-//  private def parseASTList(): Seq[Value] = {
-//    var values = Vector.newBuilder[Value]
-//    var value = parseExpression()
-//
-//    values += value
-//
-//    while (token.tokenType == TokenType.Comma) {
-//      read() // ,
-//
-//      value = parseExpression()
-//      values += value
-//    }
-//
-//    values.result
-//  }
-
   private def parseBool(): Value.Boolean = {
     val token = read()
 
@@ -376,51 +352,6 @@ class Parser(
     val token = read()
 
     Value.String(token.string, Some(token.location))
-  }
-
-  private def parseStruct(): Value.Struct = {
-    read() // $
-    val startLocation = lastLocation
-
-    if (token.tokenType != TokenType.OpenBrace) parseError("Expected OpenBrace '{'")
-    read() // {
-
-    val values = if (token.tokenType != TokenType.CloseBrace) {
-      parseStructValues()
-    } else {
-      ListMap.empty[String, Value]
-    }
-
-    if (token.tokenType != TokenType.CloseBrace) parseError("Expected CloseBrace '}'")
-    read() // }
-
-    Value.Struct(
-      Struct(values),
-      Some(startLocation.extendWith(lastLocation))
-    )
-  }
-
-  private def parseStructValues(): ListMap[String, Value] = {
-    val map = ListMap.newBuilder[String, Value]
-
-    breakable {
-      while (true) {
-        if (token.tokenType != TokenType.Name) parseError("Expected name")
-        val key = read().string
-
-        if (token.tokenType != TokenType.BinaryOperator || token.string != "=") parseError("Expected equals sign '='")
-        read() // =
-
-        val value = parseExpression()
-
-        map.addOne(key, value)
-
-        if (token.tokenType != TokenType.Comma) break
-        read() // ,
-      }
-    }
-
-    map.result
   }
 
   private def parseLambda(): Value.Lambda = {

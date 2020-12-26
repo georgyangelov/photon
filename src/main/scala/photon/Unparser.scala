@@ -34,7 +34,7 @@ object Unparser {
   }
 
   def unparse(struct: Struct): String =
-    s"$${ ${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")} }"
+    s"Struct(${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
 
   def unparse(lambda: Lambda): String =
     s"(${lambda.params.mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }"

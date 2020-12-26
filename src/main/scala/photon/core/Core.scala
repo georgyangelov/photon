@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Value}
+import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Struct, Value}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -35,10 +35,21 @@ object CoreParameters {
 
 import CoreParameters._
 
+object StructRoot extends NativeObject(Map(
+  "call" -> ScalaVarargMethod((context, args, l) => {
+    if (args.positional.size != 1) {
+      throw EvalError("Cannot pass positional arguments to Struct constructor", l)
+    }
+
+    Value.Struct(Struct(args.named), l)
+  }, withSideEffects = false)
+))
+
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, Value] = mutable.TreeMap.empty
   val rootScope: Scope = Scope(None, Map(
-    "Core" -> Value.Native(this, None)
+    "Core" -> Value.Native(this, None),
+    "Struct" -> Value.Native(StructRoot, None)
   ))
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[Value] = {
