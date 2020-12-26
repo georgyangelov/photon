@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{EvalError, Lambda, Location, Parser, Scope, Value}
+import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Value}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -28,6 +28,13 @@ object Core {
   }
 }
 
+object CoreParameters {
+  val DefineMacroName: Parameter = Parameter(1, "name")
+  val DefineMacroLambda: Parameter = Parameter(2, "lambda")
+}
+
+import CoreParameters._
+
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, Value] = mutable.TreeMap.empty
   val rootScope: Scope = Scope(None, Map(
@@ -40,7 +47,7 @@ class Core extends NativeValue {
         Core.nativeValueFor(handler).callOrThrowError(
           context,
           "call",
-          Vector(handler, Value.Native(ParserObject(parser), None)),
+          Arguments(Seq(handler, Value.Native(ParserObject(parser), None)), Map.empty),
           // TODO
           None
         )
@@ -55,7 +62,12 @@ class Core extends NativeValue {
     location: Option[Location]
   ): Option[NativeMethod] = {
     name match {
-      case "define_macro" => Some(ScalaMethod({ (c, args, l) => defineMacro(args.getString(1), Value.Lambda(args.getLambda(2), l)) }))
+      case "define_macro" => Some(
+        ScalaMethod(
+          MethodOptions(parameters = Seq(DefineMacroName, DefineMacroLambda)),
+          { (c, args, l) => defineMacro(args.getString(DefineMacroName), Value.Lambda(args.getLambda(DefineMacroLambda), l)) }
+        )
+      )
       case _ => None
     }
   }

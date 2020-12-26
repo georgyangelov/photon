@@ -3,11 +3,36 @@ package photon.core
 import photon.Value
 import photon.core.NativeValue._
 
-object IntObject extends NativeObject(Map(
-  "+" -> ScalaMethod({ (_, args, l) => Value.Int(args.getInt(0) + args.getInt(1), l) }),
-  "-" -> ScalaMethod({ (_, args, l) => Value.Int(args.getInt(0) - args.getInt(1), l) }),
-  "*" -> ScalaMethod({ (_, args, l) => Value.Int(args.getInt(0) * args.getInt(1), l) }),
-  "/" -> ScalaMethod({ (_, args, l) => Value.Float(args.getDouble(0) / args.getDouble(1), l) }),
+object IntParams {
+  val FirstParam: Parameter = Parameter(0, "first")
+  val SecondParam: Parameter = Parameter(1, "second")
+}
 
-  "to_bool" -> ScalaMethod({ (_, _, l) => Value.Boolean(true, l) })
+import IntParams._
+
+object IntObject extends NativeObject(Map(
+  "+" -> ScalaMethod(
+    MethodOptions(Seq(FirstParam, SecondParam)),
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) + args.getInt(SecondParam), l) }
+  ),
+
+  "-" -> ScalaMethod(
+    MethodOptions(Seq(FirstParam, SecondParam)),
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) - args.getInt(SecondParam), l) }
+  ),
+
+  "*" -> ScalaMethod(
+    MethodOptions(Seq(FirstParam, SecondParam)),
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) * args.getInt(SecondParam), l) }
+  ),
+
+  "/" -> ScalaMethod(
+    MethodOptions(Seq(FirstParam, SecondParam)),
+    { (_, args, l) => Value.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam), l) }
+  ),
+
+  "to_bool" -> ScalaMethod(
+    MethodOptions(Seq()),
+    { (_, _, l) => Value.Boolean(true, l) }
+  )
 ))

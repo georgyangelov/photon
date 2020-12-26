@@ -1,14 +1,14 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Lambda, Location, Scope, Struct, Value}
+import photon.{Arguments, EvalError, Lambda, Location, Scope, Struct, Value}
 import photon.core.NativeValue._
 
 case class StructGetter(propertyName: String) extends NativeMethod {
   override val withSideEffects = false
 
-  override def call(context: CallContext, arguments: Seq[Value], location: Option[Location]): Value = {
-    val struct = arguments.head.asStruct
+  override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
+    val struct = arguments.positional.head.asStruct
     val value = struct.props.get(propertyName)
 
     value match {
@@ -19,7 +19,10 @@ case class StructGetter(propertyName: String) extends NativeMethod {
 }
 
 case class StructObject(struct: Struct, structLocation: Option[Location]) extends NativeObject(Map(
-  "to_bool" -> ScalaMethod({ (_, _, l) => Value.Boolean(true, l) })
+  "to_bool" -> ScalaMethod(
+    MethodOptions(Seq.empty),
+    { (_, _, l) => Value.Boolean(true, l) }
+  )
 )) {
   override def method(context: CallContext, name: String, location: Option[Location]): Option[NativeMethod] = {
     if (struct.props.contains(name)) {
@@ -39,8 +42,10 @@ case class StructObject(struct: Struct, structLocation: Option[Location]) extend
   private def invokeMethodHandler(context: CallContext, lambda: Lambda, name: String, callLocation: Option[Location]): Option[NativeMethod] = {
     val structValue = Value.Struct(struct, structLocation)
 
+    val arguments = Arguments(Seq(structValue, Value.String(name, None)), Map.empty)
+
     // TODO: Verify this is side-effect-free
-    val methodHandlerResult = Core.nativeValueFor(lambda).callOrThrowError(context, "call", Seq(structValue, Value.String(name, None)), callLocation)
+    val methodHandlerResult = Core.nativeValueFor(lambda).callOrThrowError(context, "call", arguments, callLocation)
 
     methodHandlerResult match {
       case Value.Nothing(_) => None

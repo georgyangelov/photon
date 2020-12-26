@@ -94,7 +94,7 @@ class Parser(
         Value.Operation(Operation.Call(
           target = left,
           name = operator.string,
-          arguments = Vector(right),
+          arguments = Arguments(Seq(right), Map.empty),
           mayBeVarCall = false
         ), Some(location))
       }
@@ -114,7 +114,7 @@ class Parser(
       return Value.Operation(Operation.Call(
         target = expression,
         name = "-",
-        arguments = Vector(),
+        arguments = Arguments.empty,
         mayBeVarCall = false
       ), Some(location))
     }
@@ -285,7 +285,7 @@ class Parser(
     target
   }
 
-  private def parseArguments(): Seq[Value] = {
+  private def parseArguments(): Arguments = {
     var withParentheses = false
 
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
@@ -294,15 +294,32 @@ class Parser(
     }
 
     if (!withParentheses && currentExpressionMayEnd) {
-      return Seq.empty
+      return Arguments.empty
     }
 
     if (withParentheses && token.tokenType == TokenType.CloseParen) {
       read() // )
-      return Seq.empty
+      return Arguments.empty
     }
 
-    val values = parseASTList()
+    val positionalArguments = Vector.newBuilder[Value]
+    val namedArguments = ListMap.newBuilder[String, Value]
+
+    var value = parseExpression()
+    value match {
+      case Value.Operation(Operation.Assignment(name, value), _) => namedArguments.addOne(name, value)
+      case _ => positionalArguments.addOne(value)
+    }
+
+    while (token.tokenType == TokenType.Comma) {
+      read() // ,
+
+      value = parseExpression()
+      value match {
+        case Value.Operation(Operation.Assignment(name, value), _) => namedArguments.addOne(name, value)
+        case _ => positionalArguments.addOne(value)
+      }
+    }
 
     if (withParentheses) {
       if (token.tokenType != TokenType.CloseParen) {
@@ -314,24 +331,30 @@ class Parser(
       parseError("Expected current expression to end (either new line or ')')")
     }
 
-    values
+    Arguments(positionalArguments.result(), namedArguments.result())
   }
 
-  private def parseASTList(): Seq[Value] = {
-    var values = Vector.newBuilder[Value]
-    var value = parseExpression()
+//  private def parseSingleArgument(): Either[Value, (String, Value)] = {
+//    val expressionOrName = parseExpression()
+//
+//
+//  }
 
-    values += value
-
-    while (token.tokenType == TokenType.Comma) {
-      read() // ,
-
-      value = parseExpression()
-      values += value
-    }
-
-    values.result
-  }
+//  private def parseASTList(): Seq[Value] = {
+//    var values = Vector.newBuilder[Value]
+//    var value = parseExpression()
+//
+//    values += value
+//
+//    while (token.tokenType == TokenType.Comma) {
+//      read() // ,
+//
+//      value = parseExpression()
+//      values += value
+//    }
+//
+//    values.result
+//  }
 
   private def parseBool(): Value.Boolean = {
     val token = read()
@@ -385,8 +408,8 @@ class Parser(
         if (token.tokenType != TokenType.Name) parseError("Expected name")
         val key = read().string
 
-        if (token.tokenType != TokenType.Colon) parseError("Expected Colon ':'")
-        read() // :
+        if (token.tokenType != TokenType.BinaryOperator || token.string != "=") parseError("Expected equals sign '='")
+        read() // =
 
         val value = parseExpression()
 
@@ -474,7 +497,7 @@ class Parser(
       Operation.Call(
         target,
         name = operator.string,
-        arguments = Seq.empty,
+        arguments = Arguments.empty,
         mayBeVarCall = false
       ),
       Some(operator.location.extendWith(lastLocation))

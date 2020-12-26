@@ -57,7 +57,7 @@ object AssignmentTransform extends Transform[Unit] {
         scope = None
       ), location),
       name = "call",
-      arguments = Vector(value),
+      arguments = Arguments(Seq(value), Map.empty),
       mayBeVarCall = false
     ), location)
 }

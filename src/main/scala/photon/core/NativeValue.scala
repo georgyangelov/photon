@@ -1,6 +1,9 @@
 package photon.core
 
-import photon.{EvalError, Interpreter, Lambda, Location, Scope, Struct, Value}
+import photon.core.NativeValue.ValueAssert
+import photon.{Arguments, EvalError, Interpreter, Lambda, Location, Scope, Struct, Value}
+
+import scala.collection.immutable.ListMap
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -70,7 +73,7 @@ trait NativeValue {
   def callOrThrowError(
     context: CallContext,
     name: String,
-    args: Seq[Value],
+    args: Arguments,
     location: Option[Location]
   ): Value = {
     method(context, name, location) match {
@@ -85,19 +88,63 @@ trait NativeMethod {
 
   def call(
     context: CallContext,
-    arguments: Seq[Value],
+    arguments: Arguments,
     location: Option[Location]
   ): Value
 }
 
-case class LambdaMetadata(withSideEffects: Boolean = false)
-case class ScalaMethod(
-  handler: ScalaMethod#MethodHandler,
-  override val withSideEffects: Boolean = false
-) extends NativeMethod {
-  type MethodHandler = (CallContext, Seq[Value], Option[Location]) => Value
+case class Parameter(index: Int, name: String)
 
-  override def call(context: CallContext, arguments: Seq[Value], location: Option[Location]): Value = {
+case class AppliedParameters(parameters: Seq[Parameter], arguments: Arguments) {
+  def getBool(parameter: Parameter): Boolean = get(parameter).asBool
+  def getInt(parameter: Parameter): Int = get(parameter).asInt
+  def getDouble(parameter: Parameter): Double = get(parameter).asDouble
+  def getString(parameter: Parameter): String = get(parameter).asString
+  def getLambda(parameter: Parameter): Lambda = get(parameter).asLambda
+
+  def get(parameter: Parameter): Value = {
+    if (parameter.index < arguments.positional.size) {
+      arguments.positional(parameter.index)
+    } else {
+      arguments.named.get(parameter.name) match {
+        case Some(value) => value
+        case None => throw EvalError(s"Missing argument ${parameter.name} (at index ${parameter.index}", None)
+      }
+    }
+  }
+}
+
+case class LambdaMetadata(withSideEffects: Boolean = false)
+
+case class MethodOptions(
+  parameters: Seq[Parameter],
+  withSideEffects: Boolean = false
+)
+
+case class ScalaMethod(
+  options: MethodOptions,
+  handler: ScalaMethod#MethodHandler
+) extends NativeMethod {
+  type MethodHandler = (CallContext, AppliedParameters, Option[Location]) => Value
+
+  override val withSideEffects: Boolean = options.withSideEffects
+
+  override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
+    handler.apply(
+      context,
+      AppliedParameters(options.parameters, arguments),
+      location
+    )
+  }
+}
+
+case class ScalaVarargMethod(
+  handler: ScalaVarargMethod#MethodHandler,
+  withSideEffects: Boolean = false
+) extends NativeMethod {
+  type MethodHandler = (CallContext, Arguments, Option[Location]) => Value
+
+  override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
     handler.apply(context, arguments, location)
   }
 }
@@ -107,10 +154,5 @@ class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
     context: CallContext,
     name: String,
     location: Option[Location]
-  ): Option[NativeMethod] = {
-    methods.get(name) match {
-      case Some(method) => Some(method)
-      case None => None
-    }
-  }
+  ): Option[NativeMethod] = methods.get(name)
 }

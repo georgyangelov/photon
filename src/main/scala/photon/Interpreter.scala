@@ -119,7 +119,7 @@ class Interpreter() {
   private def callMethod(
     target: Value,
     name: String,
-    arguments: Seq[Value],
+    arguments: Arguments,
     scope: Scope,
     location: Option[Location],
     shouldEvalTarget: Boolean = false,
@@ -137,20 +137,23 @@ class Interpreter() {
       }
     } else target
 
-    val evalArguments = arguments.map(evaluate(_, scope, shouldTryToPartiallyEvaluate, isInPartialEvaluation))
-    val shouldTryToEvaluate = evalTarget.isStatic && evalArguments.forall(_.isStatic)
+    val evaledPositionalArguments = arguments.positional.map(evaluate(_, scope, shouldTryToPartiallyEvaluate, isInPartialEvaluation))
+    val evaledNamedArguments = arguments.named.view.mapValues(evaluate(_, scope, shouldTryToPartiallyEvaluate, isInPartialEvaluation))
+    val evaledArguments = Arguments(evaledPositionalArguments, evaledNamedArguments.toMap)
+
+    val shouldTryToEvaluate = evalTarget.isStatic && evaledPositionalArguments.forall(_.isStatic) && evaledNamedArguments.values.forall(_.isStatic)
 
     if (shouldTryToEvaluate) {
-      logger.debug(s"Can evaluate $evalTarget.$name(${evalArguments.mkString(", ")})")
+      logger.debug(s"Can evaluate $evalTarget.$name(${Unparser.unparse(evaledArguments)})")
     } else {
-      logger.debug(s"Cannot evaluate $evalTarget.$name(${evalArguments.mkString(", ")})")
+      logger.debug(s"Cannot evaluate $evalTarget.$name(${Unparser.unparse(evaledArguments)})")
     }
 
     if (shouldTryToEvaluate) {
       val call = Value.Operation(Operation.Call(
         name = name,
         target = evalTarget,
-        arguments = evalArguments,
+        arguments = evaledArguments,
         mayBeVarCall = false
       ), location)
 
@@ -164,7 +167,8 @@ class Interpreter() {
             logger.debug(s"Not partially evaluating $call because it has side-effects")
             call
           } else {
-            val result = method.call(context, evalTarget +: evalArguments, location)
+            // TODO: Add self as a separate parameter?
+            val result = method.call(context, Arguments(evalTarget +: evaledArguments.positional, evaledArguments.named), location)
 
             logger.debug(s"$call -> $result")
 
@@ -184,7 +188,7 @@ class Interpreter() {
       val call = Value.Operation(Operation.Call(
         name = name,
         target = partiallyEvaluatedTarget,
-        arguments = evalArguments,
+        arguments = evaledArguments,
         mayBeVarCall = false
       ), location)
 

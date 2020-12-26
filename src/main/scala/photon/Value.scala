@@ -39,7 +39,7 @@ sealed abstract class Value extends WithObjectId {
       case Value.Native(native, _) => s"<${native.toString}>"
 
       case Value.Struct(struct, _) =>
-        val values = struct.props.iterator.map { case (key, value) => s"$key: ${value.inspect}" }
+        val values = struct.props.iterator.map { case (key, value) => s"$key = ${value.inspect}" }
 
         s"$${${values.mkString(", ")}}"
 
@@ -121,10 +121,14 @@ sealed abstract class Operation {
         s"{ ${values.map(_.inspect).mkString(" ")} }"
 
       case Operation.Call(target, name, arguments, _) =>
-        if (arguments.isEmpty) {
+        val positionalArguments = arguments.positional.map(_.inspect)
+        val namedArguments = arguments.named.map { case (name, value) => s"(param ${name} ${value.inspect})" }
+        val argumentStrings = positionalArguments ++ namedArguments
+
+        if (argumentStrings.isEmpty) {
           s"($name ${target.inspect})"
         } else {
-          s"($name ${target.inspect} ${arguments.map(_.inspect).mkString(" ")})"
+          s"($name ${target.inspect} ${argumentStrings.mkString(" ")})"
         }
 
       case Operation.NameReference(name) => name
@@ -135,6 +139,12 @@ sealed abstract class Operation {
 object Operation {
   case class Assignment(name: String, value: Value) extends Operation
   case class Block(values: Seq[Value]) extends Operation
-  case class Call(target: Value, name: String, arguments: Seq[Value], mayBeVarCall: Boolean) extends Operation
+  case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
   case class NameReference(name: String) extends Operation
+}
+
+case class Arguments(positional: Seq[Value], named: Map[String, Value])
+
+object Arguments {
+  val empty: Arguments = Arguments(Seq.empty, Map.empty)
 }

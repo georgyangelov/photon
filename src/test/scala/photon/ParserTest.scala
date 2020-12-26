@@ -214,11 +214,35 @@ class ParserTest extends FunSuite {
     assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
   }
 
+  test("named arguments") {
+    assert(parse("fn(a = 1)") == "(fn self (param a 1))")
+    assert(parse("fn(a = 1, b = 2)") == "(fn self (param a 1) (param b 2))")
+
+    // TODO: These should be an error
+    // assert(parse("fn(1, a = 2, 3)"))
+    // assert(parse("fn(a = 2, 3)"))
+  }
+
+  test("named arguments without parens") {
+    assert(parse("fn a = 1") == "(fn self (param a 1))")
+    assert(parse("fn a = 1, b = 2") == "(fn self (param a 1) (param b 2))")
+  }
+
+  test("mixed named arguments") {
+    assert(parse("fn(42, a = 1)") == "(fn self 42 (param a 1))")
+    assert(parse("fn 42, a = 1") == "(fn self 42 (param a 1))")
+  }
+
+  test("direct call on lambda with named arguments") {
+    assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) 1 (param b 2))")
+    assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) (param a 1) (param b 2))")
+  }
+
   test("structs") {
     assert(parse("${}") == "${}")
-    assert(parse("${a: 1}") == "${a: 1}")
+    assert(parse("${ a = 1 }") == "${a = 1}")
 
     // TODO: Fix order
-    assert(parse("${a: 1, b: 2}") == "${a: 1, b: 2}")
+    assert(parse("${ a = 1, b = 2 }") == "${a = 1, b = 2}")
   }
 }

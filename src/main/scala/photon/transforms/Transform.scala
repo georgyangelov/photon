@@ -1,6 +1,6 @@
 package photon.transforms
 
-import photon.{Lambda, Operation, Struct, Value}
+import photon.{Arguments, Lambda, Operation, Struct, Value}
 
 abstract class Transform[Context] {
   type Next = Value => Value;
@@ -33,7 +33,10 @@ abstract class Transform[Context] {
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
         val newTarget = transform(target, context)
-        val newArguments = arguments.map(transform(_, context))
+        val newArguments = Arguments(
+          arguments.positional.map(transform(_, context)),
+          arguments.named.view.mapValues(transform(_, context)).toMap
+        )
 
         Value.Operation(Operation.Call(
           target = newTarget,

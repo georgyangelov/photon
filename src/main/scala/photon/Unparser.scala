@@ -27,14 +27,22 @@ object Unparser {
 
     case Operation.Call(t, name, arguments, _) =>
       val target = unparse(t)
-      s"${if (target == "self") "" else s"$target."}$name(${arguments.map(unparse).mkString(", ")})"
+
+      s"${if (target == "self") "" else s"$target."}$name(${unparse(arguments)})"
 
     case Operation.NameReference(name) => name
   }
 
   def unparse(struct: Struct): String =
-    s"$${ ${struct.props.map { case (k, v) => s"$k: ${unparse(v)}" }.mkString(", ")} }"
+    s"$${ ${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")} }"
 
   def unparse(lambda: Lambda): String =
     s"(${lambda.params.mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }"
+
+  def unparse(arguments: Arguments): String = {
+    val positionalArguments = arguments.positional.map(unparse)
+    val namedArguments = arguments.named.map { case (name, value) => s"${name} = ${unparse(value)}" }
+
+    (positionalArguments ++ namedArguments).mkString(", ")
+  }
 }
