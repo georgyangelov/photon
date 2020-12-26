@@ -144,13 +144,33 @@ class InterpreterTest extends FunSuite {
     expectFail("struct = Struct(a = 42); struct.b", "Cannot call method b on Struct(a = 42)")
   }
 
-  // TODO: Implement this
-//  test("calling methods on structs") {
-//    expect("${ a = { 42 } }.a", "42")
-//    expect("${ a = { 42 } }.a()", "42")
-//    expect("${ a = { 42 } }.a.call", "42")
-//    expect("${ a = { 42 } }.a()", "42")
-//  }
+  test("calling methods on structs") {
+    expect("Struct(a = 42).a", "42")
+    expect("Struct(a = { 42 }).a", "42")
+    expect("Struct(a = { 42 }).a()", "42")
+    expect("Struct(a = { { 42 } }).a.call", "42")
+    expect("Struct(a = { { 42 } }).a()()", "42")
+  }
+
+  test("using structs as objects") {
+    expect(
+      """
+        Dog = Struct(
+          call = (name, age) {
+            Struct(name = name, age = age)
+          },
+
+          humanAge = (self) self.age * 7
+        )
+
+        ralph = Dog("Ralph", age = 2)
+        humanAge = Dog.humanAge(ralph)
+
+        humanAge
+      """.stripMargin,
+      "14"
+    )
+  }
 
 //  test("method handler on structs") {
 //    expect("struct = ${ $method: (name){ { name } } }; struct.hello", "'hello'")

@@ -52,3 +52,13 @@ Cat.meow # This should probably call the method instead of just returning the la
 ```
 
 Can we make lambdas on structs be implicitly called? Or should we not...
+
+---
+
+```
+Cat = Struct(
+  call = (name: String) {
+    Struct(name = name, $companionObject = Cat)
+  }
+)
+```
