@@ -20,7 +20,7 @@ case class StructGetter(propertyName: String) extends NativeMethod {
   }
 }
 
-case class StructObject(struct: Struct, structLocation: Option[Location]) extends NativeObject(Map(
+case class StructObject(struct: Struct) extends NativeObject(Map(
   "to_bool" -> ScalaMethod(
     MethodOptions(Seq.empty),
     { (_, _, l) => Value.Boolean(true, l) }

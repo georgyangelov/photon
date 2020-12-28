@@ -1,22 +1,20 @@
 package photon
 
-import java.util.concurrent.atomic.AtomicLong
-
 import photon.core.NativeValue
 
-case class ObjectId(id: Long) extends AnyVal
+//case class ObjectId(id: Long) extends AnyVal
+//
+//object ObjectId {
+//  val idCounter = new AtomicLong(1)
+//
+//  def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
+//}
+//
+//trait WithObjectId {
+//  val id: ObjectId = ObjectId()
+//}
 
-object ObjectId {
-  val idCounter = new AtomicLong(1)
-
-  def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
-}
-
-trait WithObjectId {
-  val id: ObjectId = ObjectId()
-}
-
-sealed abstract class Value extends WithObjectId {
+sealed abstract class Value {
   def location: Option[Location]
 
   override def toString: String = Unparser.unparse(this)
@@ -79,8 +77,8 @@ sealed abstract class Value extends WithObjectId {
 object Value {
   case class Unknown(location: Option[Location]) extends Value
   case class Nothing(location: Option[Location]) extends Value
-
   case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value
+
   case class Int(value: scala.Int, location: Option[Location]) extends Value
   case class Float(value: scala.Double, location: Option[Location]) extends Value
   case class String(value: java.lang.String, location: Option[Location]) extends Value
@@ -90,6 +88,13 @@ object Value {
   case class Lambda(value: photon.Lambda, location: Option[Location]) extends Value
 
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
+}
+
+sealed abstract class TypeObject {}
+
+object TypeObject {
+  case class Native(native: NativeValue) extends TypeObject
+  case class Struct(struct: photon.Struct) extends TypeObject
 }
 
 case class Scope(parent: Option[Scope], values: Map[String, Value]) {
@@ -125,7 +130,7 @@ sealed abstract class Operation {
 
       case Operation.Call(target, name, arguments, _) =>
         val positionalArguments = arguments.positional.map(_.inspect)
-        val namedArguments = arguments.named.map { case (name, value) => s"(param ${name} ${value.inspect})" }
+        val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspect})" }
         val argumentStrings = positionalArguments ++ namedArguments
 
         if (argumentStrings.isEmpty) {

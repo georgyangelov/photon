@@ -64,6 +64,9 @@ object NativeValue {
 case class CallContext(interpreter: Interpreter, shouldTryToPartiallyEvaluate: Boolean, isInPartialEvaluation: Boolean)
 
 trait NativeValue {
+  // TODO: Implement
+  // def typeStruct: Either[NativeValue, Struct]
+
   def method(
     context: CallContext,
     name: String,

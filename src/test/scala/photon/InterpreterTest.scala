@@ -167,8 +167,28 @@ class InterpreterTest extends FunSuite {
         humanAge = Dog.humanAge(ralph)
 
         humanAge
-      """.stripMargin,
+      """,
       "14"
     )
+  }
+
+  test("typechecking primitive types") {
+    expect("42: Int", "42")
+    expectFail("42: String", "Incompatible types")
+  }
+
+  test("typechecking custom types") {
+    val types = """
+      PositiveInt = Struct(
+        assignableFrom = (self, otherType) self == otherType,
+
+        # TODO: Check if number is positive
+        call = (number) Struct($type = PositiveInt, number = number)
+      )
+    """
+
+    expect(s"$types; PositiveInt(42): PositiveInt", "42")
+    expectFail(s"$types; PositiveInt(42): Int", "Incompatible types")
+    expectFail(s"$types; 42: PositiveInt", "Incompatible types")
   }
 }

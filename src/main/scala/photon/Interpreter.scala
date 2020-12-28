@@ -1,7 +1,7 @@
 package photon
 
 import com.typesafe.scalalogging.Logger
-import photon.core.{CallContext, Core}
+import photon.core.{CallContext, Core, IntRoot, StringRoot}
 import transforms._
 
 case class EvalError(message: String, override val location: Option[Location])
