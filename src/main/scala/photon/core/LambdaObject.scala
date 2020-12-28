@@ -12,8 +12,10 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
 
     Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}")
 
-    val positionalParams = lambda.params.zip(args.positional.drop(1))
-    val namesOfNamedParams = lambda.params.drop(args.positional.size - 1).toSet
+    val lambdaParamNames = lambda.params.map { param => param.name }
+
+    val positionalParams = lambdaParamNames.zip(args.positional.drop(1))
+    val namesOfNamedParams = lambdaParamNames.drop(args.positional.size - 1).toSet
 
     val params = namesOfNamedParams.map { name =>
       args.named.get(name) match {

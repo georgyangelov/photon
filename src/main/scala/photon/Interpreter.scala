@@ -48,7 +48,7 @@ class Interpreter() {
         if (shouldTryToPartiallyEvaluate) {
           val evalScope = Scope(
             Some(scope),
-            params.map((_, Value.Unknown(None))).toMap
+            params.map { parameter => (parameter.name, Value.Unknown(None)) }.toMap
           )
 
           Value.Lambda(

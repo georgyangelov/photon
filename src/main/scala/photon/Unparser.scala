@@ -37,7 +37,14 @@ object Unparser {
     s"Struct(${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
 
   def unparse(lambda: Lambda): String =
-    s"(${lambda.params.mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }"
+    s"(${lambda.params.map(unparse).mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }"
+
+  def unparse(parameter: Parameter): String = {
+    parameter match {
+      case Parameter(name, Some(typeValue)) => s"${name}: ${unparse(typeValue)}"
+      case Parameter(name, None) => name
+    }
+  }
 
   def unparse(arguments: Arguments): String = {
     val positionalArguments = arguments.positional.map(unparse)

@@ -171,17 +171,4 @@ class InterpreterTest extends FunSuite {
       "14"
     )
   }
-
-//  test("method handler on structs") {
-//    expect("struct = ${ $method: (name){ { name } } }; struct.hello", "'hello'")
-//  }
-
-//  test("self value in struct") {
-//    expect("struct = ${ answer: 42, giveAnswer: { self.answer } }; struct.giveAnswer", "42")
-//    expect(
-//      "struct = ${ answer: 42, giveAnswer: { self.answer } }; " +
-//        "giveAnswer = struct.$method('giveAnswer'); " +
-//        "giveAnswer()"
-//      , "42")
-//  }
 }

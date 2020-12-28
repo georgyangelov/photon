@@ -237,4 +237,20 @@ class ParserTest extends FunSuite {
     assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) 1 (param b 2))")
     assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) (param a 1) (param b 2))")
   }
+
+  test("type annotations on values") {
+    assert(parse("42: Int") == "(typeCheck Core 42 Int)")
+    assert(parse("a: Int") == "(typeCheck Core a Int)")
+    assert(parse("\"hello\": String") == "(typeCheck Core \"hello\" String)")
+    assert(parse("42: Map(String, List(Int))") == "(typeCheck Core 42 (Map self String (List self Int)))")
+
+    // TODO: What about this?
+    // assert(parse("fn(42): Int") == "(typeCheck Core (fn self 42) Int)")
+  }
+
+  test("type annotations on function parameters") {
+    assert(parse("(a: Int) a + 1") == "(lambda [(param a Int)] { (+ a 1) })")
+    assert(parse("(a: Int, b: String) a + b") == "(lambda [(param a Int) (param b String)] { (+ a b) })")
+    assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] { 42 })")
+  }
 }

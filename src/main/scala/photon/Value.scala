@@ -45,7 +45,10 @@ sealed abstract class Value extends WithObjectId {
 
       case Value.Lambda(lambda, _) =>
         val body = lambda.body.inspect
-        val params = lambda.params.map(name => s"(param $name)").mkString(" ")
+        val params = lambda.params.map {
+          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspect})"
+          case Parameter(name, None) => s"(param $name)"
+        }.mkString(" ")
 
         s"(lambda [$params] $body)"
 
@@ -107,7 +110,7 @@ case class Struct(props: Map[String, Value]) {
   override def toString: String = Unparser.unparse(this)
 }
 
-case class Lambda(params: Seq[String], scope: Option[Scope], body: Operation.Block) {
+case class Lambda(params: Seq[Parameter], scope: Option[Scope], body: Operation.Block) {
   override def toString: String = Unparser.unparse(this)
 }
 
@@ -142,6 +145,8 @@ object Operation {
   case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
   case class NameReference(name: String) extends Operation
 }
+
+case class Parameter(name: String, typeValue: Option[Value])
 
 case class Arguments(positional: Seq[Value], named: Map[String, Value])
 

@@ -52,7 +52,8 @@ object AssignmentTransform extends Transform[Unit] {
   ): Value =
     Value.Operation(Operation.Call(
       target = Value.Lambda(Lambda(
-        params = Vector(name),
+        // TODO: Figure out how this will affect compilation. Should this be a typed argument or not?
+        params = Seq(Parameter(name, None)),
         body = transformBlock(Operation.Block(scope)),
         scope = None
       ), location),

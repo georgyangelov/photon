@@ -67,7 +67,7 @@ class Parser(
     while (true) {
       if (newline) return left
 
-      if (token.tokenType != TokenType.BinaryOperator) {
+      if (token.tokenType != TokenType.BinaryOperator && token.tokenType != TokenType.Colon) {
         return left
       }
 
@@ -89,6 +89,13 @@ class Parser(
             ), Some(location))
           case _ => throw new ParseError("Left side of assignment must have a name", location)
         }
+      } else if (operator.tokenType == TokenType.Colon) {
+        Value.Operation(Operation.Call(
+          target = Value.Operation(Operation.NameReference("Core"), Some(location)),
+          name = "typeCheck",
+          arguments = Arguments(Seq(left, right), Map.empty),
+          mayBeVarCall = false
+        ), Some(location))
       } else {
         Value.Operation(Operation.Call(
           target = left,
@@ -384,8 +391,8 @@ class Parser(
     )
   }
 
-  private def parseLambdaParameters(): Seq[String] = {
-    val names = Vector.newBuilder[String]
+  private def parseLambdaParameters(): Seq[Parameter] = {
+    val parameters = Vector.newBuilder[Parameter]
 
     read() // (
 
@@ -396,7 +403,16 @@ class Parser(
         while (true) {
           if (token.tokenType != TokenType.Name) parseError("Expected Name")
 
-          names += read().string
+          val name = read().string
+          val typeValue = if (token.tokenType == TokenType.Colon) {
+            read() // :
+
+            Some(parseExpression())
+          } else {
+            None
+          }
+
+          parameters.addOne(Parameter(name, typeValue))
 
           if (token.tokenType != TokenType.Comma) break
           read() // ,
@@ -407,7 +423,7 @@ class Parser(
     if (token.tokenType != TokenType.CloseParen) parseError("Expected CloseParen ')'")
     read() // )
 
-    names.result
+    parameters.result
   }
 
   private def parseBlock(): Operation.Block = {
