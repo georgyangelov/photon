@@ -216,6 +216,8 @@ class Interpreter(val interpreterMode: InterpreterMode) {
             logger.debug(s"$call -> $result")
 
             result
+          } else if (mode == InterpreterMode.Runtime && !method.traits.contains(LambdaTrait.Runtime)) {
+            throw EvalError(s"Could not evaluate compile-time-only function call $call", location)
           } else {
             logger.debug(s"Not evaluating $call because it does not have the required trait for $mode")
             call

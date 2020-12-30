@@ -243,7 +243,12 @@ class Parser(
     if (token.tokenType == TokenType.Dot) {
       read() // .
 
-      if (token.tokenType != TokenType.Name) parseError("Expected name")
+      val canBeAMethodName =
+        token.tokenType == TokenType.Name ||
+        token.tokenType == TokenType.BinaryOperator ||
+        token.tokenType == TokenType.UnaryOperator
+
+      if (!canBeAMethodName) parseError("Expected method name")
 
       val name = read()
       val arguments = parseArguments()

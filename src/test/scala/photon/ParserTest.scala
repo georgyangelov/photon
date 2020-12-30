@@ -138,6 +138,15 @@ class ParserTest extends FunSuite {
     assert(parse("target.method a, b, c") == "(method target a b c)")
   }
 
+  test("methods with operator names") {
+    assert(parse("true.!()") == "(! true)")
+    assert(parse("1.+(42)") == "(+ 1 42)")
+    assert(parse("1.*(42)") == "(* 1 42)")
+    assert(parse("1.==(42)") == "(== 1 42)")
+    assert(parse("1.+=(42)") == "(+= 1 42)")
+    assert(parse("true.and(false)") == "(and true false)")
+  }
+
   test("method chaining") {
     assert(parse("a.b.c") == "(c (b a))")
     assert(parse("a.b.c.d e") == "(d (c (b a)) e)")

@@ -36,12 +36,15 @@ object Unparser {
   def unparse(struct: Struct): String =
     s"Struct(${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
 
-  def unparse(lambda: Lambda): String =
-    s"(${lambda.params.map(unparse).mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }"
+  def unparse(lambda: Lambda): String = {
+    val isCompileTimeOnly = !lambda.traits.contains(LambdaTrait.Runtime)
+
+    s"(${lambda.params.map(unparse).mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }${if (isCompileTimeOnly) ".compileTimeOnly" else ""}"
+  }
 
   def unparse(parameter: Parameter): String = {
     parameter match {
-      case Parameter(name, Some(typeValue)) => s"${name}: ${unparse(typeValue)}"
+      case Parameter(name, Some(typeValue)) => s"$name: ${unparse(typeValue)}"
       case Parameter(name, None) => name
     }
   }

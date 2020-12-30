@@ -1,5 +1,6 @@
 package photon
 
+import com.typesafe.scalalogging.Logger
 import org.scalatest._
 import org.scalatest.Matchers._
 import photon.transforms.AssignmentTransform
@@ -56,6 +57,17 @@ class InterpreterTest extends FunSuite {
     val result = evalRunTime(Unparser.unparse(compiledValue))
 
     assert(s"{ ${result.inspect} }" == parseAsBlock(expectedResult).inspect)
+  }
+
+  def expectRuntimeFail(actualCode: String, message: String): Unit = {
+    val compiledValue = evalCompileTime(None, actualCode)
+    val runtimeCode = Unparser.unparse(compiledValue)
+
+    Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
+
+    val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
+
+    assert(evalError.message.contains(message));
   }
 
   test("can eval simple values") {
@@ -198,13 +210,17 @@ class InterpreterTest extends FunSuite {
   }
 
 // TODO: Make sure this is checked at some point with the type system
-//  test("evaluating compile-time function at runtime is an error") {
+//  test("possibly evaluating compile-time function at runtime is an error") {
 //    expectFail("(a) { fn = () { 42 }.compileTimeOnly; fn(a) }", "Could not evaluate compile-time-only function")
 //    expectFail("runtime = () { 42 }; compileTime = (a) { a + 42 }.compileTimeOnly; compileTime(runtime())", "Could not evaluate compile-time-only function")
 //
 //    expectFail("fn = (a) { 42 }.compileTimeOnly; fn($?)", "Could not evaluate compile-time-only function")
 //    expectFail("(a) { fn = (b) { 42 }.compileTimeOnly.call(a) }", "Could not evaluate compile-time-only function")
 //  }
+
+  test("evaluating compile-time function at runtime is an error") {
+    expectRuntimeFail("runtime = () { 42 }.runTimeOnly; compileTime = (a) { a + 42 }.compileTimeOnly; compileTime(runtime())", "Could not evaluate compile-time-only function")
+  }
 
   test("ref objects") {
     expect("a = Ref(42); a.get", "a = Ref(42); a.get")

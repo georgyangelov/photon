@@ -1,7 +1,6 @@
 package photon
 
 import java.io._
-import java.lang.StringBuilder
 
 import photon.lib.PushbackStringReader
 
@@ -68,6 +67,14 @@ case class Token(tokenType: TokenType, string: String, location: Location, hadWh
 
 class LexerError(message: String, location: Location) extends PhotonError(message, Some(location)) {}
 
+object Lexer {
+  def isStartPartOfName(c: Int): Boolean =
+    Character.isAlphabetic(c) || c == '_' || c == '@' || c == '$'
+
+  def isPartOfName(c: Int): Boolean =
+    Character.isAlphabetic(c) || Character.isDigit(c) || c == '_' || c == '@'
+}
+
 class Lexer private(val fileName: String, val reader: PushbackStringReader) {
   private var c: Int = '\u0000'
   private var atStart = true
@@ -108,7 +115,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
 
     val hadWhitespace = skipWhitespaceAndComments()
     val startLocation = currentLocation
-    val string = new StringBuilder
+    val string = new java.lang.StringBuilder
 
     if (atEnd) {
       return Token(TokenType.EOF, "", startLocation, hadWhitespace)
@@ -131,7 +138,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
 
         Token(TokenType.UnknownLiteral, "$?", startLocation.extendWith(currentLocation), hadWhitespace)
 
-      case '$' if !isStartPartOfName(peek()) =>
+      case '$' if !Lexer.isStartPartOfName(peek()) =>
         singleCharToken(TokenType.Dollar, startLocation, hadWhitespace)
 
       case '=' | '+' | '-' | '*' | '/' | '<' | '>' =>
@@ -158,7 +165,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       case '"' | '\'' =>
         val string = readString()
 
-        Token(TokenType.StringLiteral, string.toString, startLocation.extendWith(currentLocation), hadWhitespace)
+        Token(TokenType.StringLiteral, string, startLocation.extendWith(currentLocation), hadWhitespace)
 
       case '!' if peek() == '=' =>
         next() // !
@@ -181,7 +188,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
           hadWhitespace
         )
 
-      case _ if isStartPartOfName(c) =>
+      case _ if Lexer.isStartPartOfName(c) =>
         val name = readName()
         val tokenType = name match {
           case "and" | "or" => TokenType.BinaryOperator
@@ -196,7 +203,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
   }
 
   private def readString() = {
-    val string = new StringBuilder
+    val string = new java.lang.StringBuilder
     var inEscapeSequence = false
     val quote = next() // ' or "
     val withEscapeSequences = quote == '"'
@@ -228,7 +235,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
   }
 
   private def readNumber(): String = {
-    val string = new StringBuilder
+    val string = new java.lang.StringBuilder
 
     while (Character.isDigit(c)) {
       string.appendCodePoint(next())
@@ -246,10 +253,10 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
   }
 
   private def readName(): String = {
-    val string = new StringBuilder
+    val string = new java.lang.StringBuilder
     string.appendCodePoint(next())
 
-    while (isPartOfName(c)) {
+    while (Lexer.isPartOfName(c)) {
       string.appendCodePoint(next())
     }
 
@@ -330,10 +337,4 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
 
     Token(tokenType, string, startLocation.extendWith(currentLocation), hadWhitespaceBefore)
   }
-
-  private def isStartPartOfName(c: Int): Boolean =
-    Character.isAlphabetic(c) || c == '_' || c == '@' || c == '$'
-
-  private def isPartOfName(c: Int): Boolean =
-    Character.isAlphabetic(c) || Character.isDigit(c) || c == '_' || c == '@'
 }
