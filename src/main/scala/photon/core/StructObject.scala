@@ -1,11 +1,10 @@
 package photon.core
 
-import com.typesafe.scalalogging.Logger
-import photon.{Arguments, EvalError, Lambda, Location, Scope, Struct, Value}
+import photon.{Arguments, EvalError, LambdaTrait, Location, Struct, Value}
 import photon.core.NativeValue._
 
 case class StructGetter(propertyName: String) extends NativeMethod {
-  override val withSideEffects = false
+  override val traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
 
   override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
     val struct = arguments.positional.head.asStruct

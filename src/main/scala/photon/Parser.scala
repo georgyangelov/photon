@@ -351,7 +351,7 @@ class Parser(
     if (token.string.contains(".")) {
       Value.Float(token.string.toDouble, Some(token.location))
     } else {
-      Value.Int(token.string.toInt, Some(token.location))
+      Value.Int(token.string.toInt, Some(token.location), None)
     }
   }
 
@@ -386,7 +386,7 @@ class Parser(
     }
 
     Value.Lambda(
-      Lambda(parameters, None, body),
+      Lambda(parameters, None, body, traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)),
       Some(startLocation.extendWith(lastLocation))
     )
   }

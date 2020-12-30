@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Parser, Token, Value}
+import photon.{LambdaTrait, Parser, Token, Value}
 
 case class MetaValueObject(value: Value) extends NativeObject(Map(
   "#" -> ScalaMethod(
@@ -28,12 +28,12 @@ case class TokenObject(token: Token) extends NativeObject(Map(
 
 case class ParserObject(parser: Parser) extends NativeObject(Map(
   "parse_next" -> ScalaMethod(
-    MethodOptions(Seq.empty, withSideEffects = true),
+    MethodOptions(Seq.empty, traits = Set(LambdaTrait.CompileTime)),
     { (c, args, l) => Value.Native(MetaValueObject(parser.parseNext()), None) }
   ),
 
   "token" -> ScalaMethod(
-    MethodOptions(Seq.empty, withSideEffects = true),
+    MethodOptions(Seq.empty, traits = Set(LambdaTrait.CompileTime)),
     { (c, args, l) => Value.Native(TokenObject(parser.token), l) }
   )
 ))

@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.Value
+import photon.{TypeObject, Value}
 import photon.core.NativeValue._
 
 object IntParams {
@@ -13,17 +13,17 @@ import IntParams._
 object IntObject extends NativeObject(Map(
   "+" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Int(args.getInt(FirstParam) + args.getInt(SecondParam), l) }
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) + args.getInt(SecondParam), l, Some(TypeObject.Native(IntRoot))) }
   ),
 
   "-" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Int(args.getInt(FirstParam) - args.getInt(SecondParam), l) }
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) - args.getInt(SecondParam), l, Some(TypeObject.Native(IntRoot))) }
   ),
 
   "*" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Int(args.getInt(FirstParam) * args.getInt(SecondParam), l) }
+    { (_, args, l) => Value.Int(args.getInt(FirstParam) * args.getInt(SecondParam), l, Some(TypeObject.Native(IntRoot))) }
   ),
 
   "/" -> ScalaMethod(

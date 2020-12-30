@@ -20,7 +20,7 @@ class CoreTest extends FunSuite {
   }
 
   def eval(code: String): Value = {
-    val interpreter = new Interpreter()
+    val interpreter = new Interpreter(InterpreterMode.CompileTime)
     val core = Source.fromResource("runtime/core.y").mkString
     val preludeValue = parseAsBlock(core, "core.y", interpreter.macroHandler)
 

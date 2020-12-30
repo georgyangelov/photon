@@ -5,7 +5,7 @@ object Unparser {
     case Value.Unknown(_) => "$?"
     case Value.Nothing(_) => "$nothing"
     case Value.Boolean(value, _) => value.toString
-    case Value.Int(value, _) => value.toString
+    case Value.Int(value, _, _) => value.toString
     case Value.Float(value, _) => value.toString
     case Value.String(value, _) =>
       "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""

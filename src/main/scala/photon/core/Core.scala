@@ -11,7 +11,7 @@ object Core {
     case Value.Nothing(location) => error(location)
 
     case Value.Boolean(_, _) => BoolObject
-    case Value.Int(_, _) => IntObject
+    case Value.Int(_, _, _) => IntObject
     case Value.Lambda(lambda, _) => nativeValueFor(lambda)
     case Value.String(_, _) => StringObject
     case Value.Native(native, _) => native
@@ -23,6 +23,21 @@ object Core {
 
   def nativeValueFor(lambda: Lambda): NativeValue = LambdaObject(lambda)
   def nativeValueFor(struct: Struct): NativeValue = StructObject(struct)
+
+  def isSameObject(a: Value, b: Value): Boolean = {
+    (a, b) match {
+      case (Value.Nothing(_), Value.Nothing(_)) => true
+      case (Value.Boolean(one, _), Value.Boolean(two, _)) => one == two
+      case (Value.Int(one, _, _), Value.Int(two, _, _)) => one == two
+      case (Value.Float(one, _), Value.Float(two, _)) => one == two
+      case (Value.String(one, _), Value.String(two, _)) => one == two
+      case (Value.Native(one, _), Value.Native(two, _)) => one == two
+      case (Value.Struct(one, _), Value.Struct(two, _)) => one == two
+      case (Value.Lambda(one, _), Value.Lambda(two, _)) => one == two
+      case (Value.Operation(one, _), Value.Operation(two, _)) => one == two
+      case _ => false
+    }
+  }
 
   private def error(l: Option[Location]): Nothing = {
     throw EvalError("Cannot call methods on this object (yet)", l)
@@ -36,7 +51,7 @@ object StructRoot extends NativeObject(Map(
     }
 
     Value.Struct(Struct(args.named), l)
-  }, withSideEffects = false)
+  })
 ))
 
 object IntRootParams {
@@ -47,7 +62,7 @@ object IntRootParams {
 object IntRoot extends NativeObject(Map(
   "assignableFrom" -> ScalaMethod(
     MethodOptions(Seq(IntRootParams.Self, IntRootParams.Other)),
-    (_, args, l) => Value.Boolean(args.get(IntRootParams.Self) == args.get(IntRootParams.Other), l)
+    (_, args, l) => Value.Boolean(Core.isSameObject(args.get(IntRootParams.Self), args.get(IntRootParams.Other)), l)
   )
 ))
 
@@ -119,7 +134,7 @@ class Core extends NativeValue {
             val value = args.get(CoreParams.TypeCheckValue)
             val expectedTypeValue = args.get(CoreParams.TypeCheckType)
 
-            val actualTypeValue = typeOf(value) match {
+            val actualTypeValue = value.typeObject match {
               case Some(TypeObject.Native(native)) => Value.Native(native, value.location)
               case Some(TypeObject.Struct(struct)) => Value.Struct(struct, value.location)
               case None => throw EvalError("Bad state - typeCheck called on value but value does not have an inferred type", l)
@@ -133,10 +148,12 @@ class Core extends NativeValue {
             ).asBool
 
             if (areTypesCompatible) {
-              value.withType(typeValue)
+              // TODO: New Value variant which changes the type?
+              // value.withType(typeValue)
+              value
             } else {
               // TODO: Type objects should contain name function
-              throw EvalError(s"Incompatible types. ${value.type} is not assignable to ${typeValue}", l)
+              throw EvalError(s"Incompatible types. $actualTypeValue is not assignable to $expectedTypeValue", l)
             }
           }
         )

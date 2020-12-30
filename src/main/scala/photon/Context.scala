@@ -11,7 +11,7 @@ class Context {
       case Value.Unknown(location) =>
       case Value.Nothing(location) =>
       case Value.Boolean(value, location) =>
-      case Value.Int(value, location) =>
+      case Value.Int(value, location, _) =>
       case Value.Float(value, location) =>
       case Value.String(value, location) =>
       case Value.Native(value, location) =>

@@ -12,7 +12,7 @@ abstract class Transform[Context] {
       case Value.Unknown(_)    |
            Value.Nothing(_)    |
            Value.Boolean(_, _) |
-           Value.Int(_, _)     |
+           Value.Int(_, _, _)  |
            Value.Float(_, _)   |
            Value.Operation(Operation.NameReference(_), _) |
            Value.String(_, _) |
@@ -23,10 +23,10 @@ abstract class Transform[Context] {
 
         Value.Struct(Struct(newProps), location)
 
-      case Value.Lambda(Lambda(params, scope, body), location) =>
+      case Value.Lambda(Lambda(params, scope, body, traits), location) =>
         val newBody = Operation.Block(body.values.map(transform(_, context)))
 
-        Value.Lambda(Lambda(params, scope, newBody), location)
+        Value.Lambda(Lambda(params, scope, newBody, traits), location)
 
       case Value.Operation(Operation.Block(values), location) =>
         Value.Operation(Operation.Block(values.map(transform(_, context))), location)

@@ -16,6 +16,7 @@ import photon.core.NativeValue
 
 sealed abstract class Value {
   def location: Option[Location]
+  def typeObject: Option[TypeObject] = None
 
   override def toString: String = Unparser.unparse(this)
 
@@ -25,7 +26,7 @@ sealed abstract class Value {
       case Value.Nothing(_) => "$nothing"
 
       case Value.Boolean(value, _) => value.toString
-      case Value.Int(value, _) => value.toString
+      case Value.Int(value, _, _) => value.toString
       case Value.Float(value, _) => value.toString
       case Value.String(value, _) =>
         val escapedString = value
@@ -77,9 +78,9 @@ sealed abstract class Value {
 object Value {
   case class Unknown(location: Option[Location]) extends Value
   case class Nothing(location: Option[Location]) extends Value
-  case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value
 
-  case class Int(value: scala.Int, location: Option[Location]) extends Value
+  case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value
+  case class Int(value: scala.Int, location: Option[Location], override val typeObject: Option[TypeObject]) extends Value
   case class Float(value: scala.Double, location: Option[Location]) extends Value
   case class String(value: java.lang.String, location: Option[Location]) extends Value
 
@@ -90,11 +91,19 @@ object Value {
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
 }
 
-sealed abstract class TypeObject {}
+sealed abstract class TypeObject
 
 object TypeObject {
   case class Native(native: NativeValue) extends TypeObject
   case class Struct(struct: photon.Struct) extends TypeObject
+}
+
+sealed abstract class LambdaTrait
+
+object LambdaTrait {
+  case object Partial extends LambdaTrait
+  case object CompileTime extends LambdaTrait
+  case object Runtime extends LambdaTrait
 }
 
 case class Scope(parent: Option[Scope], values: Map[String, Value]) {
@@ -115,7 +124,7 @@ case class Struct(props: Map[String, Value]) {
   override def toString: String = Unparser.unparse(this)
 }
 
-case class Lambda(params: Seq[Parameter], scope: Option[Scope], body: Operation.Block) {
+case class Lambda(params: Seq[Parameter], scope: Option[Scope], body: Operation.Block, traits: Set[LambdaTrait]) {
   override def toString: String = Unparser.unparse(this)
 }
 
@@ -149,6 +158,7 @@ object Operation {
   case class Block(values: Seq[Value]) extends Operation
   case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
   case class NameReference(name: String) extends Operation
+  case class Let(name: String, value: Value, block: Block) extends Operation
 }
 
 case class Parameter(name: String, typeValue: Option[Value])

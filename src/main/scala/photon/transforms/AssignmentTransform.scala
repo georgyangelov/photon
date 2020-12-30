@@ -9,8 +9,8 @@ object AssignmentTransform extends Transform[Unit] {
     case Value.Operation(block @ Operation.Block(_), location) =>
       Value.Operation(transformBlock(block), location)
 
-    case Value.Lambda(Lambda(params, scope, body), location) =>
-      Value.Lambda(Lambda(params, scope, transformBlock(body)), location)
+    case Value.Lambda(Lambda(params, scope, body, traits), location) =>
+      Value.Lambda(Lambda(params, scope, transformBlock(body), traits), location)
 
     case value @ _ => value
   }
@@ -50,12 +50,21 @@ object AssignmentTransform extends Transform[Unit] {
     scope: Seq[Value],
     location: Option[Location]
   ): Value =
+//    Value.Operation(
+//      Operation.Let(
+//        name,
+//        value,
+//        transformBlock(Operation.Block(scope))
+//      ),
+//      location
+//    )
     Value.Operation(Operation.Call(
       target = Value.Lambda(Lambda(
         // TODO: Figure out how this will affect compilation. Should this be a typed argument or not?
         params = Seq(Parameter(name, None)),
         body = transformBlock(Operation.Block(scope)),
-        scope = None
+        scope = None,
+        traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
       ), location),
       name = "call",
       arguments = Arguments(Seq(value), Map.empty),
