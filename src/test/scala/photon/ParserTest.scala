@@ -6,7 +6,7 @@ class ParserTest extends FunSuite {
   def parse(code: String): String = {
     new Parser(new Lexer("<testing>", code), Parser.BlankMacroHandler)
       .parseAll()
-      .map(_.inspect)
+      .map(_.inspectAST)
       .mkString(" ")
   }
 

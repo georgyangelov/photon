@@ -19,6 +19,10 @@ object InterpreterMode {
   }
 
   case object CompileTime extends InterpreterMode("compile-time") {
+    override val shouldTryToPartiallyEvaluate: Boolean = false
+  }
+
+  case object CompileTimeOrPartial extends InterpreterMode("compile-time-or-partial") {
     override val shouldTryToPartiallyEvaluate: Boolean = true
   }
 
@@ -38,7 +42,7 @@ class Interpreter(val interpreterMode: InterpreterMode) {
     evaluate(AssignmentTransform.transform(value, None), core.rootScope, interpreterMode)
 
   def evaluate(value: Value, scope: Scope, mode: InterpreterMode): Value = {
-    logger.debug(s"Evaluating $value in $scope")
+    logger.debug(s"[$mode] Evaluating $value in $scope")
 
     value match {
       case
@@ -99,8 +103,13 @@ class Interpreter(val interpreterMode: InterpreterMode) {
         values.zipWithIndex.foreach { case (value, index) =>
           val evalValue = evaluate(value, scope, evalMode)
 
-          if (mode == InterpreterMode.CompileTime && evalValue.isDynamic) {
-            evalMode = InterpreterMode.PartialEvaluation
+          if (evalValue.isDynamic) {
+            if (mode.shouldTryToPartiallyEvaluate) {
+              evalMode = InterpreterMode.PartialEvaluation
+            } else if (mode == InterpreterMode.Runtime) {
+              // TODO: Test this
+              throw EvalError(s"Could not evaluate $evalValue", location)
+            }
           }
 
           if (value.isOperation || index == lastIndex) {
@@ -135,14 +144,41 @@ class Interpreter(val interpreterMode: InterpreterMode) {
       case Value.Operation(Operation.Assignment(_, _), _) =>
         evalError(value, "This should have been transformed to a let")
 
-//      case Value.Operation(Operation.Let(name, value, block), location) =>
-//        if (shouldTryToPartiallyEvaluate) {
-//          val evalScope = Scope(
-//            Some(scope),
-//            Map(name, )
-//          )
+      case let @ Value.Operation(Operation.Let(name, value, block), location) =>
+        val scopeMap: mutable.Map[String, Value] = mutable.Map((name, Value.Unknown(location)))
+        val evalScope = Scope(Some(scope), scopeMap)
+
+        // TODO: Make sure it is a compile-time error to directly use the reference in the expression
+        val evalValue = evaluate(value, evalScope, mode)
+
+        if (mode == InterpreterMode.Runtime && evalValue.isDynamic) {
+          throw EvalError(s"Could not evaluate $let, probably due to the value referencing itself", location)
+        }
+
+        scopeMap.addOne(name, evalValue)
+
+        val blockEvalMode = if (mode.shouldTryToPartiallyEvaluate && evalValue.isDynamic) {
+          InterpreterMode.PartialEvaluation
+        } else {
+          mode
+        }
+
+        val evalBlock = evaluate(block, location, evalScope, blockEvalMode)
+
+        if (evalBlock.values.length == 1 && evalBlock.values.head.isStatic) {
+          evalBlock.values.head
+        } else {
+          Value.Operation(Operation.Let(name, evalValue, evalBlock), location)
+        }
+
+//        if (evalValue.isStatic && interpreterMode != InterpreterMode.PartialEvaluation) {
 //
-//          val evalBlock = evaluate(block, evalScope, shouldTryToPartiallyEvaluate, isInPartialEvaluation = true)
+//        } else if (interpreterMode.shouldTryToPartiallyEvaluate) {
+//          // TODO: If `evalValue` is an operation or a struct, try to partially evaluate again, now knowing that it
+//          //       refers to itself. But be careful because it can now go infinitely recursive.
+//          //       Maybe it's best to not try to partially evaluate anymore and leave it at that?
+//
+//          val evalBlock = evaluate(block, location, evalScope, InterpreterMode.PartialEvaluation)
 //        }
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
@@ -231,7 +267,7 @@ class Interpreter(val interpreterMode: InterpreterMode) {
           case Value.Lambda(_, _) => evaluate(evalTarget, scope, InterpreterMode.PartialEvaluation)
           case _ => evalTarget
         }
-      } else evalTarget
+      } else target
 
       val call = Value.Operation(Operation.Call(
         name = name,
@@ -258,10 +294,13 @@ class Interpreter(val interpreterMode: InterpreterMode) {
       case InterpreterMode.PartialEvaluation => traits.contains(LambdaTrait.Partial)
       case InterpreterMode.CompileTime => traits.contains(LambdaTrait.CompileTime)
       case InterpreterMode.Runtime => traits.contains(LambdaTrait.Runtime)
+
+      // TODO: Should this switch to Partial if the function supports that instead?
+      case InterpreterMode.CompileTimeOrPartial => traits.contains(LambdaTrait.CompileTime)
     }
   }
 
   private def evalError(value: Value, message: String): Nothing = {
-    throw EvalError(s"Cannot evaluate ${value.inspect}. $message".strip(), value.location)
+    throw EvalError(s"Cannot evaluate ${value.inspectAST}. $message".strip(), value.location)
   }
 }

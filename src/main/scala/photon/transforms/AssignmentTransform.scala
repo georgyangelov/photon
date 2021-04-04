@@ -49,25 +49,28 @@ object AssignmentTransform extends Transform[Unit] {
     value: Value,
     scope: Seq[Value],
     location: Option[Location]
-  ): Value =
-//    Value.Operation(
-//      Operation.Let(
-//        name,
-//        value,
-//        transformBlock(Operation.Block(scope))
-//      ),
-//      location
-//    )
-    Value.Operation(Operation.Call(
-      target = Value.Lambda(Lambda(
-        // TODO: Figure out how this will affect compilation. Should this be a typed argument or not?
-        params = Seq(Parameter(name, None)),
-        body = transformBlock(Operation.Block(scope)),
-        scope = None,
-        traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
-      ), location),
-      name = "call",
-      arguments = Arguments(Seq(value), Map.empty),
-      mayBeVarCall = false
-    ), location)
+  ): Value = {
+    // TODO: Remove this transform, we shouldn't need it, can do this in the parser
+    Value.Operation(
+      Operation.Let(
+        name,
+        value,
+        transformBlock(Operation.Block(scope))
+      ),
+      location
+    )
+  }
+
+//  Value.Operation(Operation.Call(
+//      target = Value.Lambda(Lambda(
+//        // TODO: Figure out how this will affect compilation. Should this be a typed argument or not?
+//        params = Seq(Parameter(name, None)),
+//        body = transformBlock(Operation.Block(scope)),
+//        scope = None,
+//        traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
+//      ), location),
+//      name = "call",
+//      arguments = Arguments(Seq(value), Map.empty),
+//      mayBeVarCall = false
+//    ), location)
 }

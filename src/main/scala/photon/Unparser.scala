@@ -15,7 +15,7 @@ object Unparser {
     case Value.Lambda(lambda, _) => unparse(lambda)
     case Value.Operation(operation, _) => unparse(operation)
 
-    case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
+    case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
   }
 
   def unparse(operation: Operation): String = operation match {
@@ -23,7 +23,7 @@ object Unparser {
       s"$name = ${unparse(value)}"
 
     case Operation.Block(values) =>
-      s"{ ${values.map(unparse).mkString("; ")} }"
+      values.map(unparse).mkString("; ")
 
     case Operation.Call(t, name, arguments, _) =>
       val target = unparse(t)
@@ -31,6 +31,8 @@ object Unparser {
       s"${if (target == "self") "" else s"$target."}$name(${unparse(arguments)})"
 
     case Operation.NameReference(name) => name
+
+    case Operation.Let(name, value, block) => s"$name = ${unparse(value)}; ${unparse(block)}"
   }
 
   def unparse(struct: Struct): String =
@@ -39,7 +41,7 @@ object Unparser {
   def unparse(lambda: Lambda): String = {
     val isCompileTimeOnly = !lambda.traits.contains(LambdaTrait.Runtime)
 
-    s"(${lambda.params.map(unparse).mkString(", ")}) { ${lambda.body.values.map(unparse).mkString("; ")} }${if (isCompileTimeOnly) ".compileTimeOnly" else ""}"
+    s"(${lambda.params.map(unparse).mkString(", ")}) { ${unparse(lambda.body)} }${if (isCompileTimeOnly) ".compileTimeOnly" else ""}"
   }
 
   def unparse(parameter: Parameter): String = {

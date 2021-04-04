@@ -31,6 +31,11 @@ object IntObject extends NativeObject(Map(
     { (_, args, l) => Value.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam), l) }
   ),
 
+  "==" -> ScalaMethod(
+    MethodOptions(Seq(FirstParam, SecondParam)),
+    { (_, args, l) => Value.Boolean(args.getInt(FirstParam) == args.getInt(SecondParam), l) }
+  ),
+
   "to_bool" -> ScalaMethod(
     MethodOptions(Seq()),
     { (_, _, l) => Value.Boolean(true, l) }

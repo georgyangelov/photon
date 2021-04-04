@@ -1,6 +1,7 @@
 package photon
 
 import photon.core.NativeValue
+import scala.collection.Map
 
 //case class ObjectId(id: Long) extends AnyVal
 //
@@ -20,7 +21,7 @@ sealed abstract class Value {
 
   override def toString: String = Unparser.unparse(this)
 
-  def inspect: String = {
+  def inspectAST: String = {
     this match {
       case Value.Unknown(_) => "$?"
       case Value.Nothing(_) => "$nothing"
@@ -38,20 +39,20 @@ sealed abstract class Value {
       case Value.Native(native, _) => s"<${native.toString}>"
 
       case Value.Struct(struct, _) =>
-        val values = struct.props.iterator.map { case (key, value) => s"$key = ${value.inspect}" }
+        val values = struct.props.iterator.map { case (key, value) => s"$key = ${value.inspectAST}" }
 
         s"$${${values.mkString(", ")}}"
 
       case Value.Lambda(lambda, _) =>
-        val body = lambda.body.inspect
+        val body = lambda.body.inspectAST
         val params = lambda.params.map {
-          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspect})"
+          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
           case Parameter(name, None) => s"(param $name)"
         }.mkString(" ")
 
         s"(lambda [$params] $body)"
 
-      case Value.Operation(operation, _) => operation.inspect
+      case Value.Operation(operation, _) => operation.inspectAST
     }
   }
 
@@ -131,24 +132,26 @@ case class Lambda(params: Seq[Parameter], scope: Option[Scope], body: Operation.
 sealed abstract class Operation {
   override def toString: String = Unparser.unparse(this)
 
-  def inspect: String = {
+  def inspectAST: String = {
     this match {
-      case Operation.Assignment(name, value) => s"($$assign $name ${value.inspect})"
+      case Operation.Assignment(name, value) => s"($$assign $name ${value.inspectAST})"
       case Operation.Block(values) =>
-        s"{ ${values.map(_.inspect).mkString(" ")} }"
+        s"{ ${values.map(_.inspectAST).mkString(" ")} }"
 
       case Operation.Call(target, name, arguments, _) =>
-        val positionalArguments = arguments.positional.map(_.inspect)
-        val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspect})" }
+        val positionalArguments = arguments.positional.map(_.inspectAST)
+        val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspectAST})" }
         val argumentStrings = positionalArguments ++ namedArguments
 
         if (argumentStrings.isEmpty) {
-          s"($name ${target.inspect})"
+          s"($name ${target.inspectAST})"
         } else {
-          s"($name ${target.inspect} ${argumentStrings.mkString(" ")})"
+          s"($name ${target.inspectAST} ${argumentStrings.mkString(" ")})"
         }
 
       case Operation.NameReference(name) => name
+
+      case Operation.Let(name, value, block) => s"(let $name ${value.inspectAST} ${block.inspectAST})"
     }
   }
 }
