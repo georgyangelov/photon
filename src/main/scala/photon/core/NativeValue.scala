@@ -119,7 +119,7 @@ case class LambdaMetadata(withSideEffects: Boolean = false)
 
 case class MethodOptions(
   parameters: Seq[Parameter],
-  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
+  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
 )
 
 case class ScalaMethod(
@@ -141,7 +141,7 @@ case class ScalaMethod(
 
 case class ScalaVarargMethod(
   handler: ScalaVarargMethod#MethodHandler,
-  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)
+  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
 ) extends NativeMethod {
   type MethodHandler = (CallContext, Arguments, Option[Location]) => Value
 

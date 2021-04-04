@@ -112,6 +112,7 @@ object LambdaTrait {
   case object Partial extends LambdaTrait
   case object CompileTime extends LambdaTrait
   case object Runtime extends LambdaTrait
+  case object Pure extends LambdaTrait
 }
 
 case class Scope(parent: Option[Scope], values: Map[String, Value]) {
@@ -141,9 +142,10 @@ sealed abstract class Operation {
 
   def inspectAST: String = {
     this match {
-      case Operation.Assignment(name, value) => s"($$assign $name ${value.inspectAST})"
       case Operation.Block(values) =>
-        s"{ ${values.map(_.inspectAST).mkString(" ")} }"
+        if (values.nonEmpty) {
+          s"{ ${values.map(_.inspectAST).mkString(" ")} }"
+        } else { "{}" }
 
       case Operation.Call(target, name, arguments, _) =>
         val positionalArguments = arguments.positional.map(_.inspectAST)
@@ -164,7 +166,6 @@ sealed abstract class Operation {
 }
 
 object Operation {
-  case class Assignment(name: String, value: Value) extends Operation
   case class Block(values: Seq[Value]) extends Operation
   case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
   case class NameReference(name: String) extends Operation

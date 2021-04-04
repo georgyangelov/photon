@@ -50,8 +50,8 @@ class ParserTest extends FunSuite {
   }
 
   test("assignment") {
-    assert(parse("a = 15") == "($assign a 15)")
-    assert(parse("a = 5 * 5") == "($assign a (* 5 5))")
+    assert(parse("a = 15") == "(let a 15 {})")
+    assert(parse("a = 5 * 5") == "(let a (* 5 5) {})")
   }
 
   test("prefix operators") {
@@ -85,7 +85,7 @@ class ParserTest extends FunSuite {
   }
 
   test("newlines in expressions") {
-    assert(parse("a =\n\n 5 * 5") == "($assign a (* 5 5))")
+    assert(parse("a =\n\n 5 * 5") == "(let a (* 5 5) {})")
 
     assert(parse("1 + 2 - 5") == "(- (+ 1 2) 5)")
     assert(parse("1 + 2 \n - 5") == "(+ 1 2) (- 5)")

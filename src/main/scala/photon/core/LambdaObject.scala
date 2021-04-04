@@ -43,9 +43,10 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     MethodOptions(Seq(LambdaParams.Self)),
     { (_, args, l) =>
       val lambda = args.getLambda(LambdaParams.Self)
+      val traits = lambda.traits.removedAll(Set(LambdaTrait.CompileTime, LambdaTrait.Partial))
 
       Value.Lambda(
-        Lambda(lambda.params, lambda.scope, lambda.body, traits = Set(LambdaTrait.Runtime)),
+        Lambda(lambda.params, lambda.scope, lambda.body, traits),
         l
       )
     }
@@ -55,9 +56,10 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     MethodOptions(Seq(LambdaParams.Self)),
     { (_, args, l) =>
       val lambda = args.getLambda(LambdaParams.Self)
+      val traits = lambda.traits.removedAll(Set(LambdaTrait.Runtime, LambdaTrait.Partial))
 
       Value.Lambda(
-        Lambda(lambda.params, lambda.scope, lambda.body, traits = Set(LambdaTrait.CompileTime)),
+        Lambda(lambda.params, lambda.scope, lambda.body, traits),
         l
       )
     }

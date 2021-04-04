@@ -83,10 +83,12 @@ class Parser(
       left = if (operator.string == "=") {
         left match {
           case Value.Operation(Operation.NameReference(name), _) =>
-            Value.Operation(Operation.Assignment(
-              name = name,
-              value = right
-            ), Some(location))
+            val body = parseRestOfBlock()
+
+            Value.Operation(
+              Operation.Let(name, right, body),
+              Some(location)
+            )
           case _ => throw new ParseError("Left side of assignment must have a name", location)
         }
       } else if (operator.tokenType == TokenType.Colon) {
@@ -315,19 +317,19 @@ class Parser(
     val positionalArguments = Vector.newBuilder[Value]
     val namedArguments = ListMap.newBuilder[String, Value]
 
-    var value = parseExpression()
+    var value = parseArgument()
     value match {
-      case Value.Operation(Operation.Assignment(name, value), _) => namedArguments.addOne(name, value)
-      case _ => positionalArguments.addOne(value)
+      case (Some(name), value) => namedArguments.addOne(name, value)
+      case (None, value) => positionalArguments.addOne(value)
     }
 
     while (token.tokenType == TokenType.Comma) {
       read() // ,
 
-      value = parseExpression()
+      value = parseArgument()
       value match {
-        case Value.Operation(Operation.Assignment(name, value), _) => namedArguments.addOne(name, value)
-        case _ => positionalArguments.addOne(value)
+        case (Some(name), value) => namedArguments.addOne(name, value)
+        case (None, value) => positionalArguments.addOne(value)
       }
     }
 
@@ -342,6 +344,34 @@ class Parser(
     }
 
     Arguments(positionalArguments.result(), namedArguments.result())
+  }
+
+  private def parseArgument(): (Option[String], Value) = {
+    val name = if (isNamedArgument) {
+      val name = read()
+
+      read() // =
+
+      Some(name.string)
+    } else { None }
+
+    val value = parseExpression()
+
+    (name, value)
+  }
+
+  private def isNamedArgument: Boolean = {
+    val reader = this.reader.lookAhead()
+    val hasName = token.tokenType == TokenType.Name
+
+    if (!hasName) {
+      return false
+    }
+
+    val nextToken = reader.nextToken()
+    val hasEqualsSign = nextToken.tokenType == TokenType.BinaryOperator && nextToken.string == "="
+
+    hasEqualsSign
   }
 
   private def parseBool(): Value.Boolean = {
@@ -391,7 +421,7 @@ class Parser(
     }
 
     Value.Lambda(
-      Lambda(parameters, None, body, traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime)),
+      Lambda(parameters, None, body, traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)),
       Some(startLocation.extendWith(lastLocation))
     )
   }
@@ -435,6 +465,16 @@ class Parser(
     val values = Vector.newBuilder[Value]
 
     while (token.tokenType != TokenType.CloseBrace) {
+      values += parseExpression()
+    }
+
+    Block(values.result)
+  }
+
+  private def parseRestOfBlock(): Operation.Block = {
+    val values = Vector.newBuilder[Value]
+
+    while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.EOF) {
       values += parseExpression()
     }
 

@@ -19,9 +19,6 @@ object Unparser {
   }
 
   def unparse(operation: Operation): String = operation match {
-    case Operation.Assignment(name, value) =>
-      s"$name = ${unparse(value)}"
-
     case Operation.Block(values) =>
       values.map(unparse).mkString("; ")
 

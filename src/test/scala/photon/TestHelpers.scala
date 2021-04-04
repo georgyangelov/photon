@@ -20,15 +20,14 @@ object TestHelpers {
   def evalCompileTime(prelude: Option[String], code: String): Value = {
     val interpreter = new Interpreter(RunMode.CompileTime)
 
-//    prelude match {
-//      case Some(prelude) =>
-//        val preludeValue = parseCode(prelude, interpreter.macroHandler)
-//        interpreter.evaluate(preludeValue)
-//      case None =>
-//    }
-//
-//    val value = parseCode(code, interpreter.macroHandler)
-    val value = parseCode(code, Parser.BlankMacroHandler)
+    prelude match {
+      case Some(prelude) =>
+        val preludeValue = parseCode(prelude, interpreter.macroHandler)
+        interpreter.evaluate(preludeValue)
+      case None =>
+    }
+
+    val value = parseCode(code, interpreter.macroHandler)
 
     interpreter.evaluate(value)
   }

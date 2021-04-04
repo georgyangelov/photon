@@ -64,6 +64,139 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
+  test("does not try to compile-time evaluate functions with some unknown arguments") {
+    expectEvalCompileTime(
+      """
+          unknown = () { 42 }
+          add = (a, b) { a + b }
+          var1 = unknown()
+          var2 = 11
+
+          add(var1, var2)
+      """,
+      "53"
+    )
+
+    expectEvalCompileTime(
+      """
+          unknown = () { 42 }.runTimeOnly
+          add = (a, b) { a + b }
+          var1 = unknown()
+          var2 = 11
+
+          add(var1, var2)
+      """,
+      """
+          unknown = () { 42 }
+          add = (a, b) { a + b }
+          var1 = unknown()
+          var2 = 11
+
+          add(var1, var2)
+      """
+    )
+  }
+
+  test("evaluates some functions and leaves others during compile-time") {
+    expectEvalCompileTime(
+      """
+          unknown = () { 42 }.runTimeOnly
+          add = (a, b) { a + b }
+          var1 = unknown()
+          var2 = add(1, 10)
+
+          add(var1, var2)
+      """,
+      """
+          unknown = () { 42 }
+          add = (a, b) { a + b }
+          var1 = unknown()
+          var2 = 11
+
+          add(var1, var2)
+      """
+    )
+  }
+
+  test("evaluates some functions compile-time inside of lambdas during compile-time") {
+    expectEvalCompileTime(
+      """
+          () {
+            unknown = () { 42 }.runTimeOnly
+            add = (a, b) { a + b }
+            var1 = unknown()
+            var2 = add(1, 10)
+
+            add(var1, var2)
+          }
+      """,
+      """
+          () {
+            unknown = () { 42 }
+            add = (a, b) { a + b }
+            var1 = unknown()
+            var2 = 11
+
+            add(var1, var2)
+          }
+      """
+    )
+  }
+
+  test("supports simple parser macros") {
+    val macroDefinition = """
+        Core.define_macro 'plusOne', (parser) {
+          parser.parse_next.eval + 1
+        }
+    """
+
+    expectEvalCompileTime(macroDefinition, "plusOne 41","42")
+    expectEvalCompileTime(
+      macroDefinition,
+      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
+      "unknown = () { 41 }; unknown() + 1"
+    )
+  }
+
+  test("supports simple parser macros with lets") {
+    val macroDefinition = """
+        Core.define_macro 'plusOne', (parser) {
+          number = parser.parse_next.eval
+
+          number + 1
+        }
+    """
+
+    expectEvalCompileTime(macroDefinition, "plusOne 41","42")
+    expectEvalCompileTime(
+      macroDefinition,
+      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
+      "unknown = () { 41 }; number = unknown(); number + 1"
+    )
+  }
+
+//  test("supports parser macros") {
+//    val macroDefinition = """
+//        Core.define_macro 'if', (parser) {
+//          condition = parser.parse_next
+//          if_true = parser.parse_next
+//          if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
+//
+//          condition.eval.to_bool.if_else(if_true.eval, if_false)
+//        }
+//    """
+//
+//    expectEvalCompileTime(macroDefinition, "if true { 42 }","42")
+//    expectEvalCompileTime(macroDefinition, "if true { 42 } else { 11 }","42")
+//    expectEvalCompileTime(macroDefinition, "if false { 42 } else { 11 }","11")
+//
+//    expectEvalCompileTime(
+//      macroDefinition,
+//      "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
+//      "unknown = (){ true }; unknown().to_bool.if_else({ 42 }, { 11 })"
+//    )
+//  }
+
 //  TODO
 //  test("breaks when let references itself directly") {
 //    expectRuntimeFail(

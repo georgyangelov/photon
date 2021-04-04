@@ -2,7 +2,6 @@ package photon
 
 import com.typesafe.scalalogging.Logger
 import photon.core.{CallContext, Core, IntRoot, NativeMethod}
-import transforms._
 
 import scala.collection.mutable
 
@@ -40,7 +39,7 @@ class InterpreterOld(val interpreterMode: InterpreterModeOld) {
     core.macroHandler(???, name, parser)
 
   def evaluate(value: Value): Value =
-    evaluate(AssignmentTransform.transform(value, None), core.rootScope, interpreterMode)
+    evaluate(value, core.rootScope, interpreterMode)
 
   def evaluate(value: Value, scope: Scope, mode: InterpreterModeOld): Value = {
     logger.debug(s"[$mode] Evaluating $value in $scope")
@@ -141,9 +140,6 @@ class InterpreterOld(val interpreterMode: InterpreterModeOld) {
 
           case None => evalError(value, s"Cannot find name '$name'")
         }
-
-      case Value.Operation(Operation.Assignment(_, _), _) =>
-        evalError(value, "This should have been transformed to a let")
 
       case let @ Value.Operation(Operation.Let(name, value, block), location) =>
         val scopeMap: mutable.Map[String, Value] = mutable.Map((name, Value.Unknown(location)))
