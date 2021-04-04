@@ -3,7 +3,6 @@ package photon
 import com.typesafe.scalalogging.Logger
 import photon.Operation.Block
 import photon.core.{CallContext, Core}
-import photon.transforms.AssignmentTransform
 
 sealed abstract class RunMode(val name: String) {}
 
@@ -105,6 +104,7 @@ class Interpreter(val runMode: RunMode) {
         val letScopeMap = collection.mutable.Map[String, Value]((name, Value.Unknown(location)))
         val letScope = Scope(Some(scope), letScopeMap)
 
+        // TODO: Make sure it is a compile-time error to directly use the reference in the expression
         val CompileTimeResult(codeLetValue, realLetValue) = evaluateCompileTime(letValue, letScope, inPartialContext)
 
         letScopeMap.addOne((name, realLetValue))
@@ -117,6 +117,8 @@ class Interpreter(val runMode: RunMode) {
           )
 
         val codeValue = Value.Operation(Operation.Let(name, codeLetValue, asBlock(codeBlockValue)), location)
+
+        // TODO: Should this check statics?
         val realValue = if (realLetValue.isOperation || realBlockValue.isOperation) {
           Value.Operation(Operation.Let(name, realLetValue, asBlock(realBlockValue)), location)
         } else {
@@ -134,7 +136,7 @@ class Interpreter(val runMode: RunMode) {
           case None => throw EvalError(s"Invalid reference to $name", location)
         }
 
-        CompileTimeResult(codeValue, realValue)
+        CompileTimeResult(codeValue, if (realValue.isUnknown) { codeValue } else { realValue })
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
         val positionalEvals =

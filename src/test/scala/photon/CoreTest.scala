@@ -3,7 +3,6 @@ package photon
 import com.typesafe.scalalogging.Logger
 import org.scalatest._
 import org.scalatest.Matchers._
-import photon.transforms.AssignmentTransform
 
 import scala.io.Source
 
@@ -20,7 +19,7 @@ class CoreTest extends FunSuite {
   }
 
   def eval(code: String): Value = {
-    val interpreter = new InterpreterOld(InterpreterModeOld.CompileTime)
+    val interpreter = new Interpreter(RunMode.CompileTime)
     val core = Source.fromResource("runtime/core.y").mkString
     val preludeValue = parseAsBlock(core, "core.y", interpreter.macroHandler)
 

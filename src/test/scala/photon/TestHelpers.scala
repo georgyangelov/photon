@@ -48,7 +48,7 @@ object TestHelpers {
   }
 
   def expectFailCompileTime(actualCode: String, message: String): Unit = {
-    val evalError = intercept[EvalErrorOld] { evalCompileTime(None, actualCode) }
+    val evalError = intercept[EvalError] { evalCompileTime(None, actualCode) }
 
     assert(evalError.message.contains(message));
   }
@@ -75,7 +75,7 @@ object TestHelpers {
 
     Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
 
-    val evalError = intercept[EvalErrorOld] { evalRunTime(runtimeCode) }
+    val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
 
     assert(evalError.message.contains(message));
   }

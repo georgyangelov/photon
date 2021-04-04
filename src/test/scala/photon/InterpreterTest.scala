@@ -37,9 +37,9 @@ class InterpreterTest extends FunSuite {
   test("simple macros") {
     expectEvalCompileTime(
       "Core.define_macro('add_one', (parser) { e = parser.parse_next(); #e + 1 })",
-      "add_one $?",
+      "unknown = (){}.runTimeOnly; add_one unknown()",
 
-      "$? + 1"
+      "unknown = (){}; unknown() + 1"
     )
 
     expectEvalCompileTime(
@@ -99,7 +99,7 @@ class InterpreterTest extends FunSuite {
 
   test("runtime-only functions") {
     expectPhases("runtime = () { 42 }; runtime()", "42", "42")
-    expectPhases("runtime = () { 42 }.runTimeOnly; runtime()", "runtime = () { 42 }; runtime.call()", "42")
+    expectPhases("runtime = () { 42 }.runTimeOnly; runtime()", "runtime = () { 42 }; runtime()", "42")
   }
 
   test("compile-time-only functions") {

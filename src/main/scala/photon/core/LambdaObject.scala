@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalErrorOld, Lambda, LambdaTrait, Scope, Unparser, Value}
+import photon.{EvalError, Lambda, LambdaTrait, Scope, Unparser, Value}
 import photon.core.NativeValue._
 
 object LambdaParams {
@@ -11,7 +11,7 @@ object LambdaParams {
 case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
   "call" -> ScalaVarargMethod({ (c, args, l) =>
     if (args.positional.size - 1 + args.named.size != lambda.params.size) {
-      throw EvalErrorOld("Wrong number of arguments for this lambda", l)
+      throw EvalError("Wrong number of arguments for this lambda", l)
     }
 
     Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}")
@@ -24,7 +24,7 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     val params = namesOfNamedParams.map { name =>
       args.named.get(name) match {
         case Some(value) => (name, value)
-        case None => throw EvalErrorOld(s"Argument ${name} not specified in method call", l)
+        case None => throw EvalError(s"Argument ${name} not specified in method call", l)
       }
     }
 

@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalErrorOld, Lambda, Location, Parser, Scope, Struct, TypeObject, Value}
+import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Struct, TypeObject, Value}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -40,14 +40,14 @@ object Core {
   }
 
   private def error(l: Option[Location]): Nothing = {
-    throw EvalErrorOld("Cannot call methods on this object (yet)", l)
+    throw EvalError("Cannot call methods on this object (yet)", l)
   }
 }
 
 object StructRoot extends NativeObject(Map(
   "call" -> ScalaVarargMethod((context, args, l) => {
     if (args.positional.size != 1) {
-      throw EvalErrorOld("Cannot pass positional arguments to Struct constructor", l)
+      throw EvalError("Cannot pass positional arguments to Struct constructor", l)
     }
 
     Value.Struct(Struct(args.named), l)
@@ -137,7 +137,7 @@ class Core extends NativeValue {
             val actualTypeValue = value.typeObject match {
               case Some(TypeObject.Native(native)) => Value.Native(native, value.location)
               case Some(TypeObject.Struct(struct)) => Value.Struct(struct, value.location)
-              case None => throw EvalErrorOld("Bad state - typeCheck called on value but value does not have an inferred type", l)
+              case None => throw EvalError("Bad state - typeCheck called on value but value does not have an inferred type", l)
             }
 
             val areTypesCompatible = Core.nativeValueFor(actualTypeValue).callOrThrowError(
@@ -153,7 +153,7 @@ class Core extends NativeValue {
               value
             } else {
               // TODO: Type objects should contain name function
-              throw EvalErrorOld(s"Incompatible types. $actualTypeValue is not assignable to $expectedTypeValue", l)
+              throw EvalError(s"Incompatible types. $actualTypeValue is not assignable to $expectedTypeValue", l)
             }
           }
         )
