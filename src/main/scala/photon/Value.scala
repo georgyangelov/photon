@@ -70,6 +70,13 @@ sealed abstract class Value {
     }
   }
 
+  def isNothing: Boolean = {
+    this match {
+      case Value.Nothing(_) => true
+      case _ => false
+    }
+  }
+
   // TODO: If the value is a Lambda which closes over dynamic values, then it is dynamic as well
   //       Maybe the Analysis functionality should say what value is static and what is dynamic...
   def isStatic: Boolean = !isUnknown && !isOperation

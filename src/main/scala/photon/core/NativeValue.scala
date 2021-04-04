@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.core.NativeValue.ValueAssert
-import photon.{Arguments, EvalError, Interpreter, InterpreterMode, Lambda, LambdaTrait, Location, Struct, Value}
+import photon.{Arguments, EvalError, Interpreter, Lambda, LambdaTrait, Location, RunMode, Struct, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -59,7 +59,7 @@ object NativeValue {
   }
 }
 
-case class CallContext(interpreter: Interpreter, mode: InterpreterMode)
+case class CallContext(interpreter: Interpreter, runMode: RunMode)
 
 trait NativeValue {
   // TODO: Implement

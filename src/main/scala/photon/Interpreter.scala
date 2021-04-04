@@ -1,306 +1,267 @@
 package photon
 
 import com.typesafe.scalalogging.Logger
-import photon.core.{CallContext, Core, IntRoot, NativeMethod}
-import transforms._
+import photon.Operation.Block
+import photon.core.{CallContext, Core}
+import photon.transforms.AssignmentTransform
 
-import scala.collection.mutable
+sealed abstract class RunMode(val name: String) {}
+
+object RunMode {
+  case object Runtime extends RunMode("runtime")
+  case object CompileTime extends RunMode("compile-time")
+}
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
-sealed abstract class InterpreterMode(val name: String) {
-  val shouldTryToPartiallyEvaluate: Boolean
-}
+case class CompileTimeResult(codeValue: Value, realValue: Value)
 
-object InterpreterMode {
-  case object PartialEvaluation extends InterpreterMode("partial") {
-    override val shouldTryToPartiallyEvaluate: Boolean = true
-  }
-
-  case object CompileTime extends InterpreterMode("compile-time") {
-    override val shouldTryToPartiallyEvaluate: Boolean = false
-  }
-
-  case object CompileTimeOrPartial extends InterpreterMode("compile-time-or-partial") {
-    override val shouldTryToPartiallyEvaluate: Boolean = true
-  }
-
-  case object Runtime extends InterpreterMode("runtime") {
-    override val shouldTryToPartiallyEvaluate: Boolean = false
-  }
-}
-
-class Interpreter(val interpreterMode: InterpreterMode) {
-  private val logger = Logger[Interpreter]
+class Interpreter(val runMode: RunMode) {
+  private val logger = Logger[InterpreterOld]
   private val core = new Core
 
-  def macroHandler(name: String, parser: Parser): Option[Value] =
-    core.macroHandler(CallContext(this, interpreterMode), name, parser)
+  def evaluate(value: Value): Value = {
+    val valueWithLets = AssignmentTransform.transform(value, None)
 
-  def evaluate(value: Value): Value =
-    evaluate(AssignmentTransform.transform(value, None), core.rootScope, interpreterMode)
+    evaluate(valueWithLets, core.rootScope, runMode)
+  }
 
-  def evaluate(value: Value, scope: Scope, mode: InterpreterMode): Value = {
-    logger.debug(s"[$mode] Evaluating $value in $scope")
+  def evaluate(value: Value, scope: Scope, runMode: RunMode): Value =
+    runMode match {
+      case RunMode.Runtime => evaluateRuntime(value, scope)
+      case RunMode.CompileTime =>
+        val result = evaluateCompileTime(value, scope)
 
+        if (result.realValue.isStatic) {
+          result.realValue
+        } else {
+          result.codeValue
+        }
+    }
+
+  private def evaluateCompileTime(value: Value, scope: Scope): CompileTimeResult = {
     value match {
-      case
-        Value.Unknown(_) |
-        Value.Nothing(_) |
-        Value.Boolean(_, _) |
-        Value.Float(_, _) |
-        Value.String(_, _) |
-        Value.Native(_, _) => value
-
-      case Value.Int(value, location, _) => Value.Int(value, location, Some(TypeObject.Native(IntRoot)))
-
-      case Value.Struct(Struct(properties), location) =>
-        // TODO: How should this reference the same struct after the evaluation?
-//        val scopeWithSelf = Scope(
-//          Some(scope),
-//          Map(("self", ))
-//        )
-        val evaluatedProperties = properties
-          .map { case (key, value) => (key, evaluate(value, scope, mode)) }
-
-        Value.Struct(
-          Struct(evaluatedProperties),
-          location
-        )
+      case Value.Unknown(_) => ???
+      case Value.Nothing(_) => CompileTimeResult(value, value)
+      case Value.Boolean(_, _) => CompileTimeResult(value, value)
+      case Value.Int(_, _, _) => CompileTimeResult(value, value)
+      case Value.Float(_, _) => CompileTimeResult(value, value)
+      case Value.String(_, _) => CompileTimeResult(value, value)
+      case Value.Native(_, _) => CompileTimeResult(value, value)
+      case Value.Struct(_, _) => CompileTimeResult(value, value)
 
       case Value.Lambda(Lambda(params, _, body, traits), location) =>
-        if (mode.shouldTryToPartiallyEvaluate) {
-          val evalScope = Scope(
-            Some(scope),
-            params.map { parameter => (parameter.name, Value.Unknown(None)) }.toMap
-          )
+        val result = Value.Lambda(Lambda(params, Some(scope), body, traits), location)
 
-          val evalBody = evaluate(body, location, evalScope, InterpreterMode.PartialEvaluation)
-
-          Value.Lambda(
-            Lambda(params, Some(scope), evalBody, traits),
-            location
-          )
-        } else {
-          Value.Lambda(
-            Lambda(params, Some(scope), body, traits),
-            location
-          )
-        }
+        CompileTimeResult(result, result)
 
       case Value.Operation(Operation.Block(values), location) =>
-        if (values.isEmpty) {
-          return Value.Operation(Operation.Block(Seq.empty), location)
-        }
-
         val lastIndex = values.size - 1
-        val valueBuilder = Seq.newBuilder[Value]
-        var evalMode = mode
+        val codeValuesBuilder = Seq.newBuilder[Value]
+        val realValuesBuilder = Seq.newBuilder[Value]
 
-        valueBuilder.sizeHint(values.size)
+        codeValuesBuilder.sizeHint(values.size)
+        realValuesBuilder.sizeHint(values.size)
 
         values.zipWithIndex.foreach { case (value, index) =>
-          val evalValue = evaluate(value, scope, evalMode)
+          val CompileTimeResult(codeValue, realValue) = evaluateCompileTime(value, scope)
 
-          if (evalValue.isDynamic) {
-            if (mode.shouldTryToPartiallyEvaluate) {
-              evalMode = InterpreterMode.PartialEvaluation
-            } else if (mode == InterpreterMode.Runtime) {
-              // TODO: Test this
-              throw EvalError(s"Could not evaluate $evalValue", location)
-            }
+          if (!realValue.isNothing || index == lastIndex) {
+            codeValuesBuilder.addOne(codeValue)
           }
 
-          if (value.isOperation || index == lastIndex) {
-            valueBuilder.addOne(evalValue)
+          if (realValue.isOperation || index == lastIndex) {
+            realValuesBuilder.addOne(realValue)
           }
         }
 
-        val newValues = valueBuilder.result()
+        val codeValues = codeValuesBuilder.result()
+        val realValues = realValuesBuilder.result()
 
-        val result = if (newValues.size == 1) {
-          newValues.last
+        val codeValue = if (codeValues.length == 1) {
+          codeValues.last
         } else {
-          Value.Operation(Operation.Block(newValues), location)
+          Value.Operation(Operation.Block(codeValues), location)
         }
-
-        logger.debug(s"Evaluated $value to $result")
-
-        result
-
-      case Value.Operation(Operation.NameReference(name), _) =>
-        scope.find(name) match {
-          case Some(found) =>
-            if (found.isUnknown) {
-              value
-            } else {
-              found
-            }
-
-          case None => evalError(value, s"Cannot find name '$name'")
-        }
-
-      case Value.Operation(Operation.Assignment(_, _), _) =>
-        evalError(value, "This should have been transformed to a let")
-
-      case let @ Value.Operation(Operation.Let(name, value, block), location) =>
-        val scopeMap: mutable.Map[String, Value] = mutable.Map((name, Value.Unknown(location)))
-        val evalScope = Scope(Some(scope), scopeMap)
-
-        // TODO: Make sure it is a compile-time error to directly use the reference in the expression
-        val evalValue = evaluate(value, evalScope, mode)
-
-        if (mode == InterpreterMode.Runtime && evalValue.isDynamic) {
-          throw EvalError(s"Could not evaluate $let, probably due to the value referencing itself", location)
-        }
-
-        scopeMap.addOne(name, evalValue)
-
-        val blockEvalMode = if (mode.shouldTryToPartiallyEvaluate && evalValue.isDynamic) {
-          InterpreterMode.PartialEvaluation
+        val realValue = if (realValues.length == 1) {
+          realValues.last
         } else {
-          mode
+          Value.Operation(Operation.Block(realValues), location)
         }
 
-        val evalBlock = evaluate(block, location, evalScope, blockEvalMode)
+        CompileTimeResult(codeValue, realValue)
 
-        if (evalBlock.values.length == 1 && evalBlock.values.head.isStatic) {
-          evalBlock.values.head
+      case Value.Operation(Operation.Let(name, letValue, block), location) =>
+        val letScopeMap = collection.mutable.Map[String, Value]((name, Value.Unknown(location)))
+        val letScope = Scope(Some(scope), letScopeMap)
+
+        val CompileTimeResult(codeLetValue, realLetValue) = evaluateCompileTime(letValue, letScope)
+
+        letScopeMap.addOne((name, realLetValue))
+
+        val CompileTimeResult(codeBlockValue, realBlockValue) =
+          evaluateCompileTime(Value.Operation(block, location), letScope)
+
+        val codeValue = Value.Operation(Operation.Let(name, codeLetValue, asBlock(codeBlockValue)), location)
+        val realValue = if (realLetValue.isOperation || realBlockValue.isOperation) {
+          Value.Operation(Operation.Let(name, realLetValue, asBlock(realBlockValue)), location)
         } else {
-          Value.Operation(Operation.Let(name, evalValue, evalBlock), location)
+          realBlockValue
         }
 
-//        if (evalValue.isStatic && interpreterMode != InterpreterMode.PartialEvaluation) {
-//
-//        } else if (interpreterMode.shouldTryToPartiallyEvaluate) {
-//          // TODO: If `evalValue` is an operation or a struct, try to partially evaluate again, now knowing that it
-//          //       refers to itself. But be careful because it can now go infinitely recursive.
-//          //       Maybe it's best to not try to partially evaluate anymore and leave it at that?
-//
-//          val evalBlock = evaluate(block, location, evalScope, InterpreterMode.PartialEvaluation)
-//        }
+        CompileTimeResult(codeValue, realValue)
+
+      case Value.Operation(Operation.NameReference(name), location) =>
+        val codeValue = value
+
+        val foundValue = scope.find(name)
+        val realValue = foundValue match {
+          case Some(value) => value
+          case None => throw EvalError(s"Invalid reference to $name", location)
+        }
+
+        CompileTimeResult(codeValue, realValue)
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-        if (mayBeVarCall) {
+        val positionalEvals =
+          arguments.positional.map(evaluateCompileTime(_, scope))
+        val namedEvals =
+          arguments.named.view.mapValues(evaluateCompileTime(_, scope)).toMap
+
+        val codeEvalArguments = Arguments(
+          positional = positionalEvals.map { case CompileTimeResult(codeValue, _) => codeValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, _) => codeValue }.toMap
+        )
+        val realEvalArguments = Arguments(
+          positional = positionalEvals.map { case CompileTimeResult(_, realValue) => realValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(_, realValue) => realValue }.toMap
+        )
+
+        val (CompileTimeResult(codeEvalTarget, realEvalTarget), isVarCall) = if (mayBeVarCall) {
           scope.find(name) match {
-            case Some(Value.Unknown(_)) => value
-            case Some(lambda @ Value.Lambda(_, _)) =>
-              callMethod(lambda, "call", arguments, scope, location, shouldEvalTarget = false, mode)
-            case Some(value) =>
-              callMethod(value, "call", arguments, scope, location, shouldEvalTarget = false, mode)
-              // evalError(value, "Cannot call this object as a function")
-            case None =>
-              callMethod(target, name, arguments, scope, location, shouldEvalTarget = true, mode)
+            case Some(value) => (CompileTimeResult(value, value), true)
+            case None => (evaluateCompileTime(target, scope), false)
           }
         } else {
-          callMethod(target, name, arguments, scope, location, shouldEvalTarget = true, mode)
+          (evaluateCompileTime(target, scope), false)
         }
-    }
-  }
 
-  private def callMethod(
-    target: Value,
-    name: String,
-    arguments: Arguments,
-    scope: Scope,
-    location: Option[Location],
-    shouldEvalTarget: Boolean = false,
-    mode: InterpreterMode
-  ): Value = {
-    var targetWasLambda = false
-    val evalTarget = if (shouldEvalTarget) {
-      target match {
-        case Value.Operation(_, _) => evaluate(target, scope, mode)
-        case Value.Lambda(Lambda(params, _, body, traits), l) =>
-          targetWasLambda = true
-          Value.Lambda(Lambda(params, Some(scope), body, traits), l)
-        case _ => target
-      }
-    } else target
+        val codeValue = if (mayBeVarCall) {
+          Value.Operation(
+            Operation.Call(target, name, codeEvalArguments, mayBeVarCall),
+            location
+          )
+        } else {
+          Value.Operation(
+            Operation.Call(codeEvalTarget, name, codeEvalArguments, mayBeVarCall),
+            location
+          )
+        }
 
-    val evaledPositionalArguments = arguments.positional.map(evaluate(_, scope, mode))
-    val evaledNamedArguments = arguments.named.view.mapValues(evaluate(_, scope, mode))
-    val evaledArguments = Arguments(evaledPositionalArguments, evaledNamedArguments.toMap)
+        val canCallFunction =
+          realEvalTarget.isStatic &&
+            realEvalArguments.positional.forall(_.isStatic) &&
+            realEvalArguments.named.view.values.forall(_.isStatic)
 
-    val shouldTryToEvaluate = evalTarget.isStatic && evaledPositionalArguments.forall(_.isStatic) && evaledNamedArguments.values.forall(_.isStatic)
+        val resultValue = if (canCallFunction) {
+          val nativeValueForTarget = Core.nativeValueFor(realEvalTarget)
 
-    if (shouldTryToEvaluate) {
-      logger.debug(s"Can evaluate $evalTarget.$name(${Unparser.unparse(evaledArguments)})")
-    } else {
-      logger.debug(s"Cannot evaluate $evalTarget.$name(${Unparser.unparse(evaledArguments)})")
-    }
+          val callContext = CallContext(this, runMode)
 
-    if (shouldTryToEvaluate) {
-      val call = Value.Operation(Operation.Call(
-        name = name,
-        target = evalTarget,
-        arguments = evaledArguments,
-        mayBeVarCall = false
-      ), location)
-
-      logger.debug(s"[$mode] Will evaluate call $call in $scope")
-
-      val context = CallContext(this, mode)
-
-      Core.nativeValueFor(evalTarget).method(context, name, location) match {
-        case Some(method) =>
-          if (canEvaluate(method.traits, mode)) {
-            // TODO: Add self as a separate parameter?
-            val result = method.call(context, Arguments(evalTarget +: evaledArguments.positional, evaledArguments.named), location)
-
-            logger.debug(s"$call -> $result")
-
-            result
-          } else if (mode == InterpreterMode.Runtime && !method.traits.contains(LambdaTrait.Runtime)) {
-            throw EvalError(s"Could not evaluate compile-time-only function call $call", location)
-          } else {
-            logger.debug(s"Not evaluating $call because it does not have the required trait for $mode")
-            call
+          val method = nativeValueForTarget.method(
+            callContext,
+            if (isVarCall) { "call" } else { name },
+            location
+          ) match {
+            case Some(value) => value
+            case None => throw EvalError(s"Cannot call method $name on $realEvalTarget", location)
           }
 
-        case None => throw EvalError(s"Cannot call method $name on ${evalTarget.toString}", location)
-      }
-    } else {
-      val partiallyEvaluatedTarget = if (mode.shouldTryToPartiallyEvaluate && shouldEvalTarget && targetWasLambda) {
-        evalTarget match {
-          case Value.Lambda(_, _) => evaluate(evalTarget, scope, InterpreterMode.PartialEvaluation)
-          case _ => evalTarget
+          if (method.traits.contains(LambdaTrait.CompileTime)) {
+            method.call(
+              callContext,
+              addSelfArgument(realEvalArguments, realEvalTarget),
+              location
+            )
+          } else { codeValue }
+        } else { codeValue }
+
+        CompileTimeResult(resultValue, resultValue)
+    }
+  }
+
+  private def evaluateRuntime(value: Value, scope: Scope): Value = {
+    value match {
+      case Value.Unknown(_) => ???
+      case Value.Nothing(_) => value
+      case Value.Boolean(_, _) => value
+      case Value.Int(_, _, _) => value
+      case Value.Float(_, _) => value
+      case Value.String(_, _) => value
+      case Value.Native(_, _) => value
+      case Value.Struct(_, _) => value
+      case Value.Lambda(Lambda(params, _, body, traits), location) =>
+        Value.Lambda(Lambda(params, Some(scope), body, traits), location)
+
+      case Value.Operation(Operation.Block(values), location) =>
+        val evaluatedValues = values.map(evaluate(_, scope, runMode))
+
+        if (evaluatedValues.nonEmpty) {
+          evaluatedValues.last
+        } else {
+          Value.Nothing(location)
         }
-      } else target
 
-      val call = Value.Operation(Operation.Call(
-        name = name,
-        target = partiallyEvaluatedTarget,
-        arguments = evaledArguments,
-        mayBeVarCall = false
-      ), location)
+      case Value.Operation(Operation.Let(name, letValue, block), location) =>
+        val letScopeMap = collection.mutable.Map[String, Value]((name, Value.Unknown(location)))
+        val letScope = Scope(Some(scope), letScopeMap)
 
-      call
+        val evaluatedLetValue = evaluate(letValue, letScope, runMode)
+
+        letScopeMap.addOne((name, evaluatedLetValue))
+
+        evaluate(Value.Operation(block, location), letScope, runMode)
+
+      case Value.Operation(Operation.NameReference(name), location) =>
+        val foundValue = scope.find(name)
+
+        foundValue match {
+          case Some(value) => value
+          case None => throw EvalError(s"Invalid reference to $name", location)
+        }
+
+      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
+        val evaluatedArguments = Arguments(
+          positional = arguments.positional.map(evaluate(_, scope, runMode)),
+          named = arguments.named.view.mapValues(evaluate(_, scope, runMode)).toMap
+        )
+
+        val (evaluatedTarget, isVarCall) = if (mayBeVarCall) {
+          scope.find(name) match {
+            case Some(value) => (value, true)
+            case None => (evaluate(target, scope, runMode), false)
+          }
+        } else {
+          (evaluate(target, scope, runMode), false)
+        }
+
+        Core.nativeValueFor(evaluatedTarget).callOrThrowError(
+          CallContext(this, runMode),
+          if (isVarCall) { "call" } else { name },
+          addSelfArgument(evaluatedArguments, evaluatedTarget),
+          location
+        )
     }
   }
 
-  private def evaluate(block: Operation.Block, location: Option[Location], scope: Scope, mode: InterpreterMode): Operation.Block = {
-    val evalValue = evaluate(Value.Operation(block, location), scope, mode)
+  private def addSelfArgument(arguments: Arguments, self: Value) =
+    Arguments(self +: arguments.positional, arguments.named)
 
-    evalValue match {
-      case Value.Operation(evalBlock @ Operation.Block(_), _) => evalBlock
-      case _ => Operation.Block(Seq(evalValue))
+  private def asBlock(value: Value): Block = {
+    value match {
+      case Value.Operation(block @ Operation.Block(_), _) => block
+      case _ => Operation.Block(Seq(value))
     }
-  }
-
-  private def canEvaluate(traits: Set[LambdaTrait], mode: InterpreterMode): Boolean = {
-    mode match {
-      case InterpreterMode.PartialEvaluation => traits.contains(LambdaTrait.Partial)
-      case InterpreterMode.CompileTime => traits.contains(LambdaTrait.CompileTime)
-      case InterpreterMode.Runtime => traits.contains(LambdaTrait.Runtime)
-
-      // TODO: Should this switch to Partial if the function supports that instead?
-      case InterpreterMode.CompileTimeOrPartial => traits.contains(LambdaTrait.CompileTime)
-    }
-  }
-
-  private def evalError(value: Value, message: String): Nothing = {
-    throw EvalError(s"Cannot evaluate ${value.inspectAST}. $message".strip(), value.location)
   }
 }

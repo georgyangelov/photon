@@ -18,22 +18,23 @@ object TestHelpers {
   }
 
   def evalCompileTime(prelude: Option[String], code: String): Value = {
-    val interpreter = new Interpreter(InterpreterMode.CompileTime)
+    val interpreter = new Interpreter(RunMode.CompileTime)
 
-    prelude match {
-      case Some(prelude) =>
-        val preludeValue = parseCode(prelude, interpreter.macroHandler)
-        interpreter.evaluate(preludeValue)
-      case None =>
-    }
-
-    val value = parseCode(code, interpreter.macroHandler)
+//    prelude match {
+//      case Some(prelude) =>
+//        val preludeValue = parseCode(prelude, interpreter.macroHandler)
+//        interpreter.evaluate(preludeValue)
+//      case None =>
+//    }
+//
+//    val value = parseCode(code, interpreter.macroHandler)
+    val value = parseCode(code, Parser.BlankMacroHandler)
 
     interpreter.evaluate(value)
   }
 
   def evalRunTime(code: String): Value = {
-    val interpreter = new Interpreter(InterpreterMode.Runtime)
+    val interpreter = new Interpreter(RunMode.Runtime)
     val value = parseCode(code, Parser.BlankMacroHandler)
 
     interpreter.evaluate(value)
@@ -48,9 +49,15 @@ object TestHelpers {
   }
 
   def expectFailCompileTime(actualCode: String, message: String): Unit = {
-    val evalError = intercept[EvalError] { evalCompileTime(None, actualCode) }
+    val evalError = intercept[EvalErrorOld] { evalCompileTime(None, actualCode) }
 
     assert(evalError.message.contains(message));
+  }
+
+  def expectEvalRuntime(actualCode: String, expectedResult: String): Unit = {
+    val result = evalRunTime(actualCode)
+
+    assert(result.toString == parseCode(expectedResult).toString)
   }
 
   def expectPhases(actualCode: String, expectedCompileTimeCode: String, expectedResult: String): Unit = {
@@ -69,7 +76,7 @@ object TestHelpers {
 
     Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
 
-    val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
+    val evalError = intercept[EvalErrorOld] { evalRunTime(runtimeCode) }
 
     assert(evalError.message.contains(message));
   }

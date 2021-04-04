@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalError, LambdaTrait, Location, Struct, Value}
+import photon.{Arguments, EvalErrorOld, LambdaTrait, Location, Struct, Value}
 import photon.core.NativeValue._
 
 case class StructGetter(propertyName: String) extends NativeMethod {
@@ -14,7 +14,7 @@ case class StructGetter(propertyName: String) extends NativeMethod {
       case Some(Value.Lambda(lambda, _)) =>
         Core.nativeValueFor(lambda).callOrThrowError(context, "call", arguments, location)
       case Some(value) => value
-      case None => throw EvalError(s"StructGetter cannot return property ${propertyName}", location)
+      case None => throw EvalErrorOld(s"StructGetter cannot return property ${propertyName}", location)
     }
   }
 }

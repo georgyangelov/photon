@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Lambda, LambdaTrait, Scope, Unparser, Value}
+import photon.{EvalErrorOld, Lambda, LambdaTrait, Scope, Unparser, Value}
 import photon.core.NativeValue._
 
 object LambdaParams {
@@ -11,7 +11,7 @@ object LambdaParams {
 case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
   "call" -> ScalaVarargMethod({ (c, args, l) =>
     if (args.positional.size - 1 + args.named.size != lambda.params.size) {
-      throw EvalError("Wrong number of arguments for this lambda", l)
+      throw EvalErrorOld("Wrong number of arguments for this lambda", l)
     }
 
     Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}")
@@ -24,17 +24,17 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     val params = namesOfNamedParams.map { name =>
       args.named.get(name) match {
         case Some(value) => (name, value)
-        case None => throw EvalError(s"Argument ${name} not specified in method call", l)
+        case None => throw EvalErrorOld(s"Argument ${name} not specified in method call", l)
       }
     }
 
     val scope = Scope(lambda.scope, (positionalParams ++ params).toMap)
 
-    val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.mode)
+    val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.runMode)
 
-    if (!c.mode.shouldTryToPartiallyEvaluate && !result.isStatic) {
-      throw EvalError(s"Cannot evaluate $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}", l)
-    }
+//    if (!c.mode.shouldTryToPartiallyEvaluate && !result.isStatic) {
+//      throw EvalErrorOld(s"Cannot evaluate $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}", l)
+//    }
 
     result
   }, traits = lambda.traits),

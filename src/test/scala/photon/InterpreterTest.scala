@@ -29,12 +29,6 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("(a){ (b){ a + b } }(1)(41)", "42")
   }
 
-  test("nested usages of variables") {
-    expectEvalCompileTime("(a){ { { a } } }(42)", "{ { 42 } }")
-    expectEvalCompileTime("(a){ { { a + 1 } } }(41)", "{ { 42 } }")
-    expectEvalCompileTime("(a){ $? + { a } }(42)", "$? + { 42 }")
-  }
-
   test("higher-order functions") {
     expectEvalCompileTime("(fn){ fn(1) }((a){ a + 41 })", "42")
     expectEvalCompileTime("(fn){ fn(1) }((a){ b = a; b + 41 })", "42")
@@ -144,19 +138,19 @@ class InterpreterTest extends FunSuite {
     expectFailCompileTime("42: String", "Incompatible types")
   }
 
-  test("typechecking custom types") {
-    val types = """
-      PositiveInt = Struct(
-        assignableFrom = (self, otherType) self == otherType,
-
-        # TODO: Check if number is positive
-        # TODO: Need `let` here...
-        call = (number) Struct($type = PositiveInt, number = number)
-      )
-    """
-
-    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
-    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
-    expectFailCompileTime(s"$types; 42: PositiveInt", "Incompatible types")
-  }
+//  test("typechecking custom types") {
+//    val types = """
+//      PositiveInt = Struct(
+//        assignableFrom = (self, otherType) self == otherType,
+//
+//        # TODO: Check if number is positive
+//        # TODO: Need `let` here...
+//        call = (number) Struct($type = PositiveInt, number = number)
+//      )
+//    """
+//
+//    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
+//    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
+//    expectFailCompileTime(s"$types; 42: PositiveInt", "Incompatible types")
+//  }
 }
