@@ -1,6 +1,8 @@
 package photon
 
 import photon.core.NativeValue
+
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.Map
 
 //case class ObjectId(id: Long) extends AnyVal
@@ -115,8 +117,51 @@ object LambdaTrait {
   case object Pure extends LambdaTrait
 }
 
-case class Scope(parent: Option[Scope], values: Map[String, Value]) {
+case class ObjectId(id: Long) extends AnyVal
+
+object ObjectId {
+  val idCounter = new AtomicLong(1)
+
+  def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
+}
+
+class Variable(val name: String, private var _value: Value) extends Equals {
+  val objectId: ObjectId = ObjectId()
+
+  def value: Value = _value
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[Variable]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: Variable => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
+
+  def dangerouslySetValue(newValue: Value): Unit = _value = newValue
+}
+
+object Scope {
+  def newRoot(variables: Seq[Variable]): Scope = {
+    Scope(
+      None,
+      variables.map { variable => (variable.name, variable) }.toMap
+    )
+  }
+}
+
+case class Scope(parent: Option[Scope], variables: Map[String, Variable]) {
+  def newChild(variables: Seq[Variable]): Scope = {
+    Scope(
+      Some(this),
+      variables.map { variable => (variable.name, variable) }.toMap
+    )
+  }
+
   override def toString: String = {
+    val values = variables.view.mapValues(_.value)
+
     if (parent.isDefined) {
       s"$values -> ${parent.get.toString}"
     } else {
@@ -124,8 +169,8 @@ case class Scope(parent: Option[Scope], values: Map[String, Value]) {
     }
   }
 
-  def find(name: String): Option[Value] = {
-    values.get(name) orElse { parent.flatMap(_.find(name)) }
+  def find(name: String): Option[Variable] = {
+    variables.get(name) orElse { parent.flatMap(_.find(name)) }
   }
 }
 

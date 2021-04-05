@@ -5,6 +5,8 @@ project/
 target/
 build/
 
+/.gradle
+
 # eclipse
 build
 .classpath

@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Lambda, LambdaTrait, Scope, Unparser, Value}
+import photon.{EvalError, Lambda, LambdaTrait, Scope, Unparser, Value, Variable}
 import photon.core.NativeValue._
 
 object LambdaParams {
@@ -21,14 +21,20 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     val positionalParams = lambdaParamNames.zip(args.positional.drop(1))
     val namesOfNamedParams = lambdaParamNames.drop(args.positional.size - 1).toSet
 
-    val params = namesOfNamedParams.map { name =>
+    val namedParams = namesOfNamedParams.map { name =>
       args.named.get(name) match {
         case Some(value) => (name, value)
         case None => throw EvalError(s"Argument ${name} not specified in method call", l)
       }
     }
 
-    val scope = Scope(lambda.scope, (positionalParams ++ params).toMap)
+    val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, value) }
+    val namedVariables = namedParams.map { case (name, value) => new Variable(name, value) }
+
+    val scope = lambda.scope match {
+      case Some(scope) => scope.newChild(positionalVariables ++ namedVariables)
+      case None => throw EvalError(s"Cannot call lambda with missing definition scope", l)
+    }
 
     val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.runMode)
 

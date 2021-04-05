@@ -4,6 +4,8 @@ import com.typesafe.scalalogging.Logger
 import photon.Operation.Block
 import photon.core.{CallContext, Core}
 
+import java.util.concurrent.atomic.AtomicLong
+
 sealed abstract class RunMode(val name: String) {}
 
 object RunMode {
@@ -14,7 +16,16 @@ object RunMode {
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
-case class CompileTimeResult(codeValue: Value, realValue: Value)
+
+//case class CompileTimeInspection(nameUsages: Set[Variable]) {
+//
+//}
+
+case class CompileTimeResult(
+  codeValue: Value,
+  realValue: Value,
+//  inspection: CompileTimeInspection
+)
 
 class Interpreter(val runMode: RunMode) {
   private val logger = Logger[Interpreter]
@@ -51,9 +62,8 @@ class Interpreter(val runMode: RunMode) {
       case Value.Struct(_, _) => CompileTimeResult(value, value)
 
       case Value.Lambda(Lambda(params, _, body, traits), location) =>
-        val evalScope = Scope(
-          Some(scope),
-          params.map { param => (param.name, Value.Unknown(location)) }.toMap
+        val evalScope = scope.newChild(
+          params.map { param => new Variable(param.name, Value.Unknown(location))}
         )
 
         val CompileTimeResult(codeEvalBody, realEvalBody) =
@@ -101,13 +111,13 @@ class Interpreter(val runMode: RunMode) {
         CompileTimeResult(codeValue, realValue)
 
       case Value.Operation(Operation.Let(name, letValue, block), location) =>
-        val letScopeMap = collection.mutable.Map[String, Value]((name, Value.Unknown(location)))
-        val letScope = Scope(Some(scope), letScopeMap)
+        val variable = new Variable(name, Value.Unknown(location))
+        val letScope = scope.newChild(Seq(variable))
 
         // TODO: Make sure it is a compile-time error to directly use the reference in the expression
         val CompileTimeResult(codeLetValue, realLetValue) = evaluateCompileTime(letValue, letScope, inPartialContext)
 
-        letScopeMap.addOne((name, realLetValue))
+        variable.dangerouslySetValue(realLetValue)
 
         val CompileTimeResult(codeBlockValue, realBlockValue) =
           evaluateCompileTime(
@@ -132,7 +142,7 @@ class Interpreter(val runMode: RunMode) {
 
         val foundValue = scope.find(name)
         val realValue = foundValue match {
-          case Some(value) => value
+          case Some(variable) => variable.value
           case None => throw EvalError(s"Invalid reference to $name", location)
         }
 
@@ -155,7 +165,7 @@ class Interpreter(val runMode: RunMode) {
 
         val (CompileTimeResult(codeEvalTarget, realEvalTarget), isVarCall) = if (mayBeVarCall) {
           scope.find(name) match {
-            case Some(value) => (CompileTimeResult(value, value), true)
+            case Some(variable) => (CompileTimeResult(variable.value, variable.value), true)
             case None => (evaluateCompileTime(target, scope, inPartialContext), false)
           }
         } else {
@@ -232,12 +242,12 @@ class Interpreter(val runMode: RunMode) {
         }
 
       case Value.Operation(Operation.Let(name, letValue, block), location) =>
-        val letScopeMap = collection.mutable.Map[String, Value]((name, Value.Unknown(location)))
-        val letScope = Scope(Some(scope), letScopeMap)
+        val variable = new Variable(name, Value.Unknown(location))
+        val letScope = scope.newChild(Seq(variable))
 
         val evaluatedLetValue = evaluate(letValue, letScope, runMode)
 
-        letScopeMap.addOne((name, evaluatedLetValue))
+        variable.dangerouslySetValue(evaluatedLetValue)
 
         evaluate(Value.Operation(block, location), letScope, runMode)
 
@@ -245,7 +255,7 @@ class Interpreter(val runMode: RunMode) {
         val foundValue = scope.find(name)
 
         foundValue match {
-          case Some(value) => value
+          case Some(variable) => variable.value
           case None => throw EvalError(s"Invalid reference to $name", location)
         }
 
@@ -257,7 +267,7 @@ class Interpreter(val runMode: RunMode) {
 
         val (evaluatedTarget, isVarCall) = if (mayBeVarCall) {
           scope.find(name) match {
-            case Some(value) => (value, true)
+            case Some(variable) => (variable.value, true)
             case None => (evaluate(target, scope, runMode), false)
           }
         } else {

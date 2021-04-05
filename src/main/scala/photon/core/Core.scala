@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Struct, TypeObject, Value}
+import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Struct, TypeObject, Value, Variable}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -90,11 +90,11 @@ object CoreParams {
 
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, Value] = mutable.TreeMap.empty
-  val rootScope: Scope = Scope(None, Map(
-    "Core" -> Value.Native(this, None),
-    "Struct" -> Value.Native(StructRoot, None),
-    "Int" -> Value.Native(IntRoot, None),
-    "String" -> Value.Native(StringRoot, None)
+  val rootScope: Scope = Scope.newRoot(Seq(
+    new Variable("Core", Value.Native(this, None)),
+    new Variable("Struct", Value.Native(StructRoot, None)),
+    new Variable("Int", Value.Native(IntRoot, None)),
+    new Variable("String", Value.Native(StringRoot, None))
   ))
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[Value] = {
