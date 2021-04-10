@@ -143,10 +143,93 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
+  test("removes unused let bindings, keeping expressions for side-effects") {
+    expectEvalCompileTime("unused = 11; 42", "42")
+    expectEvalCompileTime(
+      "unknown = (){}.runTimeOnly; something = unknown(); 42",
+      "unknown = (){}; unknown(); 42"
+    )
+    expectEvalCompileTime(
+      "usedOnce = (a) { 41 + a }; result = usedOnce(1); result",
+      "42"
+    )
+  }
+
+  test("does not eliminate lets used by inner lambdas in params") {
+    expectEvalCompileTime(
+      "unknown = (){}.runTimeOnly; () { unknown() }",
+      "unknown = (){}; () { unknown() }"
+    )
+
+    expectEvalCompileTime(
+      "unknown = (){}.runTimeOnly; (a) { a.call }(() { unknown() })",
+      "unknown = (){}; unknown()"
+    )
+  }
+
+  test("variables do not escape the scope") {
+    expectEvalCompileTime(
+      "outer = (a) { () { a } }; outer(42)",
+      "() { 42 }"
+    )
+
+    expectEvalCompileTime(
+      "unknown = (){}.runTimeOnly; outer = () { () { unknown() } }; outer()",
+      "unknown = (){}; () { unknown() }"
+    )
+
+    expectEvalCompileTime(
+      """
+        scope1 = (a) {
+          unknown = () { 42 }.runTimeOnly
+
+          () { a + unknown() }
+        }
+
+        scope1(1)
+      """,
+      // TODO: This should rename the `unknown` variable because there may be another one in scope?
+      // TODO: Should this not eval `scope1` at all? How can it know? It can see that the function calls
+      //       something that's runtime-only. This can be a heuristic for defining the traits of a function.
+      """
+        unknown = () 42
+
+        () { 1 + unknown() }
+      """
+    )
+  }
+
+  test("does not break on evaluating nested lambdas") {
+    expectEvalCompileTime(
+      """
+        unknown = (){}.runTimeOnly
+
+        scope1 = (a) {
+          () { a + unknown() }
+        }
+
+        scope2 = (a) {
+          scope1(42)
+        }
+
+        scope2(1)
+      """,
+      """
+        unknown = (){}
+
+        scope2 = (a) {
+          () { 42 + unknown() }
+        }
+
+        scope2(1)
+      """
+    )
+  }
+
   test("supports simple parser macros") {
     val macroDefinition = """
         Core.define_macro 'plusOne', (parser) {
-          parser.parse_next.eval + 1
+          parser.parseNext.eval + 1
         }
     """
 
@@ -161,7 +244,7 @@ class InterpreterWIPTest extends FunSuite {
   test("supports simple parser macros with lets") {
     val macroDefinition = """
         Core.define_macro 'plusOne', (parser) {
-          number = parser.parse_next.eval
+          number = parser.parseNext.eval
 
           number + 1
         }
@@ -175,33 +258,94 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
-//  test("supports parser macros") {
-//    val macroDefinition = """
-//        Core.define_macro 'if', (parser) {
-//          condition = parser.parse_next
-//          if_true = parser.parse_next
-//          if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
-//
-//          condition.eval.to_bool.if_else(if_true.eval, if_false)
-//        }
-//    """
-//
-//    expectEvalCompileTime(macroDefinition, "if true { 42 }","42")
-//    expectEvalCompileTime(macroDefinition, "if true { 42 } else { 11 }","42")
-//    expectEvalCompileTime(macroDefinition, "if false { 42 } else { 11 }","11")
-//
+  test("supports parser macros") {
+    val macroDefinition = """
+        Core.define_macro 'if', (parser) {
+          condition = parser.parseNext
+          if_true = parser.parseNext
+          if_false = (parser.nextToken.string == "else").if_else({ parser.skipNextToken; parser.parseNext.eval }, { {} })
+
+          condition.eval.to_bool.if_else(if_true.eval, if_false)
+        }
+    """
+
+    expectEvalCompileTime(macroDefinition, "if true { 42 }","42")
+    expectEvalCompileTime(macroDefinition, "if true { 42 } else { 11 }","42")
+    expectEvalCompileTime(macroDefinition, "if false { 42 } else { 11 }","11")
+
+    expectEvalCompileTime(
+      macroDefinition,
+      "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
+      "unknown = (){ true }; if_false = { 11 }; unknown().to_bool.if_else({ 42 }, if_false)"
+    )
+  }
+
+  test("lambdas parsed by macros can use closure scope") {
+    val macroDefinition = """
+        Core.define_macro 'run', (parser) {
+          lambda = parser.parseNext
+
+          lambda.eval.call
+        }
+    """
+
+    expectEvalCompileTime(macroDefinition, "run { 42 }","42")
+    expectEvalCompileTime(macroDefinition, "answer = 42; run { answer }", "42")
+  }
+
+  test("macro variables do not collide with in-scope variables") {
+    val macroDefinition = """
+        Core.define_macro 'run', (parser) {
+          variable = parser.parseNext.eval
+
+          variable.call
+        }
+    """
+
+    expectEval(
+      macroDefinition,
+      """
+         answer = (){ 42 }.runTimeOnly
+         variable = answer()
+
+         run { variable }
+      """,
+      "42"
+    )
+  }
+
+  test("macro variables in lambda params do not collide with in-scope variables") {
+    val macroDefinition = """
+        Core.define_macro 'run', (parser) {
+          (variable) {
+            variable.call
+          }(parser.parseNext.eval)
+        }
+    """
+
+    expectEval(
+      macroDefinition,
+      """
+         answer = (){ 42 }.runTimeOnly
+         variable = answer()
+
+         run { variable }
+      """,
+      "42"
+    )
+  }
+
+//  test("allows for variable redefinition and usage of the parent variable in let") {
 //    expectEvalCompileTime(
-//      macroDefinition,
-//      "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
-//      "unknown = (){ true }; unknown().to_bool.if_else({ 42 }, { 11 })"
+//      "answer = 41; answer = answer + 1; answer",
+//      "42"
 //    )
 //  }
 
-//  TODO
 //  test("breaks when let references itself directly") {
 //    expectRuntimeFail(
 //      "factorial = factorial; factorial(1)",
-//      ""
+//      "Cannot directly reference a variable in its definition"
 //    );
 //  }
 }

@@ -14,8 +14,6 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
       throw EvalError("Wrong number of arguments for this lambda", l)
     }
 
-    Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}")
-
     val lambdaParamNames = lambda.params.map { param => param.name }
 
     val positionalParams = lambdaParamNames.zip(args.positional.drop(1))
@@ -31,10 +29,9 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, value) }
     val namedVariables = namedParams.map { case (name, value) => new Variable(name, value) }
 
-    val scope = lambda.scope match {
-      case Some(scope) => scope.newChild(positionalVariables ++ namedVariables)
-      case None => throw EvalError(s"Cannot call lambda with missing definition scope", l)
-    }
+    Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args.withoutSelf)}) in ${lambda.scope}")
+
+    val scope = lambda.scope.newChild(positionalVariables ++ namedVariables)
 
     val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.runMode)
 

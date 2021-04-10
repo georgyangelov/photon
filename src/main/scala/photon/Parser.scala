@@ -33,6 +33,8 @@ class Parser(
     token.tokenType != TokenType.EOF
   }
 
+  def skipNextToken(): Unit = read()
+
   def parseAll(): Seq[Value] = {
     val tokens = Vector.newBuilder[Value]
 
@@ -396,7 +398,7 @@ class Parser(
     Value.String(token.string, Some(token.location))
   }
 
-  private def parseLambda(): Value.Lambda = {
+  private def parseLambda(): Value = {
     val startLocation = lastLocation
 
     val hasParameterParens = token.tokenType == TokenType.OpenParen
@@ -420,8 +422,8 @@ class Parser(
       Block(Seq(parseExpression()))
     }
 
-    Value.Lambda(
-      Lambda(parameters, None, body, traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)),
+    Value.Operation(
+      Operation.LambdaDefinition(parameters, body),
       Some(startLocation.extendWith(lastLocation))
     )
   }

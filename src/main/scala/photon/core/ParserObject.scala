@@ -27,12 +27,17 @@ case class TokenObject(token: Token) extends NativeObject(Map(
 ))
 
 case class ParserObject(parser: Parser) extends NativeObject(Map(
-  "parse_next" -> ScalaMethod(
+  "parseNext" -> ScalaMethod(
     MethodOptions(Seq.empty, traits = Set(LambdaTrait.CompileTime)),
-    { (c, args, l) => Value.Native(MetaValueObject(parser.parseNext()), None) }
+    { (c, args, l) => Value.Native(MetaValueObject(parser.parseNext()), l) }
   ),
 
-  "token" -> ScalaMethod(
+  "skipNextToken" -> ScalaMethod(
+    MethodOptions(Seq.empty, traits = Set(LambdaTrait.CompileTime)),
+    { (c, args, l) => parser.skipNextToken(); Value.Nothing(l) }
+  ),
+
+  "nextToken" -> ScalaMethod(
     MethodOptions(Seq.empty, traits = Set(LambdaTrait.CompileTime)),
     { (c, args, l) => Value.Native(TokenObject(parser.token), l) }
   )

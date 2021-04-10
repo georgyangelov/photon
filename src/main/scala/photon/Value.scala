@@ -126,7 +126,7 @@ object ObjectId {
 }
 
 class Variable(val name: String, private var _value: Value) extends Equals {
-  val objectId: ObjectId = ObjectId()
+  val objectId: Long = ObjectId().id
 
   def value: Value = _value
 
@@ -178,7 +178,7 @@ case class Struct(props: Map[String, Value]) {
   override def toString: String = Unparser.unparse(this)
 }
 
-case class Lambda(params: Seq[Parameter], scope: Option[Scope], body: Operation.Block, traits: Set[LambdaTrait]) {
+case class Lambda(params: Seq[Parameter], scope: Scope, body: Operation.Block, traits: Set[LambdaTrait]) {
   override def toString: String = Unparser.unparse(this)
 }
 
@@ -206,6 +206,15 @@ sealed abstract class Operation {
       case Operation.NameReference(name) => name
 
       case Operation.Let(name, value, block) => s"(let $name ${value.inspectAST} ${block.inspectAST})"
+
+      case Operation.LambdaDefinition(params, body) =>
+        val bodyAST = body.inspectAST
+        val paramsAST = params.map {
+          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
+          case Parameter(name, None) => s"(param $name)"
+        }.mkString(" ")
+
+        s"(lambda [$paramsAST] $bodyAST)"
     }
   }
 }
@@ -215,11 +224,14 @@ object Operation {
   case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
   case class NameReference(name: String) extends Operation
   case class Let(name: String, value: Value, block: Block) extends Operation
+  case class LambdaDefinition(params: Seq[Parameter], body: Operation.Block) extends Operation
 }
 
 case class Parameter(name: String, typeValue: Option[Value])
 
-case class Arguments(positional: Seq[Value], named: Map[String, Value])
+case class Arguments(positional: Seq[Value], named: Map[String, Value]) {
+  def withoutSelf = Arguments(positional.drop(1), named)
+}
 
 object Arguments {
   val empty: Arguments = Arguments(Seq.empty, Map.empty)

@@ -30,6 +30,8 @@ object Unparser {
     case Operation.NameReference(name) => name
 
     case Operation.Let(name, value, block) => s"$name = ${unparse(value)}; ${unparse(block)}"
+
+    case Operation.LambdaDefinition(params, body) => s"(${params.map(unparse).mkString(", ")}) { ${unparse(body)} }"
   }
 
   def unparse(struct: Struct): String =

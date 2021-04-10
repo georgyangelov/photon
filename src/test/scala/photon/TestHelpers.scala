@@ -39,6 +39,19 @@ object TestHelpers {
     interpreter.evaluate(value)
   }
 
+  def eval(prelude: String, code: String): Value = {
+    val logger = Logger("TestHelpers")
+
+    val compiledValue = evalCompileTime(Some(prelude), code)
+    val compileTimeCode = Unparser.unparse(compiledValue)
+
+    logger.debug(s"Compile-time evaluated to $compileTimeCode")
+
+    val runtimeResult = evalRunTime(compileTimeCode)
+
+    runtimeResult
+  }
+
   def expectEvalCompileTime(actualCode: String, expectedCode: String): Unit = {
     assert(evalCompileTime(None, actualCode).toString == parseCode(expectedCode).toString)
   }
@@ -51,6 +64,16 @@ object TestHelpers {
     val evalError = intercept[EvalError] { evalCompileTime(None, actualCode) }
 
     assert(evalError.message.contains(message));
+  }
+
+  def expectEval(prelude: String, actualCode: String, expectedResult: String): Unit = {
+    val result = eval(prelude, actualCode)
+
+    assert(result.toString == parseCode(expectedResult).toString)
+  }
+
+  def expectEval(actualCode: String, expectedResult: String): Unit = {
+    expectEval("", actualCode, expectedResult)
   }
 
   def expectEvalRuntime(actualCode: String, expectedResult: String): Unit = {

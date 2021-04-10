@@ -4,27 +4,36 @@ import com.typesafe.scalalogging.Logger
 import photon.Operation.Block
 import photon.core.{CallContext, Core}
 
-import java.util.concurrent.atomic.AtomicLong
+import scala.annotation.tailrec
 
 sealed abstract class RunMode(val name: String) {}
 
 object RunMode {
   case object Runtime extends RunMode("runtime")
   case object CompileTime extends RunMode("compile-time")
+  case object ParseTime extends RunMode("parse-time")
 }
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
 
-//case class CompileTimeInspection(nameUsages: Set[Variable]) {
-//
-//}
+case class CompileTimeInspection(nameUses: Set[Variable]) {
+  def combineWith(other: CompileTimeInspection) =
+    CompileTimeInspection(nameUses ++ other.nameUses)
+
+  def withoutVariables(variables: Seq[Variable]) =
+    CompileTimeInspection(nameUses -- variables)
+}
+
+object CompileTimeInspection {
+  val empty = CompileTimeInspection(Set.empty)
+}
 
 case class CompileTimeResult(
   codeValue: Value,
   realValue: Value,
-//  inspection: CompileTimeInspection
+  inspection: CompileTimeInspection
 )
 
 class Interpreter(val runMode: RunMode) {
@@ -32,7 +41,7 @@ class Interpreter(val runMode: RunMode) {
   private val core = new Core
 
   def macroHandler(name: String, parser: Parser): Option[Value] =
-    core.macroHandler(CallContext(this, runMode), name, parser)
+    core.macroHandler(CallContext(this, RunMode.ParseTime), name, parser)
 
   def evaluate(value: Value): Value =
     evaluate(value, core.rootScope, runMode)
@@ -40,8 +49,14 @@ class Interpreter(val runMode: RunMode) {
   def evaluate(value: Value, scope: Scope, runMode: RunMode): Value =
     runMode match {
       case RunMode.Runtime => evaluateRuntime(value, scope)
-      case RunMode.CompileTime =>
-        val result = evaluateCompileTime(value, scope, inPartialContext = false)
+      case RunMode.CompileTime | RunMode.ParseTime =>
+        val result = evaluateCompileTime(
+          value,
+          scope,
+          inPartialContext = false,
+          renameVariables = runMode == RunMode.ParseTime,
+          renames = Map.empty
+        )
 
         if (result.realValue.isStatic) {
           result.realValue
@@ -50,40 +65,90 @@ class Interpreter(val runMode: RunMode) {
         }
     }
 
-  private def evaluateCompileTime(value: Value, scope: Scope, inPartialContext: Boolean): CompileTimeResult = {
+  private def evaluateCompileTime(
+    value: Value,
+    scope: Scope,
+    inPartialContext: Boolean,
+
+    // TODO: Do I want to have this as a `CompileTimeContext` object?
+    // TODO: Do I want to pass a prefix to the renames?
+    renameVariables: Boolean,
+
+    // TODO: Do I want these to be integrated into the `Variable` type?
+    renames: Map[Variable, String]
+  ): CompileTimeResult = {
     value match {
       case Value.Unknown(_) => ???
-      case Value.Nothing(_) => CompileTimeResult(value, value)
-      case Value.Boolean(_, _) => CompileTimeResult(value, value)
-      case Value.Int(_, _, _) => CompileTimeResult(value, value)
-      case Value.Float(_, _) => CompileTimeResult(value, value)
-      case Value.String(_, _) => CompileTimeResult(value, value)
-      case Value.Native(_, _) => CompileTimeResult(value, value)
-      case Value.Struct(_, _) => CompileTimeResult(value, value)
+      case Value.Nothing(_) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.Boolean(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.Int(_, _, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.Float(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.String(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.Native(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
+      case Value.Struct(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
 
       case Value.Lambda(Lambda(params, _, body, traits), location) =>
-        val evalScope = scope.newChild(
-          params.map { param => new Variable(param.name, Value.Unknown(location))}
+        val evalScopeVariables = params.map { param =>
+          new Variable(param.name, Value.Unknown(location))
+        }
+        val evalScope = scope.newChild(evalScopeVariables)
+
+        val (renamedParams, evalRenames) = if (renameVariables) {
+          val renamedParams = params.zip(evalScopeVariables)
+            .map { case (param, variable) => Parameter(uniqueVariableName(variable), param.typeValue) }
+
+          val evalRenames = renames ++ evalScopeVariables.map { variable => (variable, uniqueVariableName(variable)) }.toMap
+
+          (renamedParams, evalRenames)
+        } else {
+          (params, renames)
+        }
+
+        val CompileTimeResult(codeEvalBody, realEvalBody, inspection) =
+          evaluateCompileTime(
+            Value.Operation(body, location),
+            evalScope,
+            inPartialContext = true,
+            renameVariables,
+            evalRenames
+          )
+
+        val codeValue = Value.Lambda(Lambda(renamedParams, scope, asBlock(codeEvalBody), traits), location)
+        val realValue = if (realEvalBody.isStatic) {
+          Value.Lambda(Lambda(renamedParams, scope, asBlock(realEvalBody), traits), location)
+        } else {
+          codeValue
+        }
+        val resultInspection = inspection.withoutVariables(evalScopeVariables)
+
+        logger.debug(s"[compile-time] [lambda] Evaluated $value to $realValue")
+
+        CompileTimeResult(codeValue, realValue, resultInspection)
+
+      case Value.Operation(Operation.LambdaDefinition(params, body), location) =>
+        val lambda = Lambda(
+          params,
+          scope,
+          body,
+          traits = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
         )
 
-        val CompileTimeResult(codeEvalBody, realEvalBody) =
-          evaluateCompileTime(Value.Operation(body, location), evalScope, inPartialContext = true)
-
-        val codeValue = Value.Lambda(Lambda(params, Some(scope), asBlock(codeEvalBody), traits), location)
-        val realValue = Value.Lambda(Lambda(params, Some(scope), asBlock(realEvalBody), traits), location)
-
-        CompileTimeResult(codeValue, realValue)
+        evaluateCompileTime(Value.Lambda(lambda, location), scope, inPartialContext, renameVariables, renames)
 
       case Value.Operation(Operation.Block(values), location) =>
         val lastIndex = values.size - 1
         val codeValuesBuilder = Seq.newBuilder[Value]
         val realValuesBuilder = Seq.newBuilder[Value]
+        var resultInspection = CompileTimeInspection(Set.empty)
 
         codeValuesBuilder.sizeHint(values.size)
         realValuesBuilder.sizeHint(values.size)
 
         values.zipWithIndex.foreach { case (value, index) =>
-          val CompileTimeResult(codeValue, realValue) = evaluateCompileTime(value, scope, inPartialContext)
+          val CompileTimeResult(codeValue, realValue, inspection) =
+            evaluateCompileTime(value, scope, inPartialContext, renameVariables, renames)
+
+          resultInspection = resultInspection.combineWith(inspection)
 
           if (!realValue.isNothing || index == lastIndex) {
             codeValuesBuilder.addOne(codeValue)
@@ -108,68 +173,130 @@ class Interpreter(val runMode: RunMode) {
           Value.Operation(Operation.Block(realValues), location)
         }
 
-        CompileTimeResult(codeValue, realValue)
+        CompileTimeResult(codeValue, realValue, resultInspection)
 
       case Value.Operation(Operation.Let(name, letValue, block), location) =>
         val variable = new Variable(name, Value.Unknown(location))
         val letScope = scope.newChild(Seq(variable))
 
+        val (newName, evalRenames) = if (renameVariables) {
+          val newName = uniqueVariableName(variable)
+          val evalRenames = renames.updated(variable, newName)
+
+          (newName, evalRenames)
+        } else {
+          (name, renames)
+        }
+
         // TODO: Make sure it is a compile-time error to directly use the reference in the expression
-        val CompileTimeResult(codeLetValue, realLetValue) = evaluateCompileTime(letValue, letScope, inPartialContext)
+        val CompileTimeResult(codeLetValue, realLetValue, letInspection) =
+          evaluateCompileTime(letValue, letScope, inPartialContext, renameVariables, evalRenames)
 
         variable.dangerouslySetValue(realLetValue)
 
-        val CompileTimeResult(codeBlockValue, realBlockValue) =
+        val CompileTimeResult(codeBlockValue, realBlockValue, blockInspection) =
           evaluateCompileTime(
             Value.Operation(block, location),
             letScope,
-            inPartialContext = !realLetValue.isStatic
+            inPartialContext = !realLetValue.isStatic,
+            renameVariables,
+            evalRenames
           )
 
-        val codeValue = Value.Operation(Operation.Let(name, codeLetValue, asBlock(codeBlockValue)), location)
+        val innerInspection = letInspection.combineWith(blockInspection)
 
-        // TODO: Should this check statics?
-        val realValue = if (realLetValue.isOperation || realBlockValue.isOperation) {
-          Value.Operation(Operation.Let(name, realLetValue, asBlock(realBlockValue)), location)
+        // The let name is unused, can be eliminated if it's known
+        // If it's unknown it probably can't be, because the expression may have side effects
+        if (!innerInspection.nameUses.contains(variable)) {
+          val shouldEliminateLetValue = realLetValue.isStatic
+
+          // TODO: !codeLetValue.isPure?
+          val codeValue = if (shouldEliminateLetValue) {
+            Value.Operation(asBlock(codeBlockValue), location)
+          } else {
+            val blockWithLetExpressionForSideEffects = Operation.Block(
+              Seq(codeLetValue) ++ asBlock(codeBlockValue).values
+            )
+
+            Value.Operation(blockWithLetExpressionForSideEffects, location)
+          }
+
+          val realValue = if (realLetValue.isStatic && realBlockValue.isStatic) {
+            realBlockValue
+          } else {
+            Value.Unknown(location)
+          }
+
+          if (realValue.isStatic) {
+            logger.debug(s"[compile-time] [let] Evaluated $value to $realValue")
+          } else {
+            logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
+          }
+
+          CompileTimeResult(codeValue, realValue, innerInspection.withoutVariables(Seq(variable)))
         } else {
-          realBlockValue
+          val codeValue = Value.Operation(Operation.Let(newName, codeLetValue, asBlock(codeBlockValue)), location)
+
+          val realValue = if (realLetValue.isStatic && realBlockValue.isStatic) {
+            realBlockValue
+          } else {
+            Value.Unknown(location)
+          }
+
+          if (realValue.isStatic) {
+            logger.debug(s"[compile-time] [let] Evaluated $value to $realValue")
+          } else {
+            logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
+          }
+
+          CompileTimeResult(codeValue, realValue, innerInspection.withoutVariables(Seq(variable)))
         }
 
-        CompileTimeResult(codeValue, realValue)
-
       case Value.Operation(Operation.NameReference(name), location) =>
-        val codeValue = value
-
-        val foundValue = scope.find(name)
-        val realValue = foundValue match {
-          case Some(variable) => variable.value
+        val variable = scope.find(name) match {
+          case Some(variable) => variable
           case None => throw EvalError(s"Invalid reference to $name", location)
         }
 
-        CompileTimeResult(codeValue, if (realValue.isUnknown) { codeValue } else { realValue })
+        val newName = renames.get(variable) match {
+          case Some(newName) => newName
+          case None => name
+        }
+
+        val codeValue = Value.Operation(Operation.NameReference(newName), location)
+        val realValue = if (variable.value.isUnknown) { codeValue } else { variable.value }
+
+        val inspection = CompileTimeInspection(Set(variable))
+
+        CompileTimeResult(codeValue, realValue, inspection)
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
         val positionalEvals =
-          arguments.positional.map(evaluateCompileTime(_, scope, inPartialContext))
+          arguments.positional.map(evaluateCompileTime(_, scope, inPartialContext, renameVariables, renames))
         val namedEvals =
-          arguments.named.view.mapValues(evaluateCompileTime(_, scope, inPartialContext)).toMap
+          arguments.named.view.mapValues(evaluateCompileTime(_, scope, inPartialContext, renameVariables, renames)).toMap
 
         val codeEvalArguments = Arguments(
-          positional = positionalEvals.map { case CompileTimeResult(codeValue, _) => codeValue },
-          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, _) => codeValue }.toMap
+          positional = positionalEvals.map { case CompileTimeResult(codeValue, _, _) => codeValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, _, _) => codeValue }.toMap
         )
         val realEvalArguments = Arguments(
-          positional = positionalEvals.map { case CompileTimeResult(_, realValue) => realValue },
-          named = namedEvals.view.mapValues { case CompileTimeResult(_, realValue) => realValue }.toMap
+          positional = positionalEvals.map { case CompileTimeResult(_, realValue, _) => realValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(_, realValue, _) => realValue }.toMap
         )
 
-        val (CompileTimeResult(codeEvalTarget, realEvalTarget), isVarCall) = if (mayBeVarCall) {
+        val argumentInspections = (positionalEvals ++ namedEvals.values)
+          .map(_.inspection)
+          .foldLeft(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
+
+        val (CompileTimeResult(codeEvalTarget, realEvalTarget, targetInspection), isVarCall) = if (mayBeVarCall) {
           scope.find(name) match {
-            case Some(variable) => (CompileTimeResult(variable.value, variable.value), true)
-            case None => (evaluateCompileTime(target, scope, inPartialContext), false)
+            case Some(variable) =>
+              (CompileTimeResult(variable.value, variable.value, CompileTimeInspection(Set(variable))), true)
+            case None => (evaluateCompileTime(target, scope, inPartialContext, renameVariables, renames), false)
           }
         } else {
-          (evaluateCompileTime(target, scope, inPartialContext), false)
+          (evaluateCompileTime(target, scope, inPartialContext, renameVariables, renames), false)
         }
 
         val codeValue = if (mayBeVarCall) {
@@ -189,7 +316,7 @@ class Interpreter(val runMode: RunMode) {
             realEvalArguments.positional.forall(_.isStatic) &&
             realEvalArguments.named.view.values.forall(_.isStatic)
 
-        val resultValue = if (canCallFunction) {
+        if (canCallFunction) {
           val nativeValueForTarget = Core.nativeValueFor(realEvalTarget)
 
           val callContext = CallContext(this, runMode)
@@ -207,15 +334,19 @@ class Interpreter(val runMode: RunMode) {
           val canEvaluateBasedOnPurity = !inPartialContext || method.traits.contains(LambdaTrait.Pure)
 
           if (hasCompileTimeRunMode && canEvaluateBasedOnPurity) {
-            method.call(
+            val realValue = method.call(
               callContext,
               addSelfArgument(realEvalArguments, realEvalTarget),
               location
             )
-          } else { codeValue }
-        } else { codeValue }
 
-        CompileTimeResult(resultValue, resultValue)
+            logger.debug(s"[compile-time] [call] Evaluated $codeValue to $realValue")
+
+            return CompileTimeResult(realValue, realValue, CompileTimeInspection.empty)
+          }
+        }
+
+        CompileTimeResult(codeValue, codeValue, targetInspection.combineWith(argumentInspections))
     }
   }
 
@@ -229,11 +360,23 @@ class Interpreter(val runMode: RunMode) {
       case Value.String(_, _) => value
       case Value.Native(_, _) => value
       case Value.Struct(_, _) => value
-      case Value.Lambda(Lambda(params, _, body, traits), location) =>
-        Value.Lambda(Lambda(params, Some(scope), body, traits), location)
+      case Value.Lambda(_, _) => value
+
+      case Value.Operation(Operation.LambdaDefinition(params, body), location) =>
+        val lambda = Lambda(
+          params,
+          scope,
+          body,
+
+          // We don't really care about other traits.
+          // Once this function has reached runtime, it should be executable there
+          traits = Set(LambdaTrait.Runtime)
+        )
+
+        evaluateRuntime(Value.Lambda(lambda, location), scope)
 
       case Value.Operation(Operation.Block(values), location) =>
-        val evaluatedValues = values.map(evaluate(_, scope, runMode))
+        val evaluatedValues = values.map(evaluateRuntime(_, scope))
 
         if (evaluatedValues.nonEmpty) {
           evaluatedValues.last
@@ -245,11 +388,11 @@ class Interpreter(val runMode: RunMode) {
         val variable = new Variable(name, Value.Unknown(location))
         val letScope = scope.newChild(Seq(variable))
 
-        val evaluatedLetValue = evaluate(letValue, letScope, runMode)
+        val evaluatedLetValue = evaluateRuntime(letValue, letScope)
 
         variable.dangerouslySetValue(evaluatedLetValue)
 
-        evaluate(Value.Operation(block, location), letScope, runMode)
+        evaluateRuntime(Value.Operation(block, location), letScope)
 
       case Value.Operation(Operation.NameReference(name), location) =>
         val foundValue = scope.find(name)
@@ -261,17 +404,17 @@ class Interpreter(val runMode: RunMode) {
 
       case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
         val evaluatedArguments = Arguments(
-          positional = arguments.positional.map(evaluate(_, scope, runMode)),
-          named = arguments.named.view.mapValues(evaluate(_, scope, runMode)).toMap
+          positional = arguments.positional.map(evaluateRuntime(_, scope)),
+          named = arguments.named.view.mapValues(evaluateRuntime(_, scope)).toMap
         )
 
         val (evaluatedTarget, isVarCall) = if (mayBeVarCall) {
           scope.find(name) match {
             case Some(variable) => (variable.value, true)
-            case None => (evaluate(target, scope, runMode), false)
+            case None => (evaluateRuntime(target, scope), false)
           }
         } else {
-          (evaluate(target, scope, runMode), false)
+          (evaluateRuntime(target, scope), false)
         }
 
         Core.nativeValueFor(evaluatedTarget).callOrThrowError(
@@ -282,6 +425,8 @@ class Interpreter(val runMode: RunMode) {
         )
     }
   }
+
+  private def uniqueVariableName(variable: Variable) = s"__${variable.name}__${variable.objectId}__"
 
   private def addSelfArgument(arguments: Arguments, self: Value) =
     Arguments(self +: arguments.positional, arguments.named)
