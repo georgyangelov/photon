@@ -98,3 +98,13 @@ Rules:
 
 1. Functions with no bindings from the outer scope may be executed always
 2. Functions with external bindings may be executed fully only if all of the bindings are known (!= Unknown, Operation)
+
+## Idea
+
+Keep lambdas as `LambdaDefinition`, only transform to `Lambda` when it can actually be evaluated.
+So `codeValue` will be `LambdaDefinition`, and `realValue` will be `Lambda`.
+
+Problem is `() { unknown() }.compileTimeOnly` will not work in this case. But it should be fine, because this indicates
+that the function cannot actually be called at compile-time.
+
+Should this be transitive?
