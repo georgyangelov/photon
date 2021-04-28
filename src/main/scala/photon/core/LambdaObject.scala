@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Lambda, LambdaTrait, Scope, Unparser, Value, Variable}
+import photon.{EvalError, Lambda, LambdaInfo, LambdaTrait, Scope, Unparser, Value, Variable}
 import photon.core.NativeValue._
 
 object LambdaParams {
@@ -29,9 +29,9 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, value) }
     val namedVariables = namedParams.map { case (name, value) => new Variable(name, value) }
 
-    Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args.withoutSelf)}) in ${lambda.scope}")
+    Logger("LambdaObject").debug(s"Calling $lambda with (${Unparser.unparse(args.withoutSelf)}) in ${lambda.info.scope}")
 
-    val scope = lambda.scope.newChild(positionalVariables ++ namedVariables)
+    val scope = lambda.info.scope.newChild(positionalVariables ++ namedVariables)
 
     val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.runMode)
 
@@ -40,16 +40,20 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
 //    }
 
     result
-  }, traits = lambda.traits),
+  }, traits = lambda.info.traits),
 
   "runTimeOnly" -> ScalaMethod(
     MethodOptions(Seq(LambdaParams.Self)),
     { (_, args, l) =>
       val lambda = args.getLambda(LambdaParams.Self)
-      val traits = lambda.traits.removedAll(Set(LambdaTrait.CompileTime, LambdaTrait.Partial))
+      val traits = lambda.info.traits.removedAll(Set(LambdaTrait.CompileTime, LambdaTrait.Partial))
 
       Value.Lambda(
-        Lambda(lambda.params, lambda.scope, lambda.body, traits),
+        Lambda(lambda.params, lambda.body, LambdaInfo(
+          scope = lambda.info.scope,
+          scopeVariables = lambda.info.scopeVariables,
+          traits = traits
+        )),
         l
       )
     }
@@ -59,10 +63,14 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
     MethodOptions(Seq(LambdaParams.Self)),
     { (_, args, l) =>
       val lambda = args.getLambda(LambdaParams.Self)
-      val traits = lambda.traits.removedAll(Set(LambdaTrait.Runtime, LambdaTrait.Partial))
+      val traits = lambda.info.traits.removedAll(Set(LambdaTrait.Runtime, LambdaTrait.Partial))
 
       Value.Lambda(
-        Lambda(lambda.params, lambda.scope, lambda.body, traits),
+        Lambda(lambda.params, lambda.body, LambdaInfo(
+          scope = lambda.info.scope,
+          scopeVariables = lambda.info.scopeVariables,
+          traits = traits
+        )),
         l
       )
     }

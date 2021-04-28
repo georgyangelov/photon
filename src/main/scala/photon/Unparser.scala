@@ -38,7 +38,7 @@ object Unparser {
     s"Struct(${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
 
   def unparse(lambda: Lambda): String = {
-    val isCompileTimeOnly = !lambda.traits.contains(LambdaTrait.Runtime)
+    val isCompileTimeOnly = !lambda.info.traits.contains(LambdaTrait.Runtime)
 
     s"(${lambda.params.map(unparse).mkString(", ")}) { ${unparse(lambda.body)} }${if (isCompileTimeOnly) ".compileTimeOnly" else ""}"
   }

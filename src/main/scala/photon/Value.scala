@@ -5,18 +5,6 @@ import photon.core.NativeValue
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.Map
 
-//case class ObjectId(id: Long) extends AnyVal
-//
-//object ObjectId {
-//  val idCounter = new AtomicLong(1)
-//
-//  def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
-//}
-//
-//trait WithObjectId {
-//  val id: ObjectId = ObjectId()
-//}
-
 sealed abstract class Value {
   def location: Option[Location]
   def typeObject: Option[TypeObject] = None
@@ -81,8 +69,8 @@ sealed abstract class Value {
 
   // TODO: If the value is a Lambda which closes over dynamic values, then it is dynamic as well
   //       Maybe the Analysis functionality should say what value is static and what is dynamic...
-  def isStatic: Boolean = !isUnknown && !isOperation
-  def isDynamic: Boolean = !isStatic
+  // def isStatic: Boolean = !isUnknown && !isOperation
+  // def isDynamic: Boolean = !isStatic
 }
 
 object Value {
@@ -178,7 +166,18 @@ case class Struct(props: Map[String, Value]) {
   override def toString: String = Unparser.unparse(this)
 }
 
-case class Lambda(params: Seq[Parameter], scope: Scope, body: Operation.Block, traits: Set[LambdaTrait]) {
+case class LambdaInfo(
+  scope: Scope,
+  scopeVariables: Set[Variable],
+
+  traits: Set[LambdaTrait]
+)
+
+case class Lambda(
+  params: Seq[Parameter],
+  body: Operation.Block,
+  info: LambdaInfo
+) {
   override def toString: String = Unparser.unparse(this)
 }
 
