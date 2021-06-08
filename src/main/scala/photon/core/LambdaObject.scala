@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{EvalError, Lambda, LambdaInfo, LambdaTrait, Scope, Unparser, Value, Variable}
+import photon.{CallStackEntry, EvalError, Lambda, LambdaInfo, LambdaTrait, Scope, Unparser, Value, Variable}
 import photon.core.NativeValue._
 
 object LambdaParams {
@@ -33,14 +33,19 @@ case class LambdaObject(lambda: Lambda) extends NativeObject(Map(
 
     val scope = lambda.info.scope.newChild(positionalVariables ++ namedVariables)
 
-    val result = c.interpreter.evaluate(Value.Operation(lambda.body, l), scope, c.runMode)
+    val result = c.interpreter.evaluate(
+      Value.Operation(lambda.body, l),
+      scope,
+      c.runMode,
+      c.callStack
+    )
 
 //    if (!c.mode.shouldTryToPartiallyEvaluate && !result.isStatic) {
 //      throw EvalErrorOld(s"Cannot evaluate $lambda with (${Unparser.unparse(args)}) in ${lambda.scope}", l)
 //    }
 
     result
-  }, traits = lambda.info.traits),
+  }, traits = lambda.info.traits, methodId = lambda.objectId),
 
   "runTimeOnly" -> ScalaMethod(
     MethodOptions(Seq(LambdaParams.Self)),

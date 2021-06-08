@@ -66,11 +66,6 @@ sealed abstract class Value {
       case _ => false
     }
   }
-
-  // TODO: If the value is a Lambda which closes over dynamic values, then it is dynamic as well
-  //       Maybe the Analysis functionality should say what value is static and what is dynamic...
-  // def isStatic: Boolean = !isUnknown && !isOperation
-  // def isDynamic: Boolean = !isStatic
 }
 
 object Value {
@@ -178,6 +173,8 @@ case class Lambda(
   body: Operation.Block,
   info: LambdaInfo
 ) {
+  val objectId = ObjectId()
+
   override def toString: String = Unparser.unparse(this)
 }
 
@@ -235,3 +232,13 @@ case class Arguments(positional: Seq[Value], named: Map[String, Value]) {
 object Arguments {
   val empty: Arguments = Arguments(Seq.empty, Map.empty)
 }
+
+//sealed abstract class CallStackEntry {
+//  def name: String
+//  def location: Location
+//}
+//object CallStackEntry {
+//  case class Lambda(name: String, location: Location)
+//  case class Native(name: String, location: Location)
+//}
+case class CallStackEntry(methodId: ObjectId, name: String, location: Option[Location])

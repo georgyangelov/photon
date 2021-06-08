@@ -343,6 +343,39 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
+  test("compile-time evaluation of structs") {
+    expectEvalCompileTime(
+      "object = Struct(answer = 42); object.answer",
+      "42"
+    )
+    expectEvalCompileTime(
+      "object = Struct(answer = () 42); object.answer",
+      "42"
+    )
+    expectEvalCompileTime(
+      "object = Struct(call = () 42); object()",
+      "42"
+    )
+  }
+
+  test("compile-time evaluation of partial structs") {
+    expectEvalCompileTime(
+      "unknown = () { 11 }.runTimeOnly; object = Struct(unknown = unknown, answer = () 42); object.answer",
+      "42"
+    )
+    expectEvalCompileTime(
+      "unknown = () { 42 }.runTimeOnly; object = Struct(unknown = unknown, answer = () 42); object.unknown",
+      "unknown = () { 42 }; object = Struct(unknown = unknown, answer = () 42); object.unknown"
+    )
+  }
+
+  test("variables do not escape their scope as opearations on partial structs") {
+    expectEvalCompileTime(
+      "{ unknown = () { 42 }.runTimeOnly; Struct(method = unknown) }().method()",
+      "unknown = () { 42 }; Struct(method = unknown).method()"
+    )
+  }
+
 //  test("allows for variable redefinition and usage of the parent variable in let") {
 //    expectEvalCompileTime(
 //      "answer = 41; answer = answer + 1; answer",

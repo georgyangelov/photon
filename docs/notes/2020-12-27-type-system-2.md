@@ -149,14 +149,25 @@ introduce = (meowing: T) log.info meowing.meow
 
 
 
+List = (T) {
+    Object(
+      map = (fn: Function(T, )) {
+        ...
+      }
+    )
+}
+
+
+length = (items: List(union(Int, Bool))) { ... }
+
+length([...])
 
 
 
+items = [1, 2, 3]
+items = items.add 4
 
-
-
-
-
+item, items = items.pop
 
 
 

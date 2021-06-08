@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.core.NativeValue.ValueAssert
-import photon.{Arguments, EvalError, Interpreter, Lambda, LambdaTrait, Location, RunMode, Struct, Value}
+import photon.{Arguments, CallStackEntry, EvalError, Interpreter, Lambda, LambdaTrait, Location, ObjectId, RunMode, Struct, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -59,14 +59,17 @@ object NativeValue {
   }
 }
 
-case class CallContext(interpreter: Interpreter, runMode: RunMode)
+case class CallContext(
+  interpreter: Interpreter,
+  runMode: RunMode,
+  callStack: Seq[CallStackEntry]
+)
 
 trait NativeValue {
   // TODO: Implement
   // def typeStruct: Either[NativeValue, Struct]
 
   def method(
-    context: CallContext,
     name: String,
     location: Option[Location]
   ): Option[NativeMethod]
@@ -77,7 +80,7 @@ trait NativeValue {
     args: Arguments,
     location: Option[Location]
   ): Value = {
-    method(context, name, location) match {
+    method(name, location) match {
       case Some(value) => value.call(context, args, location)
       case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
     }
@@ -85,6 +88,7 @@ trait NativeValue {
 }
 
 trait NativeMethod {
+  val methodId: ObjectId
   val traits: Set[LambdaTrait]
 
   def call(
@@ -119,12 +123,13 @@ case class LambdaMetadata(withSideEffects: Boolean = false)
 
 case class MethodOptions(
   parameters: Seq[Parameter],
-  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
+  traits: Set[LambdaTrait] = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
 )
 
 case class ScalaMethod(
   options: MethodOptions,
-  handler: ScalaMethod#MethodHandler
+  handler: ScalaMethod#MethodHandler,
+  methodId: ObjectId = ObjectId()
 ) extends NativeMethod {
   type MethodHandler = (CallContext, AppliedParameters, Option[Location]) => Value
 
@@ -141,7 +146,8 @@ case class ScalaMethod(
 
 case class ScalaVarargMethod(
   handler: ScalaVarargMethod#MethodHandler,
-  traits: Set[LambdaTrait] = Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
+  traits: Set[LambdaTrait] = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure),
+  methodId: ObjectId = ObjectId()
 ) extends NativeMethod {
   type MethodHandler = (CallContext, Arguments, Option[Location]) => Value
 
@@ -152,7 +158,6 @@ case class ScalaVarargMethod(
 
 class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(
-    context: CallContext,
     name: String,
     location: Option[Location]
   ): Option[NativeMethod] = methods.get(name)

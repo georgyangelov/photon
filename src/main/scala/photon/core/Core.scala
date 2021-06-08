@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalError, Lambda, Location, Parser, Scope, Struct, TypeObject, Value, Variable}
+import photon.{Arguments, EvalError, Lambda, LambdaTrait, Location, Parser, Scope, Struct, TypeObject, Value, Variable}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -51,7 +51,7 @@ object StructRoot extends NativeObject(Map(
     }
 
     Value.Struct(Struct(args.named), l)
-  })
+  }, Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure))
 ))
 
 object IntRootParams {
@@ -113,7 +113,6 @@ class Core extends NativeValue {
   }
 
   override def method(
-    context: CallContext,
     name: String,
     location: Option[Location]
   ): Option[NativeMethod] = {

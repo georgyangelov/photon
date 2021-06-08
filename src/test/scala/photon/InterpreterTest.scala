@@ -115,9 +115,9 @@ class InterpreterTest extends FunSuite {
 //    expectFail("(a) { fn = (b) { 42 }.compileTimeOnly.call(a) }", "Could not evaluate compile-time-only function")
 //  }
 
-  test("evaluating compile-time function at runtime is an error") {
-    expectRuntimeFail("runtime = () { 42 }.runTimeOnly; compileTime = (a) { a + 42 }.compileTimeOnly; compileTime(runtime())", "Could not evaluate compile-time-only function")
-  }
+//  test("evaluating compile-time function at runtime is an error") {
+//    expectRuntimeFail("runtime = () { 42 }.runTimeOnly; compileTime = (a) { a + 42 }.compileTimeOnly; compileTime(runtime())", "Could not evaluate compile-time-only function")
+//  }
 
 //  test("ref objects") {
 //    expectEvalCompileTime("a = Ref(42); a.get", "a = Ref(42); a.get")
@@ -133,24 +133,24 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("factorial = (n) { (n == 1).if_else { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 
-  test("typechecking primitive types") {
-    expectEvalCompileTime("42: Int", "42")
-    expectFailCompileTime("42: String", "Incompatible types")
-  }
-
-//  test("typechecking custom types") {
-//    val types = """
-//      PositiveInt = Struct(
-//        assignableFrom = (self, otherType) self == otherType,
-//
-//        # TODO: Check if number is positive
-//        # TODO: Need `let` here...
-//        call = (number) Struct($type = PositiveInt, number = number)
-//      )
-//    """
-//
-//    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
-//    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
-//    expectFailCompileTime(s"$types; 42: PositiveInt", "Incompatible types")
+//  test("typechecking primitive types") {
+//    expectEvalCompileTime("42: Int", "42")
+//    expectFailCompileTime("42: String", "Incompatible types")
 //  }
+
+  test("typechecking custom types") {
+    val types = """
+      PositiveInt = Struct(
+        assignableFrom = (self, otherType) self == otherType,
+
+        # TODO: Check if number is positive
+        # TODO: Need `let` here...
+        call = (number) Struct($type = PositiveInt, number = number)
+      )
+    """
+
+    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
+    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
+    expectFailCompileTime(s"$types; 'test': PositiveInt", "Incompatible types")
+  }
 }
