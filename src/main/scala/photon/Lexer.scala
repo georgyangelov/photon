@@ -31,7 +31,6 @@ object TokenType {
   case object NumberLiteral extends TokenType("Number")
   case object StringLiteral extends TokenType("String")
   case object BoolLiteral extends TokenType("Bool")
-  case object UnknownLiteral extends TokenType("Unknown")
 }
 
 case class Token(tokenType: TokenType, string: String, location: Location, hadWhitespaceBefore: Boolean) {
@@ -51,7 +50,6 @@ case class Token(tokenType: TokenType, string: String, location: Location, hadWh
         | TokenType.Pipe
         | TokenType.Dollar
         | TokenType.DoubleColon
-        | TokenType.UnknownLiteral
         => s"($tokenType)"
 
       case TokenType.UnaryOperator
@@ -132,11 +130,6 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       case ',' => singleCharToken(TokenType.Comma, startLocation, hadWhitespace)
       case '.' => singleCharToken(TokenType.Dot, startLocation, hadWhitespace)
       case '|' => singleCharToken(TokenType.Pipe, startLocation, hadWhitespace)
-      case '$' if peek() == '?' =>
-        next() // $
-        next() // ?
-
-        Token(TokenType.UnknownLiteral, "$?", startLocation.extendWith(currentLocation), hadWhitespace)
 
       case '$' if !Lexer.isStartPartOfName(peek()) =>
         singleCharToken(TokenType.Dollar, startLocation, hadWhitespace)

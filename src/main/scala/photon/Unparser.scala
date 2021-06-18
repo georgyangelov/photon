@@ -1,56 +1,42 @@
 package photon
 
 object Unparser {
-  def unparse(value: Value): String = value match {
-    case Value.Unknown(_) => "$?"
-    case Value.Nothing(_) => "$nothing"
-    case Value.Boolean(value, _) => value.toString
-    case Value.Int(value, _, _) => value.toString
-    case Value.Float(value, _) => value.toString
-    case Value.String(value, _) =>
+  def unparse(value: ASTValue): String = value match {
+    case ASTValue.Boolean(value, _) => value.toString
+    case ASTValue.Int(value, _) => value.toString
+    case ASTValue.Float(value, _) => value.toString
+    case ASTValue.String(value, _) =>
       "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""
 
-    case Value.Native(native, _) => s"<${native.toString}>"
-    case Value.Struct(struct, _) => unparse(struct)
-    case Value.Lambda(lambda, _) => unparse(lambda)
-    case Value.Operation(operation, _) => unparse(operation)
+    case ASTValue.Struct(props, _) =>
+      s"Struct(${props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
 
-    case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
-  }
+    case ASTValue.Lambda(params, body, _) =>
+      s"(${params.map(unparse).mkString(", ")}) { ${unparse(body)} }"
 
-  def unparse(operation: Operation): String = operation match {
-    case Operation.Block(values) =>
+    case ASTValue.Block(values, _) =>
       values.map(unparse).mkString("; ")
 
-    case Operation.Call(t, name, arguments, _) =>
+    case ASTValue.Call(t, name, arguments, _, _) =>
       val target = unparse(t)
 
       s"${if (target == "self") "" else s"$target."}$name(${unparse(arguments)})"
 
-    case Operation.NameReference(name) => name
+    case ASTValue.NameReference(name, _) => name
 
-    case Operation.Let(name, value, block) => s"$name = ${unparse(value)}; ${unparse(block)}"
+    case ASTValue.Let(name, value, block, _) => s"$name = ${unparse(value)}; ${unparse(block)}"
 
-    case Operation.LambdaDefinition(params, body) => s"(${params.map(unparse).mkString(", ")}) { ${unparse(body)} }"
+    case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
   }
 
-  def unparse(struct: Struct): String =
-    s"Struct(${struct.props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
-
-  def unparse(lambda: Lambda): String = {
-    val isCompileTimeOnly = !lambda.info.traits.contains(LambdaTrait.Runtime)
-
-    s"(${lambda.params.map(unparse).mkString(", ")}) { ${unparse(lambda.body)} }${if (isCompileTimeOnly) ".compileTimeOnly" else ""}"
-  }
-
-  def unparse(parameter: Parameter): String = {
+  def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case Parameter(name, Some(typeValue)) => s"$name: ${unparse(typeValue)}"
-      case Parameter(name, None) => name
+      case ASTParameter(name, Some(typeValue)) => s"$name: ${unparse(typeValue)}"
+      case ASTParameter(name, None) => name
     }
   }
 
-  def unparse(arguments: Arguments): String = {
+  def unparse(arguments: ASTArguments): String = {
     val positionalArguments = arguments.positional.map(unparse)
     val namedArguments = arguments.named.map { case (name, value) => s"${name} = ${unparse(value)}" }
 

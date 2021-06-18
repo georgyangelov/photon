@@ -10,7 +10,7 @@ class ParseError(message: String, location: Location) extends PhotonError(messag
 
 object Parser {
   trait MacroHandler {
-    def apply(name: String, parser: Parser): Option[Value]
+    def apply(name: String, parser: Parser): Option[ASTValue]
   }
 
   val BlankMacroHandler: MacroHandler = (_: String, _: Parser) => None
@@ -35,8 +35,8 @@ class Parser(
 
   def skipNextToken(): Unit = read()
 
-  def parseAll(): Seq[Value] = {
-    val tokens = Vector.newBuilder[Value]
+  def parseAll(): Seq[ASTValue] = {
+    val tokens = Vector.newBuilder[ASTValue]
 
     while (hasMoreTokens) {
       tokens += parseCompleteExpression()
@@ -45,7 +45,7 @@ class Parser(
     tokens.result
   }
 
-  def parseCompleteExpression(): Value = {
+  def parseCompleteExpression(): ASTValue = {
     if (atStart) read()
 
     val expression = parseExpression()
@@ -57,13 +57,13 @@ class Parser(
     expression
   }
 
-  def parseNext(): Value = {
+  def parseNext(): ASTValue = {
     if (atStart) read()
 
     parseExpression()
   }
 
-  private def parseExpression(minPrecedence: Int = 0): Value = {
+  private def parseExpression(minPrecedence: Int = 0): ASTValue = {
     var left = parsePrimary()
 
     while (true) {
@@ -84,36 +84,40 @@ class Parser(
 
       left = if (operator.string == "=") {
         left match {
-          case Value.Operation(Operation.NameReference(name), _) =>
+          case ASTValue.NameReference(name, _) =>
             val body = parseRestOfBlock()
 
-            Value.Operation(
-              Operation.Let(name, right, body),
+            ASTValue.Let(
+              name,
+              right,
+              body,
               Some(location)
             )
           case _ => throw new ParseError("Left side of assignment must have a name", location)
         }
       } else if (operator.tokenType == TokenType.Colon) {
-        Value.Operation(Operation.Call(
-          target = Value.Operation(Operation.NameReference("Core"), Some(location)),
+        ASTValue.Call(
+          target = ASTValue.NameReference("Core", Some(location)),
           name = "typeCheck",
-          arguments = Arguments(Seq(left, right), Map.empty),
-          mayBeVarCall = false
-        ), Some(location))
+          arguments = ASTArguments(Seq(left, right), Map.empty),
+          mayBeVarCall = false,
+          location = Some(location)
+        )
       } else {
-        Value.Operation(Operation.Call(
+        ASTValue.Call(
           target = left,
           name = operator.string,
-          arguments = Arguments(Seq(right), Map.empty),
-          mayBeVarCall = false
-        ), Some(location))
+          arguments = ASTArguments(Seq(right), Map.empty),
+          mayBeVarCall = false,
+          Some(location)
+        )
       }
     }
 
     throw new RuntimeException("This should not happen")
   }
 
-  private def parsePrimary(): Value = {
+  private def parsePrimary(): ASTValue = {
     if (token.tokenType == TokenType.BinaryOperator && token.string == "-") {
       val startLocation = token.location
       read() // -
@@ -121,12 +125,13 @@ class Parser(
       val expression = parsePrimary()
       val location = startLocation.extendWith(expression.location.get)
 
-      return Value.Operation(Operation.Call(
+      return ASTValue.Call(
         target = expression,
         name = "-",
-        arguments = Arguments.empty,
-        mayBeVarCall = false
-      ), Some(location))
+        arguments = ASTArguments.empty,
+        mayBeVarCall = false,
+        Some(location)
+      )
     }
 
     var target = parseCallTarget()
@@ -145,17 +150,16 @@ class Parser(
     target
   }
 
-  private def parseCallTarget(): Value = {
+  private def parseCallTarget(): ASTValue = {
     token.tokenType match {
       case TokenType.BoolLiteral => parseBool()
       case TokenType.NumberLiteral => parseNumber()
       case TokenType.StringLiteral => parseString()
-      case TokenType.UnknownLiteral => Value.Unknown(Some(read().location))
       case TokenType.Name =>
         val token = read()
 
         macroHandler.apply(token.string, this) getOrElse {
-          Value.Operation(Operation.NameReference(token.string), Some(lastLocation))
+          ASTValue.NameReference(token.string, Some(lastLocation))
         }
 
       case TokenType.OpenBrace => parseLambda()
@@ -231,7 +235,6 @@ class Parser(
       case TokenType.NumberLiteral => true
       case TokenType.StringLiteral => true
       case TokenType.BoolLiteral => true
-      case TokenType.UnknownLiteral => true
 
       // TODO: Are these correct?
       case TokenType.Pipe => false
@@ -240,7 +243,7 @@ class Parser(
     }
   }
 
-  private def tryToParseCall(target: Value): Value = {
+  private def tryToParseCall(target: ASTValue): ASTValue = {
     val startLocation = token.location
 
     // target.call
@@ -258,27 +261,29 @@ class Parser(
       val arguments = parseArguments()
       val location = startLocation.extendWith(lastLocation)
 
-      return Value.Operation(Operation.Call(
+      return ASTValue.Call(
         target,
         name.string,
         arguments,
-        mayBeVarCall = false
-      ), Some(location))
+        mayBeVarCall = false,
+        location = Some(location)
+      )
     }
 
     // name a
     // name(a)
     target match {
-      case Value.Operation(Operation.NameReference(name), targetLocation) =>
+      case ASTValue.NameReference(name, targetLocation) =>
         if (!currentExpressionMayEnd) {
           val arguments = parseArguments()
 
-          return Value.Operation(Operation.Call(
-            target = Value.Operation(Operation.NameReference("self"), targetLocation),
+          return ASTValue.Call(
+            target = ASTValue.NameReference("self", targetLocation),
             name,
             arguments,
-            mayBeVarCall = true
-          ), targetLocation.map(_.extendWith(lastLocation)))
+            mayBeVarCall = true,
+            location = targetLocation.map(_.extendWith(lastLocation))
+          )
         }
 
       case _ => ()
@@ -288,18 +293,19 @@ class Parser(
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
       val arguments = parseArguments()
 
-      return Value.Operation(Operation.Call(
+      return ASTValue.Call(
         target = target,
         name = "call",
         arguments = arguments,
-        mayBeVarCall = false
-      ), target.location.map(_.extendWith(lastLocation)))
+        mayBeVarCall = false,
+        target.location.map(_.extendWith(lastLocation))
+      )
     }
 
     target
   }
 
-  private def parseArguments(): Arguments = {
+  private def parseArguments(): ASTArguments = {
     var withParentheses = false
 
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
@@ -308,16 +314,16 @@ class Parser(
     }
 
     if (!withParentheses && currentExpressionMayEnd) {
-      return Arguments.empty
+      return ASTArguments.empty
     }
 
     if (withParentheses && token.tokenType == TokenType.CloseParen) {
       read() // )
-      return Arguments.empty
+      return ASTArguments.empty
     }
 
-    val positionalArguments = Vector.newBuilder[Value]
-    val namedArguments = ListMap.newBuilder[String, Value]
+    val positionalArguments = Vector.newBuilder[ASTValue]
+    val namedArguments = ListMap.newBuilder[String, ASTValue]
 
     var value = parseArgument()
     value match {
@@ -345,10 +351,10 @@ class Parser(
       parseError("Expected current expression to end (either new line or ')')")
     }
 
-    Arguments(positionalArguments.result(), namedArguments.result())
+    ASTArguments(positionalArguments.result(), namedArguments.result())
   }
 
-  private def parseArgument(): (Option[String], Value) = {
+  private def parseArgument(): (Option[String], ASTValue) = {
     val name = if (isNamedArgument) {
       val name = read()
 
@@ -376,29 +382,29 @@ class Parser(
     hasEqualsSign
   }
 
-  private def parseBool(): Value.Boolean = {
+  private def parseBool(): ASTValue.Boolean = {
     val token = read()
 
-    Value.Boolean(token.string.equalsIgnoreCase("true"), Some(token.location))
+    ASTValue.Boolean(token.string.equalsIgnoreCase("true"), Some(token.location))
   }
 
-  private def parseNumber(): Value = {
+  private def parseNumber(): ASTValue = {
     val token = read()
 
     if (token.string.contains(".")) {
-      Value.Float(token.string.toDouble, Some(token.location))
+      ASTValue.Float(token.string.toDouble, Some(token.location))
     } else {
-      Value.Int(token.string.toInt, Some(token.location), None)
+      ASTValue.Int(token.string.toInt, Some(token.location))
     }
   }
 
-  private def parseString(): Value.String = {
+  private def parseString(): ASTValue.String = {
     val token = read()
 
-    Value.String(token.string, Some(token.location))
+    ASTValue.String(token.string, Some(token.location))
   }
 
-  private def parseLambda(): Value = {
+  private def parseLambda(): ASTValue = {
     val startLocation = lastLocation
 
     val hasParameterParens = token.tokenType == TokenType.OpenParen
@@ -419,17 +425,18 @@ class Parser(
 
       block
     } else {
-      Block(Seq(parseExpression()))
+      parseExpression()
     }
 
-    Value.Operation(
-      Operation.LambdaDefinition(parameters, body),
+    ASTValue.Lambda(
+      parameters,
+      body,
       Some(startLocation.extendWith(lastLocation))
     )
   }
 
-  private def parseLambdaParameters(): Seq[Parameter] = {
-    val parameters = Vector.newBuilder[Parameter]
+  private def parseLambdaParameters(): Seq[ASTParameter] = {
+    val parameters = Vector.newBuilder[ASTParameter]
 
     read() // (
 
@@ -449,7 +456,7 @@ class Parser(
             None
           }
 
-          parameters.addOne(Parameter(name, typeValue))
+          parameters.addOne(ASTParameter(name, typeValue))
 
           if (token.tokenType != TokenType.Comma) break
           read() // ,
@@ -463,38 +470,44 @@ class Parser(
     parameters.result
   }
 
-  private def parseBlock(): Operation.Block = {
-    val values = Vector.newBuilder[Value]
+  private def parseBlock(): ASTValue.Block = {
+    val values = Vector.newBuilder[ASTValue]
+    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace) {
       values += parseExpression()
     }
 
-    Block(values.result)
+    ASTValue.Block(
+      values.result,
+      Some(startLocation.extendWith(lastLocation))
+    )
   }
 
-  private def parseRestOfBlock(): Operation.Block = {
-    val values = Vector.newBuilder[Value]
+  private def parseRestOfBlock(): ASTValue.Block = {
+    val values = Vector.newBuilder[ASTValue]
+    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.EOF) {
       values += parseExpression()
     }
 
-    Block(values.result)
+    ASTValue.Block(
+      values.result,
+      Some(startLocation.extendWith(lastLocation))
+    )
   }
 
-  private def parseUnaryOperator(): Value.Operation = {
+  private def parseUnaryOperator(): ASTValue = {
     val operator = read()
     val target = parsePrimary()
 
-    Value.Operation(
-      Operation.Call(
-        target,
-        name = operator.string,
-        arguments = Arguments.empty,
-        mayBeVarCall = false
-      ),
-      Some(operator.location.extendWith(lastLocation))
+    ASTValue.Call(
+      target,
+      name = operator.string,
+      arguments = ASTArguments.empty,
+      mayBeVarCall = false,
+      location = Some(operator.location.extendWith(lastLocation))
     )
   }
 

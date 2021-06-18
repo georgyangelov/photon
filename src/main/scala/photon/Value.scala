@@ -11,41 +11,6 @@ sealed abstract class Value {
 
   override def toString: String = Unparser.unparse(this)
 
-  def inspectAST: String = {
-    this match {
-      case Value.Unknown(_) => "$?"
-      case Value.Nothing(_) => "$nothing"
-
-      case Value.Boolean(value, _) => value.toString
-      case Value.Int(value, _, _) => value.toString
-      case Value.Float(value, _) => value.toString
-      case Value.String(value, _) =>
-        val escapedString = value
-          .replaceAll("([\"\\\\])", "\\\\$1")
-          .replaceAllLiterally("\n", "\\n")
-
-        '"' + escapedString + '"'
-
-      case Value.Native(native, _) => s"<${native.toString}>"
-
-      case Value.Struct(struct, _) =>
-        val values = struct.props.iterator.map { case (key, value) => s"$key = ${value.inspectAST}" }
-
-        s"$${${values.mkString(", ")}}"
-
-      case Value.Lambda(lambda, _) =>
-        val body = lambda.body.inspectAST
-        val params = lambda.params.map {
-          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
-          case Parameter(name, None) => s"(param $name)"
-        }.mkString(" ")
-
-        s"(lambda [$params] $body)"
-
-      case Value.Operation(operation, _) => operation.inspectAST
-    }
-  }
-
   def isOperation: Boolean = {
     this match {
       case Value.Operation(_, _) => true
@@ -78,8 +43,8 @@ object Value {
   case class String(value: java.lang.String, location: Option[Location]) extends Value
 
   case class Native(native: NativeValue, location: Option[Location]) extends Value
-  case class Struct(value: photon.Struct, location: Option[Location]) extends Value
-  case class Lambda(value: photon.Lambda, location: Option[Location]) extends Value
+  case class Struct(struct: photon.Struct, location: Option[Location]) extends Value
+  case class BoundFunction(fn: photon.BoundFunction, location: Option[Location]) extends Value
 
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
 }
@@ -91,13 +56,13 @@ object TypeObject {
   case class Struct(struct: photon.Struct) extends TypeObject
 }
 
-sealed abstract class LambdaTrait
+sealed abstract class FunctionTrait
 
-object LambdaTrait {
-  case object Partial extends LambdaTrait
-  case object CompileTime extends LambdaTrait
-  case object Runtime extends LambdaTrait
-  case object Pure extends LambdaTrait
+object FunctionTrait {
+  case object Partial extends FunctionTrait
+  case object CompileTime extends FunctionTrait
+  case object Runtime extends FunctionTrait
+  case object Pure extends FunctionTrait
 }
 
 case class ObjectId(id: Long) extends AnyVal
@@ -108,19 +73,21 @@ object ObjectId {
   def apply(): ObjectId = new ObjectId(idCounter.getAndIncrement())
 }
 
-class Variable(val name: String, private var _value: Value) extends Equals {
+class VariableName(val originalName: String) extends Equals {
   val objectId: Long = ObjectId().id
 
-  def value: Value = _value
-
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[Variable]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VariableName]
   override def equals(that: Any): Boolean = {
     that match {
-      case other: Variable => this.objectId == other.objectId
+      case other: VariableName => this.objectId == other.objectId
       case _ => false
     }
   }
   override def hashCode(): Int = objectId.hashCode
+}
+
+class Variable(val name: String, private var _value: Value) extends Equals {
+  def value: Value = _value
 
   def dangerouslySetValue(newValue: Value): Unit = _value = newValue
 }
@@ -161,66 +128,44 @@ case class Struct(props: Map[String, Value]) {
   override def toString: String = Unparser.unparse(this)
 }
 
-case class LambdaInfo(
+case class BoundFunction(
+  fn: Function,
   scope: Scope,
-  scopeVariables: Set[Variable],
 
-  traits: Set[LambdaTrait]
+  traits: Set[FunctionTrait]
 )
 
-case class Lambda(
-  params: Seq[Parameter],
-  body: Operation.Block,
-  info: LambdaInfo
-) {
+class Function(
+  val params: Seq[Parameter],
+  val unboundVariables: Set[VariableName],
+  val body: Value
+) extends Equals {
   val objectId = ObjectId()
 
   override def toString: String = Unparser.unparse(this)
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: Function => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
 }
 
 sealed abstract class Operation {
   override def toString: String = Unparser.unparse(this)
-
-  def inspectAST: String = {
-    this match {
-      case Operation.Block(values) =>
-        if (values.nonEmpty) {
-          s"{ ${values.map(_.inspectAST).mkString(" ")} }"
-        } else { "{}" }
-
-      case Operation.Call(target, name, arguments, _) =>
-        val positionalArguments = arguments.positional.map(_.inspectAST)
-        val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspectAST})" }
-        val argumentStrings = positionalArguments ++ namedArguments
-
-        if (argumentStrings.isEmpty) {
-          s"($name ${target.inspectAST})"
-        } else {
-          s"($name ${target.inspectAST} ${argumentStrings.mkString(" ")})"
-        }
-
-      case Operation.NameReference(name) => name
-
-      case Operation.Let(name, value, block) => s"(let $name ${value.inspectAST} ${block.inspectAST})"
-
-      case Operation.LambdaDefinition(params, body) =>
-        val bodyAST = body.inspectAST
-        val paramsAST = params.map {
-          case Parameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
-          case Parameter(name, None) => s"(param $name)"
-        }.mkString(" ")
-
-        s"(lambda [$paramsAST] $bodyAST)"
-    }
-  }
 }
 
 object Operation {
   case class Block(values: Seq[Value]) extends Operation
-  case class Call(target: Value, name: String, arguments: Arguments, mayBeVarCall: Boolean) extends Operation
-  case class NameReference(name: String) extends Operation
-  case class Let(name: String, value: Value, block: Block) extends Operation
-  case class LambdaDefinition(params: Seq[Parameter], body: Operation.Block) extends Operation
+
+  case class Let(variable: VariableName, value: Value, block: Block) extends Operation
+  case class Reference(name: VariableName) extends Operation
+
+  case class Function(fn: photon.Function) extends Operation
+  case class Call(target: Value, name: String, arguments: Arguments) extends Operation
 }
 
 case class Parameter(name: String, typeValue: Option[Value])
@@ -233,12 +178,4 @@ object Arguments {
   val empty: Arguments = Arguments(Seq.empty, Map.empty)
 }
 
-//sealed abstract class CallStackEntry {
-//  def name: String
-//  def location: Location
-//}
-//object CallStackEntry {
-//  case class Lambda(name: String, location: Location)
-//  case class Native(name: String, location: Location)
-//}
 case class CallStackEntry(methodId: ObjectId, name: String, location: Option[Location])
