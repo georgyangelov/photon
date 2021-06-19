@@ -2,3 +2,4 @@
 - [Value->ASTValue] Serialize traits
 - [Value] Remove `Variable` type
 - [Parse macros] Implement with the new structure
+- [Interpreter] Support calling methods on a partial struct

@@ -101,7 +101,7 @@ class Core extends NativeValue {
   val staticRootScope = StaticScope.newRoot(rootScope.variables.keys.toSeq)
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
-    ???
+    None
 //    macros.get(name) match {
 //      case Some(handler) => Some(
 //        Core.nativeValueFor(handler).callOrThrowError(

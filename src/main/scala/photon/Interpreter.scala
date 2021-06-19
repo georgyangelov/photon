@@ -20,12 +20,6 @@ case class EvalError(message: String, override val location: Option[Location])
 
 case class CompileTimeContext(
   partialEvaluation: Boolean,
-
-  renameVariables: Boolean,
-
-  // TODO: Integrate in `Variable`?
-  currentRenames: Map[Variable, String],
-
   callStack: Seq[CallStackEntry]
 )
 
@@ -64,26 +58,16 @@ class Interpreter(val runMode: RunMode) {
     runMode match {
       case RunMode.Runtime => evaluateRuntime(value, scope, RuntimeContext(callStack))
       case RunMode.CompileTime | RunMode.ParseTime =>
-        value
+        val result = evaluateCompileTime(
+          value,
+          scope,
+          CompileTimeContext(
+            partialEvaluation = false,
+            callStack
+          )
+        )
 
-//        val result = evaluateCompileTime(
-//          value,
-//          scope,
-//          CompileTimeContext(
-//            partialEvaluation = false,
-//            renameVariables = runMode == RunMode.ParseTime,
-//            currentRenames = Map.empty,
-//            callStack
-//          )
-//        )
-//
-//        ???
-
-//        if (isFullyEvaluated(result.realValue, runMode)) {
-//          result.realValue
-//        } else {
-//          result.codeValue
-//        }
+        if (result.realValue.isFullyKnown) result.realValue else result.codeValue
     }
 
   private def evaluateCompileTime(
@@ -91,19 +75,17 @@ class Interpreter(val runMode: RunMode) {
     scope: Scope,
     context: CompileTimeContext
   ): CompileTimeResult = {
-    ???
-//    value match {
-//      case Value.Unknown(_) => ???
-//      case Value.Nothing(_) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//      case Value.Boolean(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//      case Value.Int(_, _, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//      case Value.Float(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//      case Value.String(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//      case Value.Native(_, _) => CompileTimeResult(value, value, CompileTimeInspection.empty)
-//
-//      // TODO: Maybe add the inspection as part of the Value so that we don't have to inspect this every time
-//      case Value.Struct(_, _) => CompileTimeResult(value, value, inspect(value, scope))
-//
+    value match {
+      case Value.Unknown(_) => ???
+      case Value.Nothing(_) => CompileTimeResult(value, value)
+      case Value.Boolean(_, _) => CompileTimeResult(value, value)
+      case Value.Int(_, _, _) => CompileTimeResult(value, value)
+      case Value.Float(_, _) => CompileTimeResult(value, value)
+      case Value.String(_, _) => CompileTimeResult(value, value)
+      case Value.Native(_, _) => CompileTimeResult(value, value)
+      case Value.Struct(_, _) => CompileTimeResult(value, value)
+      case Value.BoundFunction(_, _) => CompileTimeResult(value, value)
+
 //      case Value.Lambda(Lambda(params, body, info), location) =>
 //        val evalScopeVariables = params.map { param =>
 //          new Variable(param.name, Value.Unknown(location))
@@ -151,312 +133,245 @@ class Interpreter(val runMode: RunMode) {
 //        logger.debug(s"[compile-time] [lambda] Evaluated $value to $realValue")
 //
 //        CompileTimeResult(codeValue, realValue, resultInspection)
-//
-//      case Value.Operation(Operation.LambdaDefinition(params, body), location) =>
-//        val lambdaInfo = LambdaInfo(
-//          scope,
-//          // Assuming this will be set by the call to evaluate for the lambda value
-//          scopeVariables = Set.empty,
-//          traits = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
-//        )
-//
-//        val lambda = Lambda(params, body, lambdaInfo)
-//
-//        evaluateCompileTime(
-//          Value.Lambda(lambda, location),
-//          scope,
-//          context
-//        )
-//
-//      case Value.Operation(Operation.Block(values), location) =>
-//        val lastIndex = values.size - 1
-//        val codeValuesBuilder = Seq.newBuilder[Value]
-//        val realValuesBuilder = Seq.newBuilder[Value]
-//        var resultInspection = CompileTimeInspection(Set.empty)
-//
-//        codeValuesBuilder.sizeHint(values.size)
-//        realValuesBuilder.sizeHint(values.size)
-//
-//        values.zipWithIndex.foreach { case (value, index) =>
-//          val CompileTimeResult(codeValue, realValue, inspection) =
-//            evaluateCompileTime(value, scope, context)
-//
-//          resultInspection = resultInspection.combineWith(inspection)
-//
-//          if (!realValue.isNothing || index == lastIndex) {
-//            codeValuesBuilder.addOne(codeValue)
-//          }
-//
-//          if (realValue.isOperation || index == lastIndex) {
-//            realValuesBuilder.addOne(realValue)
-//          }
-//        }
-//
-//        val codeValues = codeValuesBuilder.result()
-//        val realValues = realValuesBuilder.result()
-//
-//        val codeValue = if (codeValues.length == 1) {
-//          codeValues.last
-//        } else {
-//          Value.Operation(Operation.Block(codeValues), location)
-//        }
-//        val realValue = if (realValues.length == 1) {
-//          realValues.last
-//        } else {
-//          Value.Operation(Operation.Block(realValues), location)
-//        }
-//
-//        CompileTimeResult(codeValue, realValue, resultInspection)
-//
-//      case Value.Operation(Operation.Let(name, letValue, block), location) =>
-//        val variable = new Variable(name, Value.Unknown(location))
-//        val letScope = scope.newChild(Seq(variable))
-//
-//        val (newName, evalRenames) = if (context.renameVariables) {
-//          val newName = uniqueVariableName(variable)
-//          val evalRenames = context.currentRenames.updated(variable, newName)
-//
-//          (newName, evalRenames)
-//        } else {
-//          (name, context.currentRenames)
-//        }
-//
-//        // TODO: Make sure it is a compile-time error to directly use the reference in the expression
-//        val CompileTimeResult(codeLetValue, realLetValue, letInspection) =
-//          evaluateCompileTime(
-//            letValue,
-//            letScope,
-//            context.copy(currentRenames = evalRenames)
-//          )
-//
-//        variable.dangerouslySetValue(realLetValue)
-//
-//        val CompileTimeResult(codeBlockValue, realBlockValue, blockInspection) =
-//          evaluateCompileTime(
-//            Value.Operation(block, location),
-//            letScope,
-//            CompileTimeContext(
-//              partialEvaluation = !isFullyEvaluated(realLetValue, runMode),
-//              renameVariables = context.renameVariables,
-//              currentRenames = evalRenames,
-//              context.callStack
-//            )
-//          )
-//
-//        val innerInspection = letInspection.combineWith(blockInspection)
-//
-//        // The let name is unused, can be eliminated if it's not an operation
-//        // If it's an operation it probably can't be, because the expression may have side effects
-//        if (!innerInspection.nameUses.contains(variable)) {
-//          val shouldEliminateLetValue = !realLetValue.isOperation
-//
-//          // TODO: !codeLetValue.isPure?
-//          val codeValue = if (shouldEliminateLetValue) {
-//            Value.Operation(asBlock(codeBlockValue), location)
-//          } else {
-//            val blockWithLetExpressionForSideEffects = Operation.Block(
-//              Seq(codeLetValue) ++ asBlock(codeBlockValue).values
-//            )
-//
-//            Value.Operation(blockWithLetExpressionForSideEffects, location)
-//          }
-//
-//          val realValue = if (isFullyEvaluated(realLetValue, runMode) && isFullyEvaluated(realBlockValue, runMode)) {
-//            realBlockValue
-//          } else {
-//            Value.Unknown(location)
-//          }
-//
-//          if (isFullyEvaluated(realValue, runMode)) {
-//            logger.debug(s"[compile-time] [let] Evaluated $value to $realValue")
-//          } else {
-//            logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
-//          }
-//
-//          CompileTimeResult(codeValue, realValue, innerInspection.withoutVariables(Seq(variable)))
-//        } else {
-//          val codeValue = Value.Operation(Operation.Let(newName, codeLetValue, asBlock(codeBlockValue)), location)
-//
-//          val realValue = if (isFullyEvaluated(realLetValue, runMode) && isFullyEvaluated(realBlockValue, runMode)) {
-//            realBlockValue
-//          } else {
-//            Value.Unknown(location)
-//          }
-//
-//          if (isFullyEvaluated(realValue, runMode)) {
-//            logger.debug(s"[compile-time] [let] Evaluated $value to $realValue")
-//          } else {
-//            logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
-//          }
-//
-//          CompileTimeResult(codeValue, realValue, innerInspection.withoutVariables(Seq(variable)))
-//        }
-//
-//      case Value.Operation(Operation.NameReference(name), location) =>
-//        val variable = scope.find(name) match {
-//          case Some(variable) => variable
-//          case None => throw EvalError(s"Invalid reference to $name", location)
-//        }
-//
-//        val newName = context.currentRenames.get(variable) match {
-//          case Some(newName) => newName
-//          case None => name
-//        }
-//
-//        val codeValue = Value.Operation(Operation.NameReference(newName), location)
-//        val realValue = if (variable.value.isUnknown) { codeValue } else { variable.value }
-//
-//        val inspection = CompileTimeInspection(Set(variable))
-//
-//        CompileTimeResult(codeValue, realValue, inspection)
-//
-//      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-//        val positionalEvals = {
-//          // TODO: Make it so that `evaluateCompileTime` returns a flag whether it is fully evaluated or not
-//          arguments.positional.map { argument => {
-//            val result = evaluateCompileTime(argument, scope, context)
-//
-//            (result, isFullyEvaluated(result.realValue, runMode))
-//          } }
-//        }
-//        val namedEvals =
-//          // TODO: Make it so that `evaluateCompileTime` returns a flag whether it is fully evaluated or not
-//          arguments.named.view.mapValues { argument => {
-//            val result = evaluateCompileTime(argument, scope, context)
-//
-//            (result, isFullyEvaluated(result.realValue, runMode))
-//          } }.toMap
-//
-//        val codeEvalArguments = Arguments(
-//          positional = positionalEvals.map { case (CompileTimeResult(codeValue, _, _), _) => codeValue },
-//          named = namedEvals.view.mapValues { case (CompileTimeResult(codeValue, _, _), _) => codeValue }.toMap
-//        )
-//        val realEvalArguments = Arguments(
-//          positional = positionalEvals.map { case (CompileTimeResult(_, realValue, _), _) => realValue },
-//          named = namedEvals.view.mapValues { case (CompileTimeResult(_, realValue, _), _) => realValue }.toMap
-//        )
-//
-//        val partialEvalArguments = Arguments(
-//          positional = positionalEvals.map { case (CompileTimeResult(codeValue, realValue, _), isFullyEvaluated) =>
-//            if (isFullyEvaluated) realValue else codeValue
-//          },
-//          named = namedEvals.view.mapValues { case (CompileTimeResult(codeValue, realValue, _), isFullyEvaluated) =>
-//            if (isFullyEvaluated) realValue else codeValue
-//          }.toMap
-//        )
-//
-//        val argumentInspections = (positionalEvals ++ namedEvals.values)
-//          .map(_._1)
-//          .map(_.inspection)
-//          .foldLeft(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
-//
-//        val (CompileTimeResult(codeEvalTarget, realEvalTarget, targetInspection), isVarCall) = if (mayBeVarCall) {
-//          scope.find(name) match {
-//            case Some(variable) =>
-//              (CompileTimeResult(variable.value, variable.value, CompileTimeInspection(Set(variable))), true)
-//            case None => (evaluateCompileTime(target, scope, context), false)
-//          }
-//        } else {
-//          (evaluateCompileTime(target, scope, context), false)
-//        }
-//
-//        val codeValue = if (mayBeVarCall) {
-//          Value.Operation(
-//            Operation.Call(target, name, codeEvalArguments, mayBeVarCall),
-//            location
-//          )
-//        } else {
-//          Value.Operation(
-//            Operation.Call(codeEvalTarget, name, codeEvalArguments, mayBeVarCall),
-//            location
-//          )
-//        }
-//
-//        val hasFullyEvaluatedTarget = isFullyEvaluated(realEvalTarget, runMode)
-//
-//        if (hasFullyEvaluatedTarget) {
-//          val hasFullyEvaluatedArguments =
-//            positionalEvals.forall { case (_, isFullyEvaluated) => isFullyEvaluated } &&
-//              namedEvals.view.values.forall { case (_, isFullyEvaluated) => isFullyEvaluated }
-//
-//          val nativeValueForTarget = Core.nativeValueFor(realEvalTarget)
-//
-//          val method = nativeValueForTarget.method(
-//            if (isVarCall) "call" else name,
-//            location
-//          ) match {
-//            case Some(value) => value
-//            case None => throw EvalError(s"Cannot call method $name on $realEvalTarget", location)
-//          }
-//
-//          val reachedRecursiveCallLimit = context.callStack.count(_.methodId == method.methodId) >= MAX_RECURSIVE_CALLS
-//          val hasCompileTimeRunMode = method.traits.contains(LambdaTrait.CompileTime)
-//          val hasPartialRunMode = method.traits.contains(LambdaTrait.Partial)
-//          val isPureFunction = method.traits.contains(LambdaTrait.Pure)
-//          val canEvaluateBasedOnPurity = !context.partialEvaluation || isPureFunction
-//
-//          val canCallFunctionCompileTime =
-//            hasCompileTimeRunMode &&
-//              hasFullyEvaluatedTarget &&
-//              hasFullyEvaluatedArguments &&
-//              canEvaluateBasedOnPurity &&
-//              !reachedRecursiveCallLimit
-//
-//          if (hasPartialRunMode && !isPureFunction) {
-//            throw EvalError(s"Partial method $name on $realEvalTarget must also be pure", location)
-//          }
-//
-//          val canCallFunctionPartially =
-//            hasPartialRunMode &&
-//              canEvaluateBasedOnPurity &&
-//              !reachedRecursiveCallLimit
-//
-//          if (canCallFunctionCompileTime) {
-//            val callContext = CallContext(
-//              this,
-//              runMode,
-//
-//              // FIXME: This should be the name of the function, not the name of the variable it was called through
-//              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
-//            )
-//
-//            val realValue = method.call(
-//              callContext,
-//              addSelfArgument(realEvalArguments, realEvalTarget),
-//              location
-//            )
-//
-//            logger.debug(s"[compile-time] [call] Evaluated $codeValue to $realValue")
-//
-//            return CompileTimeResult(realValue, realValue, CompileTimeInspection.empty)
-//          }
-//
-//          if (canCallFunctionPartially) {
-//            logger.debug(s"[partial] [call] Can call $codeValue partially")
-//
-//            val callContext = CallContext(
-//              this,
-//              runMode,
-//
-//              // FIXME: This should be the name of the function, not the name of the variable it was called through
-//              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
-//            )
-//
-//            val realValue = method.call(
-//              callContext,
-//              addSelfArgument(partialEvalArguments, realEvalTarget),
-//              location
-//            )
-//
-//            logger.debug(s"[partial] [call] Evaluated $codeValue to $realValue")
-//
-//            // TODO: Should the codeValue here be `codeValue` or `realValue`? What about the CompileTimeInspection?
-//            return CompileTimeResult(realValue, realValue, inspect(realValue, scope))
-//          }
-//        }
-//
-//        CompileTimeResult(codeValue, codeValue, targetInspection.combineWith(argumentInspections))
-//    }
+
+      case Value.Operation(Operation.Function(fn), location) =>
+        val boundFn = BoundFunction(
+          fn,
+          traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure),
+          scope = scope
+        )
+
+        // TODO: Try to partially evaluate body
+
+        evaluateCompileTime(
+          Value.BoundFunction(boundFn, location),
+          scope,
+          context
+        )
+
+      case Value.Operation(Operation.Block(values), location) =>
+        val lastIndex = values.size - 1
+        val codeValuesBuilder = Seq.newBuilder[Value]
+        val realValuesBuilder = Seq.newBuilder[Value]
+
+        codeValuesBuilder.sizeHint(values.size)
+        realValuesBuilder.sizeHint(values.size)
+
+        values.zipWithIndex.foreach { case (value, index) =>
+          val CompileTimeResult(codeValue, realValue) =
+            evaluateCompileTime(value, scope, context)
+
+          if (!realValue.isNothing || index == lastIndex) {
+            codeValuesBuilder.addOne(codeValue)
+          }
+
+          if (realValue.isOperation || index == lastIndex) {
+            realValuesBuilder.addOne(realValue)
+          }
+        }
+
+        val codeValues = codeValuesBuilder.result()
+        val realValues = realValuesBuilder.result()
+
+        val codeValue = if (codeValues.length == 1) {
+          codeValues.last
+        } else {
+          Value.Operation(Operation.Block(codeValues), location)
+        }
+        val realValue = if (realValues.length == 1) {
+          realValues.last
+        } else {
+          Value.Operation(Operation.Block(realValues), location)
+        }
+
+        CompileTimeResult(codeValue, realValue)
+
+      case Value.Operation(Operation.Let(name, letValue, block), location) =>
+        val variable = new Variable(name, Value.Unknown(location))
+        val letScope = scope.newChild(Seq(variable))
+
+        // TODO: Make sure it is a compile-time error to directly use the reference in the expression
+        val CompileTimeResult(codeLetValue, realLetValue) =
+          evaluateCompileTime(
+            letValue,
+            letScope,
+            context
+          )
+
+        variable.dangerouslySetValue(realLetValue)
+
+        val realLetValueIsFullyKnown = realLetValue.isFullyKnown
+
+        val CompileTimeResult(codeBlockValue, realBlockValue) =
+          evaluateCompileTime(
+            Value.Operation(block, location),
+            letScope,
+            CompileTimeContext(
+              // TODO: I'm not completely sure this is exact, but should be ok
+              partialEvaluation = !realLetValueIsFullyKnown,
+              context.callStack
+            )
+          )
+
+        val realBlockValueIsFullyKnown = realBlockValue.isFullyKnown
+
+        val codeUsesVariable = codeLetValue.unboundNames.contains(name) || codeBlockValue.unboundNames.contains(name)
+
+        // The let name is unused, can be eliminated if it's not an operation
+        // If it's an operation it probably can't be, because the expression may have side effects
+        val codeValue = if (!codeUsesVariable) {
+          val shouldEliminateLetValue = !realLetValue.isOperation
+
+          // TODO: !codeLetValue.isPure?
+          if (shouldEliminateLetValue) {
+            Value.Operation(asBlock(codeBlockValue), location)
+          } else {
+            val blockWithLetExpressionForSideEffects = Operation.Block(
+              Seq(codeLetValue) ++ asBlock(codeBlockValue).values
+            )
+
+            Value.Operation(blockWithLetExpressionForSideEffects, location)
+          }
+        } else {
+          Value.Operation(Operation.Let(name, codeLetValue, asBlock(codeBlockValue)), location)
+        }
+
+        val realValue = if (realLetValueIsFullyKnown && realBlockValueIsFullyKnown) {
+          logger.debug(s"[compile-time] [let] Evaluated $value to $realBlockValue")
+
+          realBlockValue
+        } else {
+          logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
+
+          Value.Unknown(location)
+        }
+
+        CompileTimeResult(codeValue, realValue)
+
+      case Value.Operation(Operation.Reference(name), location) =>
+        val variable = scope.find(name) match {
+          case Some(variable) => variable
+          case None => throw EvalError(s"Invalid reference to $name", location)
+        }
+
+        val realValue = if (variable.value.isUnknown) { value } else { variable.value }
+
+        CompileTimeResult(value, realValue)
+
+      case Value.Operation(Operation.Call(target, name, arguments), location) =>
+        val positionalEvals = arguments.positional.map { argument => evaluateCompileTime(argument, scope, context) }
+        val namedEvals = arguments.named.view.mapValues { argument => evaluateCompileTime(argument, scope, context) }.toMap
+
+        val codeEvalArguments = Arguments(
+          positional = positionalEvals.map { case CompileTimeResult(codeValue, _) => codeValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, _) => codeValue }.toMap
+        )
+        val realEvalArguments = Arguments(
+          positional = positionalEvals.map { case CompileTimeResult(_, realValue) => realValue },
+          named = namedEvals.view.mapValues { case CompileTimeResult(_, realValue) => realValue }.toMap
+        )
+
+        val partialEvalArguments = Arguments(
+          positional = positionalEvals.map { case CompileTimeResult(codeValue, realValue) =>
+            if (realValue.isFullyKnown) realValue else codeValue
+          },
+          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, realValue) =>
+            if (realValue.isFullyKnown) realValue else codeValue
+          }.toMap
+        )
+
+        val CompileTimeResult(codeEvalTarget, realEvalTarget) = evaluateCompileTime(target, scope, context)
+
+        val codeValue = Value.Operation(
+          Operation.Call(codeEvalTarget, name, codeEvalArguments),
+          location
+        )
+
+        // TODO: This is not 100% correct, we should be able to call methods on a partial struct
+        if (realEvalTarget.isFullyKnown) {
+          val hasFullyEvaluatedArguments = {
+            // TODO: There is room for optimization here, we're calling `isFullyKnown` multiple times
+            realEvalArguments.positional.forall(_.isFullyKnown) &&
+              realEvalArguments.named.view.values.forall(_.isFullyKnown)
+          }
+
+          val nativeValueForTarget = Core.nativeValueFor(realEvalTarget)
+
+          val method = nativeValueForTarget.method(
+            name,
+            location
+          ) match {
+            case Some(value) => value
+            case None => throw EvalError(s"Cannot call method $name on $realEvalTarget", location)
+          }
+
+          val reachedRecursiveCallLimit = context.callStack.count(_.methodId == method.methodId) >= MAX_RECURSIVE_CALLS
+          val hasCompileTimeRunMode = method.traits.contains(FunctionTrait.CompileTime)
+          val hasPartialRunMode = method.traits.contains(FunctionTrait.Partial)
+          val isPureFunction = method.traits.contains(FunctionTrait.Pure)
+          val canEvaluateBasedOnPurity = !context.partialEvaluation || isPureFunction
+
+          val canCallFunctionCompileTime =
+            hasCompileTimeRunMode &&
+              hasFullyEvaluatedArguments &&
+              canEvaluateBasedOnPurity &&
+              !reachedRecursiveCallLimit
+
+          if (hasPartialRunMode && !isPureFunction) {
+            throw EvalError(s"Partial method $name on $realEvalTarget must also be pure", location)
+          }
+
+          val canCallFunctionPartially =
+            hasPartialRunMode &&
+              canEvaluateBasedOnPurity &&
+              !reachedRecursiveCallLimit
+
+          if (canCallFunctionCompileTime) {
+            val callContext = CallContext(
+              this,
+              runMode,
+
+              // FIXME: This should be the name of the function, not the name of the variable it was called through
+              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
+            )
+
+            val realValue = method.call(
+              callContext,
+              addSelfArgument(realEvalArguments, realEvalTarget),
+              location
+            )
+
+            logger.debug(s"[compile-time] [call] Evaluated $codeValue to $realValue")
+
+            return CompileTimeResult(realValue, realValue)
+          }
+
+          if (canCallFunctionPartially) {
+            logger.debug(s"[partial] [call] Can call $codeValue partially")
+
+            val callContext = CallContext(
+              this,
+              runMode,
+
+              // FIXME: This should be the name of the function, not the name of the variable it was called through
+              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
+            )
+
+            val realValue = method.call(
+              callContext,
+              addSelfArgument(partialEvalArguments, realEvalTarget),
+              location
+            )
+
+            logger.debug(s"[partial] [call] Evaluated $codeValue to $realValue")
+
+            // TODO: Should the codeValue here be `codeValue` or `realValue`?
+            return CompileTimeResult(realValue, realValue)
+          }
+        }
+
+        CompileTimeResult(codeValue, codeValue)
+    }
   }
 
   private def evaluateRuntime(value: Value, scope: Scope, context: RuntimeContext): Value = {

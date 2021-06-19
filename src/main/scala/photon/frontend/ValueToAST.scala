@@ -20,15 +20,15 @@ object ValueToAST {
 
       case Value.Struct(struct, location) =>
         ASTValue.Call(
-          target = ASTValue.NameReference("Struct", location),
-          name = "call",
+          target = ASTValue.NameReference("self", location),
+          name = "Struct",
           arguments = ASTArguments(
             positional = Seq.empty,
             named = struct.props.map { case (name, value) =>
               (name, transform(value, varNames))
             }
           ),
-          mayBeVarCall = false,
+          mayBeVarCall = true,
           location
         )
 
@@ -59,18 +59,32 @@ object ValueToAST {
       case Value.Operation(Operation.Function(fn), location) => transformFn(fn, varNames, location)
 
       case Value.Operation(Operation.Call(target, name, arguments), location) =>
-        ASTValue.Call(
-          target = transform(target, varNames),
-          name = name,
-          arguments = ASTArguments(
-            positional = arguments.positional.map(transform(_, varNames)),
+        val astTarget = transform(target, varNames)
+        val astArguments = ASTArguments(
+          positional = arguments.positional.map(transform(_, varNames)),
 
-            // TODO: Support renames of function parameters
-            named = arguments.named.map { case (name, value) => (name, transform(value, varNames)) }
-          ),
-          mayBeVarCall = false,
-          location = location
+          // TODO: Support renames of function parameters
+          named = arguments.named.map { case (name, value) => (name, transform(value, varNames)) }
         )
+
+        astTarget match {
+          case ASTValue.NameReference(targetName, _) if name == "call" =>
+            ASTValue.Call(
+              target = ASTValue.NameReference("self", location),
+              name = targetName,
+              arguments = astArguments,
+              mayBeVarCall = true,
+              location = location
+            )
+          case _ =>
+            ASTValue.Call(
+              target = astTarget,
+              name = name,
+              arguments = astArguments,
+              mayBeVarCall = false,
+              location = location
+            )
+        }
     }
   }
 

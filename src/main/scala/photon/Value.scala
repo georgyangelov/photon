@@ -13,6 +13,9 @@ sealed abstract class Value {
   override def toString: String = ValueToAST.transformForInspection(this).toString
 
   val unboundNames: Set[VariableName]
+  def isFullyKnown: Boolean = isFullyKnown(Set.empty)
+
+  protected def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]): Boolean
 
   def isOperation: Boolean = {
     this match {
@@ -39,36 +42,74 @@ sealed abstract class Value {
 object Value {
   case class Unknown(location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = false
   }
   case class Nothing(location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
 
   case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
   case class Int(value: scala.Int, location: Option[Location], override val typeObject: Option[TypeObject]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
   case class Float(value: scala.Double, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
   case class String(value: java.lang.String, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
 
   case class Native(native: NativeValue, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
   case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {
     lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
+
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = {
+      struct.props.view.values.forall(_.isFullyKnown(alreadyKnownBoundFunctions))
+    }
   }
   case class BoundFunction(boundFn: photon.BoundFunction, location: Option[Location]) extends Value {
     override val unboundNames = boundFn.fn.unboundNames
+
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]): scala.Boolean = {
+      if (alreadyKnownBoundFunctions.contains(boundFn)) {
+        return true
+      }
+
+      // TODO: This is not exactly correct, because we can fully evaluate a function call even if one
+      //       of its parameters cannot be called at this time:
+      //
+      //           unknown = () { ... }.runTimeOnly
+      //           identity = (a) { a }
+      //           identity(unknown)()
+      //
+      //           # Should result in
+      //           unknown()
+      if (!boundFn.traits.contains(FunctionTrait.CompileTime)) {
+        return false
+      }
+
+      unboundNames.forall { name =>
+        boundFn.scope.find(name) match {
+          case Some(Variable(_, value)) => value.isFullyKnown(alreadyKnownBoundFunctions + boundFn)
+          case None => throw EvalError(s"Cannot find name $name during isFullyKnown check", location)
+        }
+      }
+    }
   }
 
   case class Operation(operation: photon.Operation, location: Option[Location]) extends Value {
     lazy override val unboundNames = operation.unboundNames
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = false
   }
 }
 
@@ -116,6 +157,10 @@ class Variable(val name: VariableName, private var _value: Value) {
   def value: Value = _value
 
   def dangerouslySetValue(newValue: Value): Unit = _value = newValue
+}
+
+object Variable {
+  def unapply(variable: Variable) = Some(variable.name, variable.value)
 }
 
 object Scope {
