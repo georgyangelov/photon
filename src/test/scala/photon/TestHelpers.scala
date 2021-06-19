@@ -40,7 +40,7 @@ object TestHelpers {
     val logger = Logger("TestHelpers")
 
     val compiledValue = evalCompileTime(Some(prelude), code)
-    val compileTimeCode = Unparser.unparse(ValueToAST.transform(compiledValue))
+    val compileTimeCode = Unparser.unparse(ValueToAST.transformAsBlock(compiledValue))
 
     logger.debug(s"Compile-time evaluated to $compileTimeCode")
 
@@ -84,14 +84,14 @@ object TestHelpers {
 
     assert(compiledValue.toString == parseCode(expectedCompileTimeCode).toString)
 
-    val result = evalRunTime(Unparser.unparse(ValueToAST.transform(compiledValue)))
+    val result = evalRunTime(Unparser.unparse(ValueToAST.transformAsBlock(compiledValue)))
 
     assert(result.toString == parseCode(expectedResult).toString)
   }
 
   def expectRuntimeFail(actualCode: String, message: String): Unit = {
     val compiledValue = evalCompileTime(None, actualCode)
-    val runtimeCode = Unparser.unparse(ValueToAST.transform(compiledValue))
+    val runtimeCode = Unparser.unparse(ValueToAST.transformAsBlock(compiledValue))
 
     Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
 

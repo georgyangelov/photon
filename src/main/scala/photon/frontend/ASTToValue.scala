@@ -40,7 +40,7 @@ object ASTToValue {
                 Operation.Call(
                   target = Value.Operation(Operation.Reference(value), location),
                   name = "call",
-                  arguments = Arguments.empty
+                  arguments = arguments
                 ),
                 location
               )

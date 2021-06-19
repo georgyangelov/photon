@@ -10,7 +10,7 @@ sealed abstract class Value {
   def location: Option[Location]
   def typeObject: Option[TypeObject] = None
 
-  override def toString: String = ValueToAST.transform(this).toString
+  override def toString: String = ValueToAST.transformForInspection(this).toString
 
   val unboundNames: Set[VariableName]
 
@@ -61,7 +61,7 @@ object Value {
     override val unboundNames = Set.empty
   }
   case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {
-    lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+    lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
   }
   case class BoundFunction(boundFn: photon.BoundFunction, location: Option[Location]) extends Value {
     override val unboundNames = boundFn.fn.unboundNames
@@ -183,7 +183,7 @@ sealed abstract class Operation {
 
 object Operation {
   case class Block(values: Seq[Value]) extends Operation {
-    lazy override val unboundNames = values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+    lazy override val unboundNames = values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
   }
 
   case class Let(name: VariableName, value: Value, block: Block) extends Operation {
@@ -199,8 +199,8 @@ object Operation {
   case class Call(target: Value, name: String, arguments: Arguments) extends Operation {
     lazy override val unboundNames =
       target.unboundNames ++
-        arguments.positional.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b } ++
-        arguments.named.view.values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+        arguments.positional.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b } ++
+        arguments.named.view.values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
   }
 }
 

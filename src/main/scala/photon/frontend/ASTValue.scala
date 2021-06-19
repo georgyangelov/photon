@@ -75,6 +75,8 @@ object ASTArguments {
 }
 
 case class ASTBlock(values: Seq[ASTValue]) {
+  override def toString: String = Unparser.unparse(this)
+
   def inspectAST = {
     if (values.nonEmpty) {
       s"{ ${values.map(_.inspectAST).mkString(" ")} }"

@@ -2,7 +2,7 @@ package photon
 
 import com.typesafe.scalalogging.Logger
 import photon.Operation.Block
-import photon.frontend.{ASTBlock, ASTValue, Parser}
+import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 import photon.core.{CallContext, Core}
 
 import scala.annotation.tailrec
@@ -17,19 +17,6 @@ object RunMode {
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
-
-
-case class CompileTimeInspection(nameUses: Set[Variable]) {
-  def combineWith(other: CompileTimeInspection) =
-    CompileTimeInspection(nameUses ++ other.nameUses)
-
-  def withoutVariables(variables: Seq[Variable]) =
-    CompileTimeInspection(nameUses -- variables)
-}
-
-object CompileTimeInspection {
-  val empty = CompileTimeInspection(Set.empty)
-}
 
 case class CompileTimeContext(
   partialEvaluation: Boolean,
@@ -46,8 +33,7 @@ case class RuntimeContext(callStack: Seq[CallStackEntry])
 
 case class CompileTimeResult(
   codeValue: Value,
-  realValue: Value,
-  inspection: CompileTimeInspection
+  realValue: Value
 )
 
 class Interpreter(val runMode: RunMode) {
@@ -59,8 +45,17 @@ class Interpreter(val runMode: RunMode) {
   def macroHandler(name: String, parser: Parser): Option[ASTValue] =
     core.macroHandler(CallContext(this, RunMode.ParseTime, callStack = Seq.empty), name, parser)
 
-  def evaluate(ast: ASTBlock): Value = ???
-  def evaluate(ast: ASTValue): Value = ???
+  def evaluate(ast: ASTBlock): Value = {
+    val block = ASTToValue.transformBlock(ast, core.staticRootScope)
+
+    evaluate(Value.Operation(block, None))
+  }
+
+  def evaluate(ast: ASTValue): Value = {
+    val value = ASTToValue.transform(ast, core.staticRootScope)
+
+    evaluate(value)
+  }
 
   def evaluate(value: Value): Value =
     evaluate(value, core.rootScope, runMode, callStack = Seq.empty)
@@ -69,18 +64,20 @@ class Interpreter(val runMode: RunMode) {
     runMode match {
       case RunMode.Runtime => evaluateRuntime(value, scope, RuntimeContext(callStack))
       case RunMode.CompileTime | RunMode.ParseTime =>
-        val result = evaluateCompileTime(
-          value,
-          scope,
-          CompileTimeContext(
-            partialEvaluation = false,
-            renameVariables = runMode == RunMode.ParseTime,
-            currentRenames = Map.empty,
-            callStack
-          )
-        )
+        value
 
-        ???
+//        val result = evaluateCompileTime(
+//          value,
+//          scope,
+//          CompileTimeContext(
+//            partialEvaluation = false,
+//            renameVariables = runMode == RunMode.ParseTime,
+//            currentRenames = Map.empty,
+//            callStack
+//          )
+//        )
+//
+//        ???
 
 //        if (isFullyEvaluated(result.realValue, runMode)) {
 //          result.realValue
@@ -463,86 +460,71 @@ class Interpreter(val runMode: RunMode) {
   }
 
   private def evaluateRuntime(value: Value, scope: Scope, context: RuntimeContext): Value = {
-    ???
-//    value match {
-//      case Value.Unknown(_) => ???
-//      case Value.Nothing(_) => value
-//      case Value.Boolean(_, _) => value
-//      case Value.Int(_, _, _) => value
-//      case Value.Float(_, _) => value
-//      case Value.String(_, _) => value
-//      case Value.Native(_, _) => value
-//      case Value.Struct(_, _) => value
-//      case Value.Lambda(_, _) => value
-//
-//      case Value.Operation(Operation.LambdaDefinition(params, body), location) =>
-//        val lambda = Lambda(
-//          params,
-//          body,
-//
-//          LambdaInfo(
-//            scope,
-//
-//            // Don't care about this at runtime for now
-//            scopeVariables = Set.empty,
-//
-//            // We don't really care about other traits.
-//            // Once this function has reached runtime, it should be executable there
-//            traits = Set(LambdaTrait.Runtime)
-//          )
-//        )
-//
-//        evaluateRuntime(Value.Lambda(lambda, location), scope, context)
-//
-//      case Value.Operation(Operation.Block(values), location) =>
-//        val evaluatedValues = values.map(evaluateRuntime(_, scope, context))
-//
-//        if (evaluatedValues.nonEmpty) {
-//          evaluatedValues.last
-//        } else {
-//          Value.Nothing(location)
-//        }
-//
-//      case Value.Operation(Operation.Let(name, letValue, block), location) =>
-//        val variable = new Variable(name, Value.Unknown(location))
-//        val letScope = scope.newChild(Seq(variable))
-//
-//        val evaluatedLetValue = evaluateRuntime(letValue, letScope, context)
-//
-//        variable.dangerouslySetValue(evaluatedLetValue)
-//
-//        evaluateRuntime(Value.Operation(block, location), letScope, context)
-//
-//      case Value.Operation(Operation.NameReference(name), location) =>
-//        val foundValue = scope.find(name)
-//
-//        foundValue match {
-//          case Some(variable) => variable.value
-//          case None => throw EvalError(s"Invalid reference to $name", location)
-//        }
-//
-//      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), location) =>
-//        val evaluatedArguments = Arguments(
-//          positional = arguments.positional.map(evaluateRuntime(_, scope, context)),
-//          named = arguments.named.view.mapValues(evaluateRuntime(_, scope, context)).toMap
-//        )
-//
-//        val (evaluatedTarget, isVarCall) = if (mayBeVarCall) {
-//          scope.find(name) match {
-//            case Some(variable) => (variable.value, true)
-//            case None => (evaluateRuntime(target, scope, context), false)
-//          }
-//        } else {
-//          (evaluateRuntime(target, scope, context), false)
-//        }
-//
-//        Core.nativeValueFor(evaluatedTarget).callOrThrowError(
-//          CallContext(this, runMode, context.callStack),
-//          if (isVarCall) { "call" } else { name },
-//          addSelfArgument(evaluatedArguments, evaluatedTarget),
-//          location
-//        )
-//    }
+    value match {
+      case Value.Unknown(_) => ???
+      case Value.Nothing(_) => value
+      case Value.Boolean(_, _) => value
+      case Value.Int(_, _, _) => value
+      case Value.Float(_, _) => value
+      case Value.String(_, _) => value
+      case Value.Native(_, _) => value
+      case Value.Struct(_, _) => value
+      case Value.BoundFunction(_, _) => value
+
+      case Value.Operation(Operation.Function(fn), location) =>
+        val boundFn = BoundFunction(
+          fn,
+          scope,
+
+          // We don't really care about other traits.
+          // Once this function has reached runtime, it should be executable there
+          traits = Set(FunctionTrait.Runtime)
+        )
+
+        evaluateRuntime(Value.BoundFunction(boundFn, location), scope, context)
+
+      case Value.Operation(Operation.Block(values), location) =>
+        val evaluatedValues = values.map(evaluateRuntime(_, scope, context))
+
+        if (evaluatedValues.nonEmpty) {
+          evaluatedValues.last
+        } else {
+          Value.Nothing(location)
+        }
+
+      case Value.Operation(Operation.Let(name, letValue, block), location) =>
+        val variable = new Variable(name, Value.Unknown(location))
+        val letScope = scope.newChild(Seq(variable))
+
+        val evaluatedLetValue = evaluateRuntime(letValue, letScope, context)
+
+        variable.dangerouslySetValue(evaluatedLetValue)
+
+        evaluateRuntime(Value.Operation(block, location), letScope, context)
+
+      case Value.Operation(Operation.Reference(name), location) =>
+        val foundValue = scope.find(name)
+
+        foundValue match {
+          case Some(variable) => variable.value
+          case None => throw EvalError(s"Invalid reference to $name", location)
+        }
+
+      case Value.Operation(Operation.Call(target, name, arguments), location) =>
+        val evaluatedArguments = Arguments(
+          positional = arguments.positional.map(evaluateRuntime(_, scope, context)),
+          named = arguments.named.view.mapValues(evaluateRuntime(_, scope, context)).toMap
+        )
+
+        val evaluatedTarget = evaluateRuntime(target, scope, context)
+
+        Core.nativeValueFor(evaluatedTarget).callOrThrowError(
+          CallContext(this, runMode, context.callStack),
+          name,
+          addSelfArgument(evaluatedArguments, evaluatedTarget),
+          location
+        )
+    }
   }
 
 //  private def inspect(value: Value, scope: Scope): CompileTimeInspection = {

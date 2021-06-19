@@ -3,7 +3,7 @@ package photon.frontend
 import photon.{Arguments, EvalError, Function, Location, Operation, Value, VariableName}
 
 object ValueToAST {
-  def transform(value: Value, varNames: Map[VariableName, String] = Map.empty): ASTValue = {
+  def transform(value: Value, varNames: Map[VariableName, String]): ASTValue = {
     value match {
       case Value.Unknown(location) =>
         throw EvalError("Cannot represent Unknown as AST, this is a compiler bug", location)
@@ -37,7 +37,7 @@ object ValueToAST {
         transformFn(boundFn.fn, varNames, location)
 
       case Value.Operation(Operation.Block(_), location) =>
-        throw EvalError("Cannot represent Native as AST, this is a compiler bug", location)
+        throw EvalError("Cannot represent Block as AST, this is a compiler bug", location)
 
       case Value.Operation(Operation.Let(variable, value, block), location) =>
         val name = uniqueName(variable.originalName, value.unboundNames.map(_.originalName))
@@ -71,6 +71,20 @@ object ValueToAST {
           mayBeVarCall = false,
           location = location
         )
+    }
+  }
+
+  def transformAsBlock(value: Value): ASTBlock = {
+    value match {
+      case Value.Operation(Operation.Block(values), _) => ASTBlock(values.map(transform(_, Map.empty)))
+      case _ => ASTBlock(Seq(transform(value, Map.empty)))
+    }
+  }
+
+  def transformForInspection(value: Value): ASTBlock = {
+    value match {
+      case Value.Operation(Operation.Block(values), _) => ASTBlock(values.map(transform(_, Map.empty)))
+      case _ => ASTBlock(Seq(transform(value, Map.empty)))
     }
   }
 

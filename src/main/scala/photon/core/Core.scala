@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.frontend.{ASTValue, Parser}
+import photon.frontend.{ASTValue, Parser, StaticScope}
 import photon.{Arguments, BoundFunction, EvalError, FunctionTrait, Location, Scope, Struct, TypeObject, Value, Variable, VariableName}
 import photon.core.NativeValue._
 
@@ -97,6 +97,8 @@ class Core extends NativeValue {
     new Variable(new VariableName("Int"), Value.Native(IntRoot, None)),
     new Variable(new VariableName("String"), Value.Native(StringRoot, None))
   ))
+
+  val staticRootScope = StaticScope.newRoot(rootScope.variables.keys.toSeq)
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
     ???
