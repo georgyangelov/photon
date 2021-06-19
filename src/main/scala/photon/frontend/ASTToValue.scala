@@ -1,41 +1,29 @@
-package photon
+package photon.frontend
+
+import photon.{Arguments, EvalError, Function, Operation, Parameter, Value, VariableName}
 
 import scala.collection.Map
 
-class ASTToValue {
-  case class TransformResult(value: Value, unboundNames: Set[VariableName])
-
-  def transform(ast: ASTValue, scope: StaticScope): TransformResult = {
+object ASTToValue {
+  def transform(ast: ASTValue, scope: StaticScope): Value = {
     ast match {
-      case ASTValue.Boolean(value, location) => TransformResult(Value.Boolean(value, location), Set.empty)
-      case ASTValue.Int(value, location) => TransformResult(Value.Int(value, location, None), Set.empty)
-      case ASTValue.Float(value, location) => TransformResult(Value.Float(value, location), Set.empty)
-      case ASTValue.String(value, location) => TransformResult(Value.String(value, location), Set.empty)
-      case ASTValue.Struct(props, location) =>
-        Value.Struct(
-          Struct(
-            props.map { case (name, astValue) => (name, transform(astValue, scope)) }
-          ),
-          location
-        )
+      case ASTValue.Boolean(value, location) => Value.Boolean(value, location)
+      case ASTValue.Int(value, location) => Value.Int(value, location, None)
+      case ASTValue.Float(value, location) => Value.Float(value, location)
+      case ASTValue.String(value, location) => Value.String(value, location)
 
-      case ASTValue.Lambda(params, astBody, location) =>
-        val lambdaScope = scope.newChild(
-          params.map(_.name).map(new VariableName(_))
-        )
+      case ASTValue.Function(params, astBody, location) =>
+        val parameters = params.map { case ASTParameter(name, typeValue) =>
+          Parameter(new VariableName(name), typeValue.map(transform(_, scope)))
+        }
 
-        val parameters = params.map { case ASTParameter(name, typeValue) => Parameter(name, typeValue.map(transform(_, scope))) }
-        val body = transform(astBody, lambdaScope)
-        val fn = new Function(parameters, , body)
+        val lambdaScope = scope.newChild(parameters.map(_.name))
+
+        val body = transformBlock(astBody, lambdaScope)
+        val fn = new Function(parameters, body)
 
         Value.Operation(
           Operation.Function(fn),
-          location
-        )
-
-      case ASTValue.Block(values, location) =>
-        Value.Operation(
-          Operation.Block(values.map(transform(_, scope))),
           location
         )
 
@@ -56,6 +44,8 @@ class ASTToValue {
                 ),
                 location
               )
+
+            case _ =>
           }
         }
 
@@ -98,7 +88,7 @@ class ASTToValue {
     }
   }
 
-  def transformBlock(block: ASTValue.Block, scope: StaticScope): Operation.Block = {
+  def transformBlock(block: ASTBlock, scope: StaticScope): Operation.Block = {
     Operation.Block(
       block.values.map(transform(_, scope))
     )
@@ -124,7 +114,7 @@ case class StaticScope(parent: Option[StaticScope], variables: Map[String, Varia
 
   override def toString: String = {
     val names = variables.view
-      .mapValues { variable => s"${variable.originalName}(${variable.objectId})" }
+      .mapValues { variable => s"${variable.originalName}(${variable.uniqueId})" }
       .mkString(", ")
 
     if (parent.isDefined) {

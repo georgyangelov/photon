@@ -1,6 +1,7 @@
 package photon
 
 import org.scalatest.FunSuite
+import photon.frontend.Lexer
 
 class LexerTest extends FunSuite {
   def lex(code: String): String = {

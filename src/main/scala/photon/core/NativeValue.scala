@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.core.NativeValue.ValueAssert
-import photon.{Arguments, CallStackEntry, EvalError, Interpreter, Lambda, LambdaTrait, Location, ObjectId, RunMode, Struct, Value}
+import photon.{Arguments, BoundFunction, CallStackEntry, EvalError, Interpreter, FunctionTrait, Location, ObjectId, RunMode, Struct, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -30,9 +30,9 @@ object NativeValue {
       case _ => throw EvalError(s"Invalid value type $value, expected String", value.location)
     }
 
-    def asLambda: Lambda = value match {
-      case Value.Lambda(lambda, _) => lambda
-      case _ => throw EvalError(s"Expected lambda, got $value", value.location)
+    def asBoundFunction: BoundFunction = value match {
+      case Value.BoundFunction(fn, _) => fn
+      case _ => throw EvalError(s"Expected BoundFunction, got $value", value.location)
     }
 
     def asStruct: Struct = value match {
@@ -46,7 +46,7 @@ object NativeValue {
     def getInt(index: Int): Int = get(index).asInt
     def getDouble(index: Int): Double = get(index).asDouble
     def getString(index: Int): String = get(index).asString
-    def getLambda(index: Int): Lambda = get(index).asLambda
+    def getFunction(index: Int): BoundFunction = get(index).asBoundFunction
 
     def get(index: Int): Value = {
       if (index >= argumentList.size) {
@@ -89,7 +89,7 @@ trait NativeValue {
 
 trait NativeMethod {
   val methodId: ObjectId
-  val traits: Set[LambdaTrait]
+  val traits: Set[FunctionTrait]
 
   def call(
     context: CallContext,
@@ -105,7 +105,7 @@ case class AppliedParameters(parameters: Seq[Parameter], arguments: Arguments) {
   def getInt(parameter: Parameter): Int = get(parameter).asInt
   def getDouble(parameter: Parameter): Double = get(parameter).asDouble
   def getString(parameter: Parameter): String = get(parameter).asString
-  def getLambda(parameter: Parameter): Lambda = get(parameter).asLambda
+  def getFunction(parameter: Parameter): BoundFunction = get(parameter).asBoundFunction
 
   def get(parameter: Parameter): Value = {
     if (parameter.index < arguments.positional.size) {
@@ -123,7 +123,7 @@ case class LambdaMetadata(withSideEffects: Boolean = false)
 
 case class MethodOptions(
   parameters: Seq[Parameter],
-  traits: Set[LambdaTrait] = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure)
+  traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 )
 
 case class ScalaMethod(
@@ -133,7 +133,7 @@ case class ScalaMethod(
 ) extends NativeMethod {
   type MethodHandler = (CallContext, AppliedParameters, Option[Location]) => Value
 
-  override val traits: Set[LambdaTrait] = options.traits
+  override val traits: Set[FunctionTrait] = options.traits
 
   override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
     handler.apply(
@@ -146,7 +146,7 @@ case class ScalaMethod(
 
 case class ScalaVarargMethod(
   handler: ScalaVarargMethod#MethodHandler,
-  traits: Set[LambdaTrait] = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure),
+  traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure),
   methodId: ObjectId = ObjectId()
 ) extends NativeMethod {
   type MethodHandler = (CallContext, Arguments, Option[Location]) => Value

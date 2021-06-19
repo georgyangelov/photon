@@ -1,7 +1,7 @@
-package photon
+package photon.frontend
 
-import photon.Operation.Block
 import photon.lib.LookAheadReader
+import photon.{Location, PhotonError}
 
 import scala.collection.immutable.ListMap
 import scala.util.control.Breaks._
@@ -425,10 +425,10 @@ class Parser(
 
       block
     } else {
-      parseExpression()
+      ASTBlock(Seq(parseExpression()))
     }
 
-    ASTValue.Lambda(
+    ASTValue.Function(
       parameters,
       body,
       Some(startLocation.extendWith(lastLocation))
@@ -470,32 +470,24 @@ class Parser(
     parameters.result
   }
 
-  private def parseBlock(): ASTValue.Block = {
+  private def parseBlock(): ASTBlock = {
     val values = Vector.newBuilder[ASTValue]
-    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace) {
       values += parseExpression()
     }
 
-    ASTValue.Block(
-      values.result,
-      Some(startLocation.extendWith(lastLocation))
-    )
+    ASTBlock(values.result)
   }
 
-  private def parseRestOfBlock(): ASTValue.Block = {
+  private def parseRestOfBlock(): ASTBlock = {
     val values = Vector.newBuilder[ASTValue]
-    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.EOF) {
       values += parseExpression()
     }
 
-    ASTValue.Block(
-      values.result,
-      Some(startLocation.extendWith(lastLocation))
-    )
+    ASTBlock(values.result)
   }
 
   private def parseUnaryOperator(): ASTValue = {

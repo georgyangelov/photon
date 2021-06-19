@@ -1,6 +1,7 @@
 package photon
 
 import photon.core.NativeValue
+import photon.frontend.ValueToAST
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.Map
@@ -9,7 +10,9 @@ sealed abstract class Value {
   def location: Option[Location]
   def typeObject: Option[TypeObject] = None
 
-  override def toString: String = Unparser.unparse(this)
+  override def toString: String = ValueToAST.transform(this).toString
+
+  val unboundNames: Set[VariableName]
 
   def isOperation: Boolean = {
     this match {
@@ -34,19 +37,39 @@ sealed abstract class Value {
 }
 
 object Value {
-  case class Unknown(location: Option[Location]) extends Value
-  case class Nothing(location: Option[Location]) extends Value
+  case class Unknown(location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
+  case class Nothing(location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
 
-  case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value
-  case class Int(value: scala.Int, location: Option[Location], override val typeObject: Option[TypeObject]) extends Value
-  case class Float(value: scala.Double, location: Option[Location]) extends Value
-  case class String(value: java.lang.String, location: Option[Location]) extends Value
+  case class Boolean(value: scala.Boolean, location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
+  case class Int(value: scala.Int, location: Option[Location], override val typeObject: Option[TypeObject]) extends Value {
+    override val unboundNames = Set.empty
+  }
+  case class Float(value: scala.Double, location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
+  case class String(value: java.lang.String, location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
 
-  case class Native(native: NativeValue, location: Option[Location]) extends Value
-  case class Struct(struct: photon.Struct, location: Option[Location]) extends Value
-  case class BoundFunction(fn: photon.BoundFunction, location: Option[Location]) extends Value
+  case class Native(native: NativeValue, location: Option[Location]) extends Value {
+    override val unboundNames = Set.empty
+  }
+  case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {
+    lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+  }
+  case class BoundFunction(boundFn: photon.BoundFunction, location: Option[Location]) extends Value {
+    override val unboundNames = boundFn.fn.unboundNames
+  }
 
-  case class Operation(operation: photon.Operation, location: Option[Location]) extends Value
+  case class Operation(operation: photon.Operation, location: Option[Location]) extends Value {
+    lazy override val unboundNames = operation.unboundNames
+  }
 }
 
 sealed abstract class TypeObject
@@ -74,7 +97,9 @@ object ObjectId {
 }
 
 class VariableName(val originalName: String) extends Equals {
-  val objectId: Long = ObjectId().id
+  private val objectId: Long = ObjectId().id
+
+  def uniqueId = objectId
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[VariableName]
   override def equals(that: Any): Boolean = {
@@ -86,7 +111,8 @@ class VariableName(val originalName: String) extends Equals {
   override def hashCode(): Int = objectId.hashCode
 }
 
-class Variable(val name: String, private var _value: Value) extends Equals {
+// TODO: Do we need this at all?
+class Variable(val name: VariableName, private var _value: Value) {
   def value: Value = _value
 
   def dangerouslySetValue(newValue: Value): Unit = _value = newValue
@@ -101,7 +127,7 @@ object Scope {
   }
 }
 
-case class Scope(parent: Option[Scope], variables: Map[String, Variable]) {
+case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) {
   def newChild(variables: Seq[Variable]): Scope = {
     Scope(
       Some(this),
@@ -119,14 +145,12 @@ case class Scope(parent: Option[Scope], variables: Map[String, Variable]) {
     }
   }
 
-  def find(name: String): Option[Variable] = {
+  def find(name: VariableName): Option[Variable] = {
     variables.get(name) orElse { parent.flatMap(_.find(name)) }
   }
 }
 
-case class Struct(props: Map[String, Value]) {
-  override def toString: String = Unparser.unparse(this)
-}
+case class Struct(props: Map[String, Value])
 
 case class BoundFunction(
   fn: Function,
@@ -137,12 +161,11 @@ case class BoundFunction(
 
 class Function(
   val params: Seq[Parameter],
-  val unboundVariables: Set[VariableName],
-  val body: Value
+  val body: Operation.Block
 ) extends Equals {
   val objectId = ObjectId()
 
-  override def toString: String = Unparser.unparse(this)
+  val unboundNames = body.unboundNames -- params.map(_.name)
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
   override def equals(that: Any): Boolean = {
@@ -155,23 +178,38 @@ class Function(
 }
 
 sealed abstract class Operation {
-  override def toString: String = Unparser.unparse(this)
+  val unboundNames: Set[VariableName]
 }
 
 object Operation {
-  case class Block(values: Seq[Value]) extends Operation
+  case class Block(values: Seq[Value]) extends Operation {
+    lazy override val unboundNames = values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+  }
 
-  case class Let(variable: VariableName, value: Value, block: Block) extends Operation
-  case class Reference(name: VariableName) extends Operation
+  case class Let(name: VariableName, value: Value, block: Block) extends Operation {
+    lazy override val unboundNames = (value.unboundNames ++ block.unboundNames) - name
+  }
+  case class Reference(name: VariableName) extends Operation {
+    override val unboundNames = Set(name)
+  }
 
-  case class Function(fn: photon.Function) extends Operation
-  case class Call(target: Value, name: String, arguments: Arguments) extends Operation
+  case class Function(fn: photon.Function) extends Operation {
+    override val unboundNames = fn.unboundNames
+  }
+  case class Call(target: Value, name: String, arguments: Arguments) extends Operation {
+    lazy override val unboundNames =
+      target.unboundNames ++
+        arguments.positional.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b } ++
+        arguments.named.view.values.map(_.unboundNames).reduce[Set[VariableName]] { case (a, b) => a ++ b }
+  }
 }
 
-case class Parameter(name: String, typeValue: Option[Value])
+case class Parameter(name: VariableName, typeValue: Option[Value])
 
 case class Arguments(positional: Seq[Value], named: Map[String, Value]) {
   def withoutSelf = Arguments(positional.drop(1), named)
+
+  override def toString = Unparser.unparse(ValueToAST.transformForInspection(this))
 }
 
 object Arguments {

@@ -1,6 +1,7 @@
 package photon.core
 
-import photon.{Arguments, EvalError, Lambda, LambdaTrait, Location, Parser, Scope, Struct, TypeObject, Value, Variable}
+import photon.frontend.{ASTValue, Parser}
+import photon.{Arguments, BoundFunction, EvalError, FunctionTrait, Location, Scope, Struct, TypeObject, Value, Variable, VariableName}
 import photon.core.NativeValue._
 
 import scala.collection.mutable
@@ -12,7 +13,7 @@ object Core {
 
     case Value.Boolean(_, _) => BoolObject
     case Value.Int(_, _, _) => IntObject
-    case Value.Lambda(lambda, _) => nativeValueFor(lambda)
+    case Value.BoundFunction(boundFn, _) => nativeValueFor(boundFn)
     case Value.String(_, _) => StringObject
     case Value.Native(native, _) => native
     case Value.Struct(struct, _) => nativeValueFor(struct)
@@ -21,7 +22,7 @@ object Core {
     case Value.Operation(_, location) => error(location)
   }
 
-  def nativeValueFor(lambda: Lambda): NativeValue = LambdaObject(lambda)
+  def nativeValueFor(boundFn: BoundFunction): NativeValue = BoundFunctionObject(boundFn)
   def nativeValueFor(struct: Struct): NativeValue = StructObject(struct)
 
   def isSameObject(a: Value, b: Value): Boolean = {
@@ -33,7 +34,7 @@ object Core {
       case (Value.String(one, _), Value.String(two, _)) => one == two
       case (Value.Native(one, _), Value.Native(two, _)) => one == two
       case (Value.Struct(one, _), Value.Struct(two, _)) => one == two
-      case (Value.Lambda(one, _), Value.Lambda(two, _)) => one == two
+      case (Value.BoundFunction(one, _), Value.BoundFunction(two, _)) => one == two
       case (Value.Operation(one, _), Value.Operation(two, _)) => one == two
       case _ => false
     }
@@ -51,7 +52,7 @@ object StructRoot extends NativeObject(Map(
     }
 
     Value.Struct(Struct(args.named), l)
-  }, Set(LambdaTrait.Partial, LambdaTrait.CompileTime, LambdaTrait.Runtime, LambdaTrait.Pure))
+  }, Set(FunctionTrait.Partial, FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure))
 ))
 
 object IntRootParams {
@@ -91,25 +92,26 @@ object CoreParams {
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, Value] = mutable.TreeMap.empty
   val rootScope: Scope = Scope.newRoot(Seq(
-    new Variable("Core", Value.Native(this, None)),
-    new Variable("Struct", Value.Native(StructRoot, None)),
-    new Variable("Int", Value.Native(IntRoot, None)),
-    new Variable("String", Value.Native(StringRoot, None))
+    new Variable(new VariableName("Core"), Value.Native(this, None)),
+    new Variable(new VariableName("Struct"), Value.Native(StructRoot, None)),
+    new Variable(new VariableName("Int"), Value.Native(IntRoot, None)),
+    new Variable(new VariableName("String"), Value.Native(StringRoot, None))
   ))
 
-  def macroHandler(context: CallContext, name: String, parser: Parser): Option[Value] = {
-    macros.get(name) match {
-      case Some(handler) => Some(
-        Core.nativeValueFor(handler).callOrThrowError(
-          context,
-          "call",
-          Arguments(Seq(handler, Value.Native(ParserObject(parser), None)), Map.empty),
-          // TODO
-          None
-        )
-      )
-      case None => None
-    }
+  def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
+    ???
+//    macros.get(name) match {
+//      case Some(handler) => Some(
+//        Core.nativeValueFor(handler).callOrThrowError(
+//          context,
+//          "call",
+//          Arguments(Seq(handler, Value.Native(ParserObject(parser), None)), Map.empty),
+//          // TODO
+//          None
+//        )
+//      )
+//      case None => None
+//    }
   }
 
   override def method(
@@ -121,7 +123,10 @@ class Core extends NativeValue {
       case "define_macro" => Some(
         ScalaMethod(
           MethodOptions(Seq(CoreParams.Self, CoreParams.DefineMacroName, CoreParams.DefineMacroLambda)),
-          { (_, args, l) => defineMacro(args.getString(CoreParams.DefineMacroName), Value.Lambda(args.getLambda(CoreParams.DefineMacroLambda), l)) }
+          { (_, args, l) => defineMacro(
+            args.getString(CoreParams.DefineMacroName),
+            Value.BoundFunction(args.getFunction(CoreParams.DefineMacroLambda), l)
+          ) }
         )
       )
 

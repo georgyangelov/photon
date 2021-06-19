@@ -2,19 +2,15 @@ package photon
 
 import com.typesafe.scalalogging.Logger
 import org.scalatest.Matchers.intercept
-
 import org.scalatest.Assertions._
+import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Lexer, Parser, ValueToAST}
 
 object TestHelpers {
-  def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): Value = {
+  def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTBlock = {
     val parser = new Parser(new Lexer("<testing>", code), macroHandler)
     val values = parser.parseAll()
 
-    if (values.length == 1) {
-      values.head
-    } else {
-      Value.Operation(Operation.Block(values), None)
-    }
+    ASTBlock(values)
   }
 
   def evalCompileTime(prelude: Option[String], code: String): Value = {
@@ -22,8 +18,9 @@ object TestHelpers {
 
     prelude match {
       case Some(prelude) =>
-        val preludeValue = parseCode(prelude, interpreter.macroHandler)
-        interpreter.evaluate(preludeValue)
+        val preludeAST = parseCode(prelude, interpreter.macroHandler)
+
+        interpreter.evaluate(preludeAST)
       case None =>
     }
 
@@ -43,7 +40,7 @@ object TestHelpers {
     val logger = Logger("TestHelpers")
 
     val compiledValue = evalCompileTime(Some(prelude), code)
-    val compileTimeCode = Unparser.unparse(compiledValue)
+    val compileTimeCode = Unparser.unparse(ValueToAST.transform(compiledValue))
 
     logger.debug(s"Compile-time evaluated to $compileTimeCode")
 
@@ -87,14 +84,14 @@ object TestHelpers {
 
     assert(compiledValue.toString == parseCode(expectedCompileTimeCode).toString)
 
-    val result = evalRunTime(Unparser.unparse(compiledValue))
+    val result = evalRunTime(Unparser.unparse(ValueToAST.transform(compiledValue)))
 
     assert(result.toString == parseCode(expectedResult).toString)
   }
 
   def expectRuntimeFail(actualCode: String, message: String): Unit = {
     val compiledValue = evalCompileTime(None, actualCode)
-    val runtimeCode = Unparser.unparse(compiledValue)
+    val runtimeCode = Unparser.unparse(ValueToAST.transform(compiledValue))
 
     Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
 

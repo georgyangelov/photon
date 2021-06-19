@@ -1,9 +1,9 @@
-package photon
-
-import java.io._
+package photon.frontend
 
 import photon.lib.PushbackStringReader
+import photon.{Location, PhotonError, frontend}
 
+import java.io._
 import scala.util.control.Breaks._
 
 sealed abstract class TokenType(val name: String) {
@@ -116,7 +116,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
     val string = new java.lang.StringBuilder
 
     if (atEnd) {
-      return Token(TokenType.EOF, "", startLocation, hadWhitespace)
+      return frontend.Token(TokenType.EOF, "", startLocation, hadWhitespace)
     }
 
     c match {

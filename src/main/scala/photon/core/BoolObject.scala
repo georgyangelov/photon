@@ -53,7 +53,7 @@ object BoolObject extends NativeObject(Map(
 
 //      Logger("BoolObject").debug(s"Running $lambda, scope: ${lambda.asLambda.scope}")
 
-      Core.nativeValueFor(lambda.asLambda).callOrThrowError(c, "call", Arguments(Seq(lambda), Map.empty), l)
+      Core.nativeValueFor(lambda.asBoundFunction).callOrThrowError(c, "call", Arguments(Seq(lambda), Map.empty), l)
     }
   )
 ))

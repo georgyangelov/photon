@@ -1,4 +1,6 @@
-package photon
+package photon.frontend
+
+import photon.{Location, Unparser}
 
 import scala.collection.Map
 
@@ -19,16 +21,6 @@ sealed abstract class ASTValue {
 
         '"' + escapedString + '"'
 
-      case ASTValue.Struct(props, _) =>
-        val values = props.iterator.map { case (key, value) => s"$key = ${value.inspectAST}" }
-
-        s"$${${values.mkString(", ")}}"
-
-      case ASTValue.Block(values, _) =>
-        if (values.nonEmpty) {
-          s"{ ${values.map(_.inspectAST).mkString(" ")} }"
-        } else { "{}" }
-
       case ASTValue.Call(target, name, arguments, _, _) =>
         val positionalArguments = arguments.positional.map(_.inspectAST)
         val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspectAST})" }
@@ -44,7 +36,7 @@ sealed abstract class ASTValue {
 
       case ASTValue.Let(name, value, block, _) => s"(let $name ${value.inspectAST} ${block.inspectAST})"
 
-      case ASTValue.Lambda(params, body, _) =>
+      case ASTValue.Function(params, body, _) =>
         val bodyAST = body.inspectAST
         val paramsAST = params.map {
           case ASTParameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
@@ -62,10 +54,8 @@ object ASTValue {
   case class Float(value: scala.Double, location: Option[Location]) extends ASTValue
   case class String(value: java.lang.String, location: Option[Location]) extends ASTValue
 
-  case class Struct(props: Map[java.lang.String, ASTValue], location: Option[Location]) extends ASTValue
-  case class Lambda(params: Seq[ASTParameter], body: ASTValue, location: Option[Location]) extends ASTValue
+  case class Function(params: Seq[ASTParameter], body: ASTBlock, location: Option[Location]) extends ASTValue
 
-  case class Block(values: Seq[ASTValue], location: Option[Location]) extends ASTValue
   case class Call(
     target: ASTValue,
     name: java.lang.String,
@@ -74,7 +64,7 @@ object ASTValue {
     location: Option[Location]
   ) extends ASTValue
   case class NameReference(name: java.lang.String, location: Option[Location]) extends ASTValue
-  case class Let(name: java.lang.String, value: ASTValue, block: Block, location: Option[Location]) extends ASTValue
+  case class Let(name: java.lang.String, value: ASTValue, block: ASTBlock, location: Option[Location]) extends ASTValue
 }
 
 case class ASTParameter(name: String, typeValue: Option[ASTValue])
@@ -82,4 +72,12 @@ case class ASTParameter(name: String, typeValue: Option[ASTValue])
 case class ASTArguments(positional: Seq[ASTValue], named: Map[String, ASTValue])
 object ASTArguments {
   val empty: ASTArguments = ASTArguments(Seq.empty, Map.empty)
+}
+
+case class ASTBlock(values: Seq[ASTValue]) {
+  def inspectAST = {
+    if (values.nonEmpty) {
+      s"{ ${values.map(_.inspectAST).mkString(" ")} }"
+    } else { "{}" }
+  }
 }

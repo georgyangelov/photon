@@ -1,6 +1,7 @@
 package photon
 
 import org.scalatest.FunSuite
+import photon.frontend.{Lexer, Parser}
 
 class ParserTest extends FunSuite {
   def parse(code: String): String = {
@@ -24,10 +25,6 @@ class ParserTest extends FunSuite {
     assert(parse("true") == "true")
     assert(parse("false") == "false")
     assert(parse("nil") == "nil")
-  }
-
-  test("unknown literal") {
-    assert(parse("$?") == "$?")
   }
 
   test("negating expressions") {

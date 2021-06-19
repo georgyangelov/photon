@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, EvalError, LambdaTrait, Location, ObjectId, Struct, Value}
+import photon.{Arguments, EvalError, FunctionTrait, Location, ObjectId, Struct, Value}
 import photon.core.NativeValue._
 
 //case class StructGetter(propertyName: String) extends NativeMethod {
@@ -31,7 +31,7 @@ case class StructGetter(propertyName: String) extends NativeMethod {
   // This being the same doesn't matter because getters will never recursively call each other
   override val methodId = Getter.globalGetterMethodId
 
-  override val traits = Set(LambdaTrait.CompileTime, LambdaTrait.Runtime)
+  override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime)
 
   override def call(context: CallContext, arguments: Arguments, location: Option[Location]) = {
     val struct = arguments.positional.head.asStruct
@@ -55,7 +55,7 @@ case class StructObject(struct: Struct) extends NativeObject(Map(
       val value = struct.props.get(name)
 
       value match {
-        case Some(Value.Lambda(lambda, _)) => Core.nativeValueFor(lambda).method("call", location)
+        case Some(Value.BoundFunction(lambda, _)) => Core.nativeValueFor(lambda).method("call", location)
         case Some(_) => Some(StructGetter(name))
         case None => super.method(name, location)
       }

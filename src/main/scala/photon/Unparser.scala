@@ -1,5 +1,7 @@
 package photon
 
+import photon.frontend.{ASTArguments, ASTBlock, ASTParameter, ASTValue}
+
 object Unparser {
   def unparse(value: ASTValue): String = value match {
     case ASTValue.Boolean(value, _) => value.toString
@@ -8,14 +10,8 @@ object Unparser {
     case ASTValue.String(value, _) =>
       "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""
 
-    case ASTValue.Struct(props, _) =>
-      s"Struct(${props.map { case (k, v) => s"$k = ${unparse(v)}" }.mkString(", ")})"
-
-    case ASTValue.Lambda(params, body, _) =>
+    case ASTValue.Function(params, body, _) =>
       s"(${params.map(unparse).mkString(", ")}) { ${unparse(body)} }"
-
-    case ASTValue.Block(values, _) =>
-      values.map(unparse).mkString("; ")
 
     case ASTValue.Call(t, name, arguments, _, _) =>
       val target = unparse(t)
@@ -28,6 +24,8 @@ object Unparser {
 
     case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
   }
+
+  def unparse(block: ASTBlock): String = block.values.map(unparse).mkString("; ")
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {
