@@ -70,7 +70,7 @@ object Lexer {
     Character.isAlphabetic(c) || c == '_' || c == '@' || c == '$'
 
   def isPartOfName(c: Int): Boolean =
-    Character.isAlphabetic(c) || Character.isDigit(c) || c == '_' || c == '@'
+    Character.isAlphabetic(c) || Character.isDigit(c) || c == '_' || c == '@' || c == '$'
 }
 
 class Lexer private(val fileName: String, val reader: PushbackStringReader) {

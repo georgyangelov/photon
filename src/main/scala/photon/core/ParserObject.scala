@@ -1,19 +1,21 @@
 package photon.core
 
-import photon.frontend.{ASTValue, Parser, Token}
+import photon.frontend.{ASTToValue, ASTValue, Parser, StaticScope, Token}
 import photon.{FunctionTrait, Value}
+
+case class MacroASTValue(ast: ASTValue) extends NativeObject(Map.empty) {
+  override val isFullyEvaluated = false
+}
 
 case class MetaValueObject(ast: ASTValue) extends NativeObject(Map(
   "#" -> ScalaMethod(
     MethodOptions(Seq.empty),
-    // TODO: Implement this
-    { (c, args, l) => Value.Unknown(l) }
+    { (c, args, l) => Value.Native(MacroASTValue(ast), l) }
   ),
 
   "eval" -> ScalaMethod(
     MethodOptions(Seq.empty),
-    // TODO: Implement this
-    { (c, args, l) => Value.Unknown(l) }
+    { (c, args, l) => Value.Native(MacroASTValue(ast), l) }
   )
 ))
 

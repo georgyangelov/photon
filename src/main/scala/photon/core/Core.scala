@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.frontend.{ASTValue, Parser, StaticScope}
+import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
 import photon.{Arguments, BoundFunction, EvalError, FunctionTrait, Location, Scope, Struct, TypeObject, Value, Variable, VariableName}
 import photon.core.NativeValue._
 
@@ -98,22 +98,29 @@ class Core extends NativeValue {
     new Variable(new VariableName("String"), Value.Native(StringRoot, None))
   ))
 
-  val staticRootScope = StaticScope.newRoot(rootScope.variables.keys.toSeq)
+  val staticRootScope = StaticScope.fromScope(rootScope)
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
-    None
-//    macros.get(name) match {
-//      case Some(handler) => Some(
-//        Core.nativeValueFor(handler).callOrThrowError(
-//          context,
-//          "call",
-//          Arguments(Seq(handler, Value.Native(ParserObject(parser), None)), Map.empty),
-//          // TODO
-//          None
-//        )
-//      )
-//      case None => None
-//    }
+    macros.get(name) match {
+      case Some(handler) =>
+        val valueResult = Core.nativeValueFor(handler).callOrThrowError(
+          context,
+          "call",
+          Arguments(Seq(handler, Value.Native(ParserObject(parser), None)), Map.empty),
+          // TODO
+          None
+        )
+
+        // TODO: Normalize `name` so it doesn't have any symbols not allowed in variable names
+        // TODO: Make the name completely unique, right now it's predictable
+        // TODO: Can the names from one call of a macro collide with another one? Maybe we need
+        //       the objectids as part of the rename?
+        val astResult = ValueToAST.transformRenamingAll(valueResult, name)
+
+        Some(astResult)
+
+      case None => None
+    }
   }
 
   override def method(

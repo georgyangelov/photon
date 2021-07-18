@@ -96,6 +96,7 @@ class ParserTest extends FunSuite {
   test("names") {
     assert(parse("test \n test_two \n test3") == "test test_two test3")
     assert(parse("@test \n @test_two \n @test3") == "@test @test_two @test3")
+    assert(parse("asdf$test \n $test_two") == "asdf$test $test_two")
   }
 
   test("method calls") {

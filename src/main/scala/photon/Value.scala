@@ -72,7 +72,7 @@ object Value {
 
   case class Native(native: NativeValue, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
-    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = native.isFullyEvaluated
   }
 
   case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {

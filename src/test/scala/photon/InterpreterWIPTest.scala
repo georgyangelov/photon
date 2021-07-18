@@ -227,6 +227,28 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
+  test("scope escapes with inner lets") {
+    expectEvalCompileTime(
+      """
+        outer = (a) {
+          inner = (
+            b = 11
+            inner2 = () { a + b }
+            inner2
+          )
+
+          inner
+        }
+
+        outer(42)
+      """,
+      """
+        a = 42
+        () { a }
+      """
+    )
+  }
+
   test("variables do not escape the scope") {
 //    expectEvalCompileTime(
 //      "outer = (a) { () { a } }; outer(42)",
@@ -320,7 +342,7 @@ class InterpreterWIPTest extends FunSuite {
     expectEvalCompileTime(
       macroDefinition,
       "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
-      "unknown = () { 41 }; number = unknown(); number + 1"
+      "unknown = () { 41 }; plusOne$number = unknown(); plusOne$number + 1"
     )
   }
 
@@ -342,7 +364,7 @@ class InterpreterWIPTest extends FunSuite {
     expectEvalCompileTime(
       macroDefinition,
       "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
-      "unknown = (){ true }; if_false = { 11 }; unknown().to_bool.if_else({ 42 }, if_false)"
+      "unknown = (){ true }; if$if_false = { 11 }; unknown().to_bool.if_else({ 42 }, if$if_false)"
     )
   }
 
@@ -375,6 +397,24 @@ class InterpreterWIPTest extends FunSuite {
          variable = answer()
 
          run { variable }
+      """,
+      "42"
+    )
+  }
+
+  test("macro functions do not collide with functions in scope") {
+    val macroDef = """
+      Core.define_macro 'objectify', (parser) {
+        Object(value = parser.parseNext.eval)
+      }
+    """
+
+    expectEval(
+      macroDef,
+      """
+        Object = 1234
+
+        (objectify 42).value
       """,
       "42"
     )
@@ -427,10 +467,10 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
-  test("variables do not escape their scope as opearations on partial structs") {
+  test("variables do not escape their scope as operations on partial structs") {
     expectEvalCompileTime(
       "{ unknown = () { 42 }.runTimeOnly; Struct(method = unknown) }().method()",
-      "unknown = () { 42 }; Struct(method = unknown).method()"
+      "(unknown = () { 42 }; Struct(method = unknown)).method()"
     )
   }
 

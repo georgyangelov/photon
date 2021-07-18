@@ -70,6 +70,8 @@ trait NativeValue {
   // TODO: Implement
   // def typeStruct: Either[NativeValue, Struct]
 
+  val isFullyEvaluated: Boolean = true
+
   def method(
     name: String,
     location: Option[Location]

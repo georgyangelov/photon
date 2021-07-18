@@ -1,6 +1,6 @@
 package photon.frontend
 
-import photon.{Arguments, EvalError, Function, Operation, Parameter, Value, VariableName}
+import photon.{Arguments, EvalError, Function, Operation, Parameter, Scope, Value, VariableName}
 
 import scala.collection.Map
 
@@ -107,6 +107,15 @@ object StaticScope {
       None,
       variables.map { variable => (variable.originalName, variable) }.toMap
     )
+  }
+
+  def fromScope(scope: Scope): StaticScope = {
+    val parentStaticScope = scope.parent.map(StaticScope.fromScope)
+    val variables = scope.variables.keys
+      .map { variable => (variable.originalName, variable) }
+      .toMap
+
+    StaticScope(parentStaticScope, variables)
   }
 }
 

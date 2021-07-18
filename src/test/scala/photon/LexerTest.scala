@@ -72,6 +72,7 @@ class LexerTest extends FunSuite {
 
   test("special symbols in names") {
     assert(lex("$a_special_variable") == "(Name '$a_special_variable') (EOF)")
+    assert(lex("a_special$variable") == "(Name 'a_special$variable') (EOF)")
     assert(lex("@an_instance_variable") == "(Name '@an_instance_variable') (EOF)")
     assert(lex("valid_name? valid_name!") == "(Name 'valid_name?') (Name 'valid_name!') (EOF)")
 
