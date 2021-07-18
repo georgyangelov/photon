@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.core.NativeValue.ValueAssert
-import photon.{Arguments, BoundFunction, CallStackEntry, EvalError, Interpreter, FunctionTrait, Location, ObjectId, RunMode, Struct, Value}
+import photon.{Arguments, BoundFunction, CallStackEntry, EvalError, FunctionTrait, Interpreter, Location, ObjectId, RunMode, Scope, Struct, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
@@ -62,7 +62,8 @@ object NativeValue {
 case class CallContext(
   interpreter: Interpreter,
   runMode: RunMode,
-  callStack: Seq[CallStackEntry]
+  callStack: Seq[CallStackEntry],
+  callScope: Scope
 )
 
 trait NativeValue {
@@ -135,13 +136,12 @@ case class ScalaMethod(
 
   override val traits: Set[FunctionTrait] = options.traits
 
-  override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
+  override def call(context: CallContext, arguments: Arguments, location: Option[Location]) =
     handler.apply(
       context,
       AppliedParameters(options.parameters, arguments),
       location
     )
-  }
 }
 
 case class ScalaVarargMethod(
@@ -151,9 +151,8 @@ case class ScalaVarargMethod(
 ) extends NativeMethod {
   type MethodHandler = (CallContext, Arguments, Option[Location]) => Value
 
-  override def call(context: CallContext, arguments: Arguments, location: Option[Location]): Value = {
+  override def call(context: CallContext, arguments: Arguments, location: Option[Location]) =
     handler.apply(context, arguments, location)
-  }
 }
 
 class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {

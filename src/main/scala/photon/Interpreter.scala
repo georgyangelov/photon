@@ -1,11 +1,8 @@
 package photon
 
 import com.typesafe.scalalogging.Logger
-import photon.Operation.Block
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 import photon.core.{CallContext, Core}
-
-import scala.annotation.tailrec
 
 sealed abstract class RunMode(val name: String) {}
 
@@ -37,7 +34,7 @@ class Interpreter(val runMode: RunMode) {
   private val MAX_RECURSIVE_CALLS = 8
 
   def macroHandler(name: String, parser: Parser): Option[ASTValue] =
-    core.macroHandler(CallContext(this, RunMode.ParseTime, callStack = Seq.empty), name, parser)
+    core.macroHandler(CallContext(this, RunMode.ParseTime, callStack = Seq.empty, callScope = core.rootScope), name, parser)
 
   def evaluate(ast: ASTBlock): Value = {
     val block = ASTToValue.transformBlock(ast, core.staticRootScope)
@@ -67,7 +64,12 @@ class Interpreter(val runMode: RunMode) {
           )
         )
 
-        if (result.realValue.isFullyKnown) result.realValue else result.codeValue
+//        flattenBlocksDeep(
+          if (result.realValue.isFullyKnown)
+            result.realValue
+          else
+            result.codeValue
+//        )
     }
 
   private def evaluateCompileTime(
@@ -332,7 +334,8 @@ class Interpreter(val runMode: RunMode) {
               runMode,
 
               // FIXME: This should be the name of the function, not the name of the variable it was called through
-              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
+              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location)),
+              callScope = scope
             )
 
             val realValue = method.call(
@@ -354,7 +357,8 @@ class Interpreter(val runMode: RunMode) {
               runMode,
 
               // FIXME: This should be the name of the function, not the name of the variable it was called through
-              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location))
+              callStack = context.callStack ++ Seq(CallStackEntry(method.methodId, name, location)),
+              callScope = scope
             )
 
             val realValue = method.call(
@@ -362,6 +366,8 @@ class Interpreter(val runMode: RunMode) {
               addSelfArgument(partialEvalArguments, realEvalTarget),
               location
             )
+
+            // TODO: Fix scope escape here
 
             logger.debug(s"[partial] [call] Evaluated $codeValue to $realValue")
 
@@ -372,6 +378,302 @@ class Interpreter(val runMode: RunMode) {
 
         CompileTimeResult(codeValue, codeValue)
     }
+  }
+
+//  private def flattenBlocksDeep(block: Operation.Block): Operation.Block = {
+//    val innerFlattenedValues = block.values.map(flattenBlocksDeep)
+//    val flatBlock = flattenValuesForBlock(innerFlattenedValues)
+//
+//    Operation.Block(flatBlock)
+//  }
+//
+//  private def flattenBlocksDeep(value: Value): Value = {
+//    value match {
+//      case Value.Unknown(_) |
+//           Value.Nothing(_) |
+//           Value.Boolean(_, _) |
+//           Value.Int(_, _, _) |
+//           Value.Float(_, _) |
+//           Value.String(_, _) |
+//           Value.Native(_, _) => value
+//
+//      case Value.Struct(Struct(props), location) =>
+//        Value.Struct(
+//          Struct(props.view.mapValues(flattenBlocksDeep).toMap),
+//          location
+//        )
+//
+//      // TODO: Make sure this is done when constructing the function
+//      case Value.BoundFunction(_, _) => value
+//      case Value.Operation(Operation.Function(_), _) => value
+//
+//      case Value.Operation(Operation.Reference(_), _) => value
+//
+//      case Value.Operation(Operation.Call(target, name, arguments), location) =>
+//        Value.Operation(
+//          Operation.Call(flattenBlocksDeep(target), name, arguments.map(flattenBlocksDeep)),
+//          location
+//        )
+//
+//      case Value.Operation(block @ Operation.Block(_), location) =>
+//        Value.Operation(
+//          flattenBlocksDeep(block),
+//
+//          // TODO: This location may not be correct anymore
+//          location
+//        )
+//
+//      case Value.Operation(Operation.Let(name, innerValue, innerBlock), location) =>
+//        Value.Operation(
+//          Operation.Let(name, flattenBlocksDeep(innerValue), flattenBlocksDeep(innerBlock)),
+//          location
+//        )
+//    }
+//  }
+//
+//  private def flattenValuesForBlock(values: Seq[Value]): Seq[Value] = {
+//    val resultValues = Seq.newBuilder[Value]
+//
+//    breakable {
+//      for (i <- values.indices) {
+//        val value = values(i)
+//
+//        value match {
+//          case Value.Unknown(_) |
+//               Value.Nothing(_) |
+//               Value.Boolean(_, _) |
+//               Value.Int(_, _, _) |
+//               Value.Float(_, _) |
+//               Value.String(_, _) |
+//               Value.Native(_, _) |
+//               Value.Struct(_, _) |
+//               Value.BoundFunction(_, _) |
+//               Value.Operation(Operation.Reference(_), _) |
+//               Value.Operation(Operation.Call(_, _, _), _) |
+//               Value.Operation(Operation.Function(_), _)
+//          => resultValues.addOne(value)
+//
+//          case Value.Operation(Operation.Block(innerValues), _) => resultValues.addAll(flattenValuesForBlock(innerValues))
+//          case Value.Operation(Operation.Let(name, value, innerBlock), letLocation) =>
+//            val restOfValues = values.slice(i + 1, values.size)
+//            val newBlock = Operation.Block(flattenValuesForBlock(innerBlock.values ++ restOfValues))
+//
+//            // TODO: This location here may not be correct anymore
+//            val newLet = Value.Operation(Operation.Let(name, value, newBlock), letLocation)
+//
+//            resultValues.addOne(newLet)
+//
+//            break
+//        }
+//      }
+//    }
+//
+//    logger.debug(s"Flattened $values to ${resultValues.result}")
+//
+//    resultValues.result
+//  }
+
+//  private def inlineValue(value: Value, scope: Scope, renames: Map[VariableName, VariableName]): Value = {
+//    value match {
+//      case Value.Unknown(_) |
+//           Value.Nothing(_) |
+//           Value.Boolean(_, _) |
+//           Value.Int(_, _, _) |
+//           Value.Float(_, _) |
+//           Value.String(_, _) |
+//           Value.Native(_, _) => value
+//
+//      case Value.Struct(Struct(props), location) =>
+//        Value.Struct(
+//          Struct(
+//            props.view.mapValues(inlineValue(_, scope, renames)).toMap
+//          ),
+//          location
+//        )
+//
+//      case Value.BoundFunction(BoundFunction(fn, fromScope, traits), location) =>
+//        // TODO: Serialize `traits` correctly
+//        moveScope(
+//          Value.Operation(Operation.Function(fn), location),
+//          fromScope,
+//          scope,
+//          renames
+//        )
+//
+//      case Value.Operation(Operation.Block(values), location) =>
+//        Value.Operation(
+//          Operation.Block(values.map(inlineValue(_, scope, renames))),
+//          location
+//        )
+//
+//      case Value.Operation(Operation.Let(name, letValue, block), location) =>
+//        val newName = new VariableName(name.originalName)
+//        val variable = new Variable(name, Value.Unknown(location))
+//
+//        val innerRenames = renames + (name -> newName)
+//
+//        val innerScope = scope.newChild(Seq(variable))
+//        val newLetValue = inlineValue(letValue, innerScope, innerRenames)
+//
+//        variable.dangerouslySetValue(newLetValue)
+//
+//        val newBlock = Operation.Block(block.values.map(inlineValue(_, innerScope, innerRenames)))
+//
+//        Value.Operation(
+//          Operation.Let(newName, newLetValue, newBlock),
+//          location
+//        )
+//
+//      case Value.Operation(Operation.Reference(name), location) =>
+//        Value.Operation(
+//          Operation.Reference(renames.getOrElse(name, name)),
+//          location
+//        )
+//
+//      case Value.Operation(Operation.Function(fn), location) =>
+//        val fnBodyWithRenames = Operation.Block(fn.body.values.map(renameVariables(_, renames)))
+//        val functionWithRenames = new Function(fn.params, fnBodyWithRenames)
+//
+//        Value.Operation(
+//          Operation.Function(functionWithRenames),
+//          location
+//        )
+//
+//      case Value.Operation(Operation.Call(target, name, arguments), location) =>
+//        Value.Operation(
+//          Operation.Call(
+//            target = inlineValue(target, scope, renames),
+//            name,
+//            arguments = Arguments(
+//              positional = arguments.positional.map(inlineValue(_, scope, renames)),
+//              named = arguments.named.map { case name -> value => name -> inlineValue(value, scope, renames) }
+//            )
+//          ),
+//          location
+//        )
+//    }
+//  }
+
+  def moveScope(value: Value, from: Scope, to: Scope): Value = moveScope(value, from, to, Map.empty)
+  private def moveScope(value: Value, from: Scope, to: Scope, renames: Map[VariableName, VariableName]): Value = {
+    val namesToMove = detectNamesToMove(value.unboundNames, from, to)
+
+    var currentScope: Option[Scope] = Some(from)
+    var valueWithLets = value
+
+    do {
+      val scope = currentScope.get
+      val namesInScopeToMove = scope.variables.keySet.intersect(namesToMove)
+      val variablesToMove = namesInScopeToMove.map(scope.variables.get).map(_.get)
+
+      valueWithLets = variablesToMove.foldLeft(valueWithLets) { case (result, variable) =>
+        Value.Operation(
+          Operation.Let(
+            name = variable.name,
+            value = variable.value,
+            block = result match {
+              case Value.Operation(block @ Operation.Block(_), _) => block
+              case _ => Operation.Block(Seq(result))
+            }
+          ),
+          result.location
+        )
+      }
+
+      currentScope = scope.parent
+    } while (currentScope.isDefined)
+
+    val additionalRenames = namesToMove
+      .map { oldName => oldName -> new VariableName(oldName.originalName) }
+      .toMap
+
+    renameAndUnbind(valueWithLets, renames ++ additionalRenames)
+  }
+
+  private def renameAndUnbind(value: Value, renames: Map[VariableName, VariableName]): Value = value match {
+    case Value.Unknown(_) |
+         Value.Nothing(_) |
+         Value.Boolean(_, _) |
+         Value.Int(_, _, _) |
+         Value.Float(_, _) |
+         Value.String(_, _) |
+         Value.Native(_, _) => value
+
+    case Value.Struct(Struct(values), location) =>
+      Value.Struct(
+        Struct(values.view.mapValues(renameAndUnbind(_, renames)).toMap),
+        location
+      )
+
+    case Value.BoundFunction(BoundFunction(fn, scope, traits), location) =>
+      // TODO: Serialize traits correctly
+      // TODO: Make sure the bound function's scope is expected?
+      // throw EvalError("Encountered BoundFn during renaming", location)
+      renameAndUnbind(
+        Value.Operation(
+          Operation.Function(fn),
+          location
+        ),
+        renames
+      )
+
+    case Value.Operation(Operation.Block(values), location) =>
+      Value.Operation(
+        Operation.Block(values.map(renameAndUnbind(_, renames))),
+        location
+      )
+
+    case Value.Operation(Operation.Let(name, letValue, block), location) =>
+      val newName = new VariableName(name.originalName)
+      val innerRenames = renames + (name -> newName)
+
+      val newLetValue = renameAndUnbind(letValue, innerRenames)
+      val newBlock = Operation.Block(block.values.map(renameAndUnbind(_, innerRenames)))
+
+      Value.Operation(
+        Operation.Let(newName, newLetValue, newBlock),
+        location
+      )
+
+    case Value.Operation(Operation.Reference(name), location) =>
+      Value.Operation(
+        Operation.Reference(renames.getOrElse(name, name)),
+        location
+      )
+
+    case Value.Operation(Operation.Function(fn), location) =>
+      val fnBodyWithRenames = Operation.Block(fn.body.values.map(renameAndUnbind(_, renames)))
+
+      // TODO: Rename function parameters?
+      val functionWithRenames = new Function(fn.params, fnBodyWithRenames)
+
+      Value.Operation(
+        Operation.Function(functionWithRenames),
+        location
+      )
+
+    case Value.Operation(Operation.Call(target, name, arguments), location) =>
+      Value.Operation(
+        Operation.Call(
+          target = renameAndUnbind(target, renames),
+          name,
+          arguments = arguments.map(renameAndUnbind(_, renames))
+        ),
+        location
+      )
+  }
+
+  private def detectNamesToMove(unboundNames: Set[VariableName], from: Scope, to: Scope): Set[VariableName] = {
+    unboundNames
+      .filter(to.find(_).isEmpty)
+      .map(from.find(_).get)
+      .flatMap { variable =>
+        if (unboundNames.contains(variable.name)) {
+          Set(variable.name)
+        } else {
+          detectNamesToMove(variable.value.unboundNames, from, to) + variable.name
+        }
+      }
   }
 
   private def evaluateRuntime(value: Value, scope: Scope, context: RuntimeContext): Value = {
@@ -434,7 +736,7 @@ class Interpreter(val runMode: RunMode) {
         val evaluatedTarget = evaluateRuntime(target, scope, context)
 
         Core.nativeValueFor(evaluatedTarget).callOrThrowError(
-          CallContext(this, runMode, context.callStack),
+          CallContext(this, runMode, context.callStack, callScope = scope),
           name,
           addSelfArgument(evaluatedArguments, evaluatedTarget),
           location
@@ -442,147 +744,10 @@ class Interpreter(val runMode: RunMode) {
     }
   }
 
-//  private def inspect(value: Value, scope: Scope): CompileTimeInspection = {
-//    value match {
-//      case Value.Unknown(_) => CompileTimeInspection.empty
-//      case Value.Nothing(_) => CompileTimeInspection.empty
-//      case Value.Boolean(_, _) => CompileTimeInspection.empty
-//      case Value.Int(_, _, _) => CompileTimeInspection.empty
-//      case Value.Float(_, _) => CompileTimeInspection.empty
-//      case Value.String(_, _) => CompileTimeInspection.empty
-//
-//      // TODO: Should this have some sort of support for compile-time inspections?
-//      case Value.Native(_, _) => CompileTimeInspection.empty
-//
-//      case Value.Struct(struct, _) =>
-//        struct.props.values
-//          .map(inspect(_, scope))
-//          .fold(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
-//
-//      case Value.Lambda(lambda, location) =>
-//        val lambdaVariables = lambda.params
-//          .map(_.name)
-//          .map(new Variable(_, Value.Unknown(location)))
-//
-//        val bodyScope = scope.newChild(lambdaVariables)
-//        val bodyInspections = lambda.body.values
-//          .map(inspect(_, bodyScope))
-//          .fold(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
-//
-//        bodyInspections.withoutVariables(lambdaVariables)
-//
-//      case Value.Operation(Operation.Block(values), _) =>
-//        values
-//          .map(inspect(_, scope))
-//          .fold(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
-//
-//      // TODO: Eliminate code duplication
-//      case Value.Operation(Operation.LambdaDefinition(params, body), location) =>
-//        val lambdaVariables = params
-//          .map(_.name)
-//          .map(new Variable(_, Value.Unknown(location)))
-//
-//        val bodyScope = scope.newChild(lambdaVariables)
-//        val bodyInspections = body.values
-//          .map(inspect(_, bodyScope))
-//          .fold(CompileTimeInspection.empty) { case (a, b) => a.combineWith(b) }
-//
-//        bodyInspections.withoutVariables(lambdaVariables)
-//
-//      case Value.Operation(Operation.Let(name, letValue, block), location) =>
-//        val variable = new Variable(name, Value.Unknown(location))
-//        val letScope = scope.newChild(Seq(variable))
-//
-//        val letValueInspection = inspect(letValue, letScope)
-//        val blockInspection = inspect(Value.Operation(block, location), letScope)
-//
-//        letValueInspection
-//          .combineWith(blockInspection)
-//          .withoutVariables(Seq(variable))
-//
-//      case Value.Operation(Operation.NameReference(name), location) =>
-//        val variable = scope.find(name) match {
-//          case Some(variable) => variable
-//          case None => throw EvalError(s"Cannot find variable $name during inspection", location)
-//        }
-//
-//        CompileTimeInspection(Set(variable))
-//
-//      case Value.Operation(Operation.Call(target, name, arguments, mayBeVarCall), _) =>
-//        var inspection = CompileTimeInspection.empty
-//
-//        val isVarCall = if (mayBeVarCall) {
-//          scope.find(name) match {
-//            case Some(variable) =>
-//              inspection = inspection.combineWith(CompileTimeInspection(Set(variable)))
-//              true
-//            case None => false
-//          }
-//        } else false
-//
-//        if (!isVarCall) {
-//          inspection = inspection.combineWith(inspect(target, scope))
-//        }
-//
-//        inspection = arguments.positional
-//          .map(inspect(_, scope))
-//          .fold(inspection) { case (a, b) => a.combineWith(b) }
-//
-//        inspection = arguments.named.values
-//          .map(inspect(_, scope))
-//          .fold(inspection) { case (a, b) => a.combineWith(b) }
-//
-//        inspection
-//    }
-//  }
-
-//  private def isFullyEvaluated(value: Value, runMode: RunMode, referencedLambdaIds: Seq[ObjectId] = Seq.empty): Boolean = {
-//    if (runMode != RunMode.CompileTime && runMode != RunMode.ParseTime) {
-//      throw new Error("isFullyEvaluated is only supposed to be called compile-time (for now)");
-//    }
-//
-//    value match {
-//      case Value.Unknown(_) => false
-//      case Value.Nothing(_) => true
-//      case Value.Boolean(_, _) => true
-//      case Value.Int(_, _, _) => true
-//      case Value.Float(_, _) => true
-//      case Value.String(_, _) => true
-//      case Value.Native(_, _) => true
-//      case Value.Struct(struct, _) =>
-//        struct.props.view.values.forall(isFullyEvaluated(_, runMode, referencedLambdaIds))
-//
-//      case Value.Lambda(lambda, _) =>
-//        val recursivelyReferencesItself = referencedLambdaIds.contains(lambda.objectId)
-//
-//        if (recursivelyReferencesItself) {
-//          return true
-//        }
-//
-//        val canBeCalledAtCompileTime = lambda.info.traits.contains(LambdaTrait.CompileTime)
-//        val variablesInScopeAreKnown = lambda.info.scopeVariables.forall { v =>
-//          v.value match {
-//            case value @ Value.Lambda(referencedLambda, _) => isFullyEvaluated(
-//              value,
-//              runMode,
-//              referencedLambdaIds :+ referencedLambda.objectId
-//            )
-//            case value => isFullyEvaluated(value, runMode, referencedLambdaIds)
-//          }
-//        }
-//
-//        canBeCalledAtCompileTime && variablesInScopeAreKnown
-//
-//      case Value.Operation(_, _) => false
-//    }
-//  }
-
-//  private def uniqueVariableName(variable: Variable) = s"__${variable.name}__${variable.objectId}__"
-
   private def addSelfArgument(arguments: Arguments, self: Value) =
     Arguments(self +: arguments.positional, arguments.named)
 
-  private def asBlock(value: Value): Block = {
+  private def asBlock(value: Value): Operation.Block = {
     value match {
       case Value.Operation(block @ Operation.Block(_), _) => block
       case _ => Operation.Block(Seq(value))

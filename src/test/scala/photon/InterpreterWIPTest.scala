@@ -169,11 +169,69 @@ class InterpreterWIPTest extends FunSuite {
 //    )
   }
 
-  test("variables do not escape the scope") {
+  test("variables do not escape the scope (without partial evaluation)") {
     expectEvalCompileTime(
       "outer = (a) { () { a } }; outer(42)",
-      "() { 42 }"
+      "a = 42; () { a }"
     )
+
+    expectEvalCompileTime(
+      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
+      "a = 42; () { a }"
+    )
+
+    expectEvalCompileTime(
+      "a = 11; outer = (a) { () { a } }; outer(42) + a",
+      "a = 11; (a = 42; () { a }) + a"
+    )
+
+    expectEvalCompileTime(
+      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
+      "something = (x) { x }; something(param = (a = 42; () { a }))"
+    )
+
+    expectEvalCompileTime(
+      """
+        scope1 = (a) {
+          unknown = () { 42 }.runTimeOnly
+
+          () { a + unknown() }
+        }
+
+        scope1(1)
+      """,
+      """
+        a = 1
+        unknown = () 42
+
+        () { a + unknown() }
+      """
+    )
+
+    expectEvalCompileTime(
+      """
+        scope1 = (a) {
+          unknown = () { a + 42 }.runTimeOnly
+
+          () { a + unknown() }
+        }
+
+        scope1(1)
+      """,
+      """
+        a = 1
+        unknown = () a + 42
+
+        () { a + unknown() }
+      """
+    )
+  }
+
+  test("variables do not escape the scope") {
+//    expectEvalCompileTime(
+//      "outer = (a) { () { a } }; outer(42)",
+//      "() { 42 }"
+//    )
 
 //    TODO: This probably needs to happen at some point, but it's fine for now.
 //          The problem is that to do this, we need to track and preserve the scopes correctly.

@@ -1,7 +1,7 @@
 package photon
 
 import photon.core.NativeValue
-import photon.frontend.ValueToAST
+import photon.frontend.{Unparser, ValueToAST}
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.Map
@@ -44,6 +44,7 @@ object Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = false
   }
+
   case class Nothing(location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
@@ -53,14 +54,17 @@ object Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
+
   case class Int(value: scala.Int, location: Option[Location], override val typeObject: Option[TypeObject]) extends Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
+
   case class Float(value: scala.Double, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
+
   case class String(value: java.lang.String, location: Option[Location]) extends Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
@@ -70,6 +74,7 @@ object Value {
     override val unboundNames = Set.empty
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = true
   }
+
   case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {
     lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
 
@@ -77,6 +82,7 @@ object Value {
       struct.props.view.values.forall(_.isFullyKnown(alreadyKnownBoundFunctions))
     }
   }
+
   case class BoundFunction(boundFn: photon.BoundFunction, location: Option[Location]) extends Value {
     override val unboundNames = boundFn.fn.unboundNames
 
@@ -181,7 +187,7 @@ case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) 
   }
 
   override def toString: String = {
-    val values = variables.view.mapValues(_.value)
+    val values = variables.map { case name -> variable => name.originalName -> variable.value.toString }
 
     if (parent.isDefined) {
       s"$values -> ${parent.get.toString}"
@@ -253,6 +259,11 @@ case class Parameter(name: VariableName, typeValue: Option[Value])
 
 case class Arguments(positional: Seq[Value], named: Map[String, Value]) {
   def withoutSelf = Arguments(positional.drop(1), named)
+
+  def map(f: Value => Value) = Arguments(
+    positional.map(f),
+    named.view.mapValues(f).toMap
+  )
 
   override def toString = Unparser.unparse(ValueToAST.transformForInspection(this))
 }

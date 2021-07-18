@@ -12,6 +12,12 @@ object ASTToValue {
       case ASTValue.Float(value, location) => Value.Float(value, location)
       case ASTValue.String(value, location) => Value.String(value, location)
 
+      case ASTValue.Block(block, location) =>
+        Value.Operation(
+          Operation.Block(block.values.map(transform(_, scope))),
+          location
+        )
+
       case ASTValue.Function(params, astBody, location) =>
         val parameters = params.map { case ASTParameter(name, typeValue) =>
           Parameter(new VariableName(name), typeValue.map(transform(_, scope)))

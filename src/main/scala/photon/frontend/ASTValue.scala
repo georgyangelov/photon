@@ -1,6 +1,6 @@
 package photon.frontend
 
-import photon.{Location, Unparser}
+import photon.Location
 
 import scala.collection.Map
 
@@ -44,6 +44,8 @@ sealed abstract class ASTValue {
         }.mkString(" ")
 
         s"(lambda [$paramsAST] $bodyAST)"
+
+      case ASTValue.Block(block, _) => block.inspectAST
     }
   }
 }
@@ -53,6 +55,8 @@ object ASTValue {
   case class Int(value: scala.Int, location: Option[Location]) extends ASTValue
   case class Float(value: scala.Double, location: Option[Location]) extends ASTValue
   case class String(value: java.lang.String, location: Option[Location]) extends ASTValue
+
+  case class Block(block: ASTBlock, location: Option[Location]) extends ASTValue
 
   case class Function(params: Seq[ASTParameter], body: ASTBlock, location: Option[Location]) extends ASTValue
 
@@ -74,6 +78,7 @@ object ASTArguments {
   val empty: ASTArguments = ASTArguments(Seq.empty, Map.empty)
 }
 
+// TODO: Is this needed now that we have `ASTValue.Block`?
 case class ASTBlock(values: Seq[ASTValue]) {
   override def toString: String = Unparser.unparse(this)
 

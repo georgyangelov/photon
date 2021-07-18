@@ -1,7 +1,7 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.{BoundFunction, EvalError, FunctionTrait, Value, Variable}
+import photon.{BoundFunction, EvalError, FunctionTrait, RunMode, Value, Variable}
 
 object FunctionParams {
   val Self: Parameter = Parameter(0, "self")
@@ -42,7 +42,13 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
       c.callStack
     )
 
-    result
+    if (c.runMode == RunMode.Runtime) {
+      result
+    } else {
+      val resultInCallScope = c.interpreter.moveScope(result, from = scope, to = c.callScope)
+
+      resultInCallScope
+    }
   }, traits = boundFn.traits, methodId = boundFn.fn.objectId),
 
   "runTimeOnly" -> ScalaMethod(

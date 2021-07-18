@@ -3,7 +3,7 @@ package photon
 import com.typesafe.scalalogging.Logger
 import org.scalatest.Matchers.intercept
 import org.scalatest.Assertions._
-import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Lexer, Parser, ValueToAST}
+import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Lexer, Parser, Unparser, ValueToAST}
 
 object TestHelpers {
   def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTBlock = {

@@ -1,7 +1,7 @@
 package photon
 
 import org.scalatest.FunSuite
-import photon.frontend.{Lexer, Parser}
+import photon.frontend.{Lexer, ParseError, Parser}
 
 class ParserTest extends FunSuite {
   def parse(code: String): String = {
@@ -225,8 +225,8 @@ class ParserTest extends FunSuite {
     assert(parse("fn(a = 1, b = 2)") == "(fn self (param a 1) (param b 2))")
 
     // TODO: These should be an error
-    // assert(parse("fn(1, a = 2, 3)"))
-    // assert(parse("fn(a = 2, 3)"))
+//    assertThrows[ParseError] { parse("fn(1, a = 2, 3)") }
+//    assertThrows[ParseError] { parse("fn(a = 2, 3)") }
   }
 
   test("named arguments without parens") {
@@ -258,5 +258,13 @@ class ParserTest extends FunSuite {
     assert(parse("(a: Int) a + 1") == "(lambda [(param a Int)] { (+ a 1) })")
     assert(parse("(a: Int, b: String) a + b") == "(lambda [(param a Int) (param b String)] { (+ a b) })")
     assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] { 42 })")
+  }
+
+  test("parentheses for blocks") {
+    assert(parse("(a; b)") == "{ a b }")
+    assert(parse("(a; b) + 1") == "(+ { a b } 1)")
+    assert(parse("a = 11; (a = 42; () { a }) + a") == "(let a 11 { (+ (let a 42 { (lambda [] { a }) }) a) })")
+
+    assertThrows[ParseError] { parse("()") }
   }
 }

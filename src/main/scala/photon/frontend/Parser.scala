@@ -20,6 +20,8 @@ class Parser(
   private val lexer: Lexer,
   private val macroHandler: Parser.MacroHandler
 ) {
+  val PARENS_FOR_BLOCKS = true
+
   val reader = new LookAheadReader(() => lexer.nextToken())
 
   var token: Token = _
@@ -165,12 +167,33 @@ class Parser(
       case TokenType.OpenBrace => parseLambda()
       case TokenType.UnaryOperator => parseUnaryOperator()
       case TokenType.OpenParen =>
-        if (isOpenBraceForLambda) {
+        if (isOpenParenForLambda) {
           parseLambda()
         } else {
           read() // (
 
-          val value = parseExpression()
+          val value = if (PARENS_FOR_BLOCKS) {
+            val valueBuilder = Seq.newBuilder[ASTValue]
+            val startLocation = lastLocation
+
+            do {
+              valueBuilder.addOne(parseExpression())
+            } while (token.tokenType != TokenType.CloseParen && newline)
+
+            if (token.tokenType != TokenType.CloseParen) {
+              parseError("Unmatched parentheses or extra expressions. Expected ')'")
+            }
+
+            val values = valueBuilder.result
+
+            if (values.size == 1) {
+              values.head
+            } else {
+              ASTValue.Block(ASTBlock(values), Some(startLocation.extendWith(token.location)))
+            }
+          } else {
+            parseExpression()
+          }
 
           if (token.tokenType != TokenType.CloseParen) {
             parseError("Unmatched parentheses or extra expressions. Expected ')'")
@@ -185,7 +208,7 @@ class Parser(
     }
   }
 
-  private def isOpenBraceForLambda: Boolean = {
+  private def isOpenParenForLambda: Boolean = {
     val reader = this.reader.lookAhead()
     var nestedParenLevel = 1
 
@@ -483,7 +506,7 @@ class Parser(
   private def parseRestOfBlock(): ASTBlock = {
     val values = Vector.newBuilder[ASTValue]
 
-    while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.EOF) {
+    while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.CloseParen && token.tokenType != TokenType.EOF) {
       values += parseExpression()
     }
 
@@ -514,9 +537,7 @@ class Parser(
     token.tokenType == TokenType.DoubleColon ||
     token.tokenType == TokenType.CloseBracket ||
     token.tokenType == TokenType.Pipe ||
-    blockEnds
-
-  private def blockEnds: Boolean = token.tokenType == TokenType.CloseBrace
+    token.tokenType == TokenType.CloseBrace
 
   private def operatorPrecedence(token: Token): Int = {
     token.string match {

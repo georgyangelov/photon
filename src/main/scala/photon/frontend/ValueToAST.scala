@@ -6,7 +6,9 @@ object ValueToAST {
   def transform(value: Value, varNames: Map[VariableName, String]): ASTValue = {
     value match {
       case Value.Unknown(location) =>
-        throw EvalError("Cannot represent Unknown as AST, this is a compiler bug", location)
+        // TODO: Separate values for inspection and for actual AST generation
+        // throw EvalError("Cannot represent Unknown as AST, this is a compiler bug", location)
+        ASTValue.NameReference("<unknown>", location)
 
       // TODO: Support this in the root scope
       case Value.Nothing(location) => ASTValue.NameReference("None", location)
@@ -16,7 +18,9 @@ object ValueToAST {
       case Value.Float(value, location) => ASTValue.Float(value, location)
       case Value.String(value, location) => ASTValue.String(value, location)
       case Value.Native(_, location) =>
-        throw EvalError("Cannot represent Native as AST, this is a compiler bug", location)
+        // TODO: Separate values for inspection and for actual AST generation
+        // throw EvalError("Cannot represent Native as AST, this is a compiler bug", location)
+        ASTValue.NameReference("<native>", location)
 
       case Value.Struct(struct, location) =>
         ASTValue.Call(
@@ -36,16 +40,19 @@ object ValueToAST {
         // TODO: Serialize traits to AST
         transformFn(boundFn.fn, varNames, location)
 
-      case Value.Operation(Operation.Block(_), location) =>
-        throw EvalError("Cannot represent Block as AST, this is a compiler bug", location)
+      case Value.Operation(Operation.Block(values), location) =>
+        ASTValue.Block(ASTBlock(values.map(transform(_, varNames))), location)
 
-      case Value.Operation(Operation.Let(variable, value, block), location) =>
-        val name = uniqueName(variable.originalName, value.unboundNames.map(_.originalName))
+      case Value.Operation(Operation.Let(variable, letValue, block), location) =>
+        val name = uniqueName(
+          variable.originalName,
+          value.unboundNames.map(_.originalName)
+        )
         val innerVarNames = varNames.updated(variable, name)
 
         ASTValue.Let(
           name,
-          transform(value, innerVarNames),
+          transform(letValue, innerVarNames),
           transformBlock(block, innerVarNames),
           location
         )
