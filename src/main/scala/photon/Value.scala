@@ -76,7 +76,10 @@ object Value {
   }
 
   case class Struct(struct: photon.Struct, location: Option[Location]) extends Value {
-    lazy override val unboundNames = struct.props.view.values.map(_.unboundNames).fold(Set.empty) { case (a, b) => a ++ b }
+    lazy override val unboundNames = struct.props.view
+      .values
+      .map(_.unboundNames)
+      .fold(Set.empty) { case (a, b) => a ++ b }
 
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[photon.BoundFunction]) = {
       struct.props.view.values.forall(_.isFullyKnown(alreadyKnownBoundFunctions))

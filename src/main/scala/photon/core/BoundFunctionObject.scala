@@ -38,17 +38,12 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
     val result = c.interpreter.evaluate(
       Value.Operation(boundFn.fn.body, l),
       scope,
+      c.callScope,
       c.runMode,
       c.callStack
     )
 
-    if (c.runMode == RunMode.Runtime) {
-      result
-    } else {
-      val resultInCallScope = c.interpreter.moveScope(result, from = scope, to = c.callScope)
-
-      resultInCallScope
-    }
+    result
   }, traits = boundFn.traits, methodId = boundFn.fn.objectId),
 
   "runTimeOnly" -> ScalaMethod(

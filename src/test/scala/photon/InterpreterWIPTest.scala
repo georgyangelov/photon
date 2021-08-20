@@ -169,26 +169,43 @@ class InterpreterWIPTest extends FunSuite {
 //    )
   }
 
+  test("variables are kept if the value is unknown and uses them") {
+    expectEvalCompileTime(
+      "a = 42; () { a }",
+      "a = 42; () { a }"
+    )
+
+    expectEvalCompileTime(
+      "a = 42; unknown = () { a }.runTimeOnly; unknown()",
+      "a = 42; unknown = () { a }; unknown()"
+    )
+
+    expectEvalCompileTime(
+      "() { a = 42; () { a } }()",
+      "a = 42; () { a }"
+    )
+  }
+
   test("variables do not escape the scope (without partial evaluation)") {
-    expectEvalCompileTime(
-      "outer = (a) { () { a } }; outer(42)",
-      "a = 42; () { a }"
-    )
-
-    expectEvalCompileTime(
-      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
-      "a = 42; () { a }"
-    )
-
-    expectEvalCompileTime(
-      "a = 11; outer = (a) { () { a } }; outer(42) + a",
-      "a = 11; (a = 42; () { a }) + a"
-    )
-
-    expectEvalCompileTime(
-      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
-      "something = (x) { x }; something(param = (a = 42; () { a }))"
-    )
+//    expectEvalCompileTime(
+//      "outer = (a) { () { a } }; outer(42)",
+//      "a = 42; () { a }"
+//    )
+//
+//    expectEvalCompileTime(
+//      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
+//      "a = 42; () { a }"
+//    )
+//
+//    expectEvalCompileTime(
+//      "a = 11; outer = (a) { () { a } }; outer(42) + a",
+//      "a = 11; (a = 42; () { a }) + a"
+//    )
+//
+//    expectEvalCompileTime(
+//      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
+//      "something = (x) { x }; something(param = (a = 42; () { a }))"
+//    )
 
     expectEvalCompileTime(
       """
@@ -208,23 +225,23 @@ class InterpreterWIPTest extends FunSuite {
       """
     )
 
-    expectEvalCompileTime(
-      """
-        scope1 = (a) {
-          unknown = () { a + 42 }.runTimeOnly
-
-          () { a + unknown() }
-        }
-
-        scope1(1)
-      """,
-      """
-        a = 1
-        unknown = () a + 42
-
-        () { a + unknown() }
-      """
-    )
+//    expectEvalCompileTime(
+//      """
+//        scope1 = (a) {
+//          unknown = () { a + 42 }.runTimeOnly
+//
+//          () { a + unknown() }
+//        }
+//
+//        scope1(1)
+//      """,
+//      """
+//        a = 1
+//        unknown = () a + 42
+//
+//        () { a + unknown() }
+//      """
+//    )
   }
 
   test("scope escapes with inner lets") {
@@ -405,14 +422,14 @@ class InterpreterWIPTest extends FunSuite {
   test("macro functions do not collide with functions in scope") {
     val macroDef = """
       Core.define_macro 'objectify', (parser) {
-        Object(value = parser.parseNext.eval)
+        Struct(value = parser.parseNext.eval)
       }
     """
 
     expectEval(
       macroDef,
       """
-        Object = 1234
+        Struct = 1234
 
         (objectify 42).value
       """,

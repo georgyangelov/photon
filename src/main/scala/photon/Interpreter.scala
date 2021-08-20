@@ -22,9 +22,11 @@ case class CompileTimeContext(
 
 case class RuntimeContext(callStack: Seq[CallStackEntry])
 
+case class ValueWithScope(value: Value, scope: Scope)
+
 case class CompileTimeResult(
   codeValue: Value,
-  realValue: Value
+  realValue: ValueWithScope
 )
 
 class Interpreter(val runMode: RunMode) {
@@ -49,27 +51,27 @@ class Interpreter(val runMode: RunMode) {
   }
 
   def evaluate(value: Value): Value =
-    evaluate(value, core.rootScope, runMode, callStack = Seq.empty)
+    evaluate(value, core.rootScope, core.rootScope, runMode, callStack = Seq.empty)
 
-  def evaluate(value: Value, scope: Scope, runMode: RunMode, callStack: Seq[CallStackEntry] = Seq.empty): Value =
+  def evaluate(value: Value, inScope: Scope, toScope: Scope, runMode: RunMode, callStack: Seq[CallStackEntry] = Seq.empty): Value =
     runMode match {
-      case RunMode.Runtime => evaluateRuntime(value, scope, RuntimeContext(callStack))
+      case RunMode.Runtime => evaluateRuntime(value, inScope, RuntimeContext(callStack))
       case RunMode.CompileTime | RunMode.ParseTime =>
         val result = evaluateCompileTime(
           value,
-          scope,
+          inScope,
           CompileTimeContext(
             partialEvaluation = false,
             callStack
           )
         )
 
-//        flattenBlocksDeep(
-          if (result.realValue.isFullyKnown)
-            result.realValue
-          else
-            result.codeValue
-//        )
+        if (result.realValue.value.isFullyKnown) {
+          moveScope(result.realValue, toScope)
+        } else {
+          // TODO: Should `codeValue` be moved to the `toScope`?
+          result.codeValue
+        }
     }
 
   private def evaluateCompileTime(
@@ -79,14 +81,14 @@ class Interpreter(val runMode: RunMode) {
   ): CompileTimeResult = {
     value match {
       case Value.Unknown(_) => ???
-      case Value.Nothing(_) => CompileTimeResult(value, value)
-      case Value.Boolean(_, _) => CompileTimeResult(value, value)
-      case Value.Int(_, _, _) => CompileTimeResult(value, value)
-      case Value.Float(_, _) => CompileTimeResult(value, value)
-      case Value.String(_, _) => CompileTimeResult(value, value)
-      case Value.Native(_, _) => CompileTimeResult(value, value)
-      case Value.Struct(_, _) => CompileTimeResult(value, value)
-      case Value.BoundFunction(_, _) => CompileTimeResult(value, value)
+      case Value.Nothing(_)    => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.Boolean(_, _) => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.Int(_, _, _)  => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.Float(_, _)   => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.String(_, _)  => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.Native(_, _)  => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.Struct(_, _)  => CompileTimeResult(value, ValueWithScope(value, scope))
+      case Value.BoundFunction(_, _) => CompileTimeResult(value, ValueWithScope(value, scope))
 
 //      case Value.Lambda(Lambda(params, body, info), location) =>
 //        val evalScopeVariables = params.map { param =>
@@ -154,7 +156,7 @@ class Interpreter(val runMode: RunMode) {
       case Value.Operation(Operation.Block(values), location) =>
         val lastIndex = values.size - 1
         val codeValuesBuilder = Seq.newBuilder[Value]
-        val realValuesBuilder = Seq.newBuilder[Value]
+        val realValuesBuilder = Seq.newBuilder[ValueWithScope]
 
         codeValuesBuilder.sizeHint(values.size)
         realValuesBuilder.sizeHint(values.size)
@@ -163,11 +165,11 @@ class Interpreter(val runMode: RunMode) {
           val CompileTimeResult(codeValue, realValue) =
             evaluateCompileTime(value, scope, context)
 
-          if (!realValue.isNothing || index == lastIndex) {
+          if (!realValue.value.isNothing || index == lastIndex) {
             codeValuesBuilder.addOne(codeValue)
           }
 
-          if (realValue.isOperation || index == lastIndex) {
+          if (realValue.value.isOperation || index == lastIndex) {
             realValuesBuilder.addOne(realValue)
           }
         }
@@ -183,7 +185,10 @@ class Interpreter(val runMode: RunMode) {
         val realValue = if (realValues.length == 1) {
           realValues.last
         } else {
-          Value.Operation(Operation.Block(realValues), location)
+          ValueWithScope(
+            value = Value.Operation(Operation.Block(realValues.map(moveScope(_, scope))), location),
+            scope = scope
+          )
         }
 
         CompileTimeResult(codeValue, realValue)
@@ -200,9 +205,9 @@ class Interpreter(val runMode: RunMode) {
             context
           )
 
-        variable.dangerouslySetValue(realLetValue)
+        variable.dangerouslySetValue(realLetValue.value)
 
-        val realLetValueIsFullyKnown = realLetValue.isFullyKnown
+        val realLetValueIsFullyKnown = realLetValue.value.isFullyKnown
 
         val CompileTimeResult(codeBlockValue, realBlockValue) =
           evaluateCompileTime(
@@ -215,14 +220,16 @@ class Interpreter(val runMode: RunMode) {
             )
           )
 
-        val realBlockValueIsFullyKnown = realBlockValue.isFullyKnown
+        val realBlockValueIsFullyKnown = realBlockValue.value.isFullyKnown
 
         val codeUsesVariable = codeLetValue.unboundNames.contains(name) || codeBlockValue.unboundNames.contains(name)
 
         // The let name is unused, can be eliminated if it's not an operation
         // If it's an operation it probably can't be, because the expression may have side effects
         val codeValue = if (!codeUsesVariable) {
-          val shouldEliminateLetValue = !realLetValue.isOperation
+          // TODO: What if the realLetValue is a lambda which depends on a scope, like this:
+          //       `operation = somethingWithSideEffect(); () { operation() }`. Is this possible?
+          val shouldEliminateLetValue = !realLetValue.value.isOperation
 
           // TODO: !codeLetValue.isPure?
           if (shouldEliminateLetValue) {
@@ -245,7 +252,7 @@ class Interpreter(val runMode: RunMode) {
         } else {
           logger.debug(s"[compile-time] [let] Evaluated $value to $codeValue")
 
-          Value.Unknown(location)
+          ValueWithScope(Value.Unknown(location), scope)
         }
 
         CompileTimeResult(codeValue, realValue)
@@ -258,7 +265,7 @@ class Interpreter(val runMode: RunMode) {
 
         val realValue = if (variable.value.isUnknown) { value } else { variable.value }
 
-        CompileTimeResult(value, realValue)
+        CompileTimeResult(value, ValueWithScope(realValue, scope))
 
       case Value.Operation(Operation.Call(target, name, arguments), location) =>
         val positionalEvals = arguments.positional.map { argument => evaluateCompileTime(argument, scope, context) }
@@ -268,19 +275,9 @@ class Interpreter(val runMode: RunMode) {
           positional = positionalEvals.map { case CompileTimeResult(codeValue, _) => codeValue },
           named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, _) => codeValue }.toMap
         )
-        val realEvalArguments = Arguments(
-          positional = positionalEvals.map { case CompileTimeResult(_, realValue) => realValue },
-          named = namedEvals.view.mapValues { case CompileTimeResult(_, realValue) => realValue }.toMap
-        )
 
-        val partialEvalArguments = Arguments(
-          positional = positionalEvals.map { case CompileTimeResult(codeValue, realValue) =>
-            if (realValue.isFullyKnown) realValue else codeValue
-          },
-          named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, realValue) =>
-            if (realValue.isFullyKnown) realValue else codeValue
-          }.toMap
-        )
+        val positionalRealEvalArguments = positionalEvals.map { case CompileTimeResult(_, realValue) => realValue }
+        val namedRealEvalArguments = namedEvals.view.mapValues { case CompileTimeResult(_, realValue) => realValue }.toMap
 
         val CompileTimeResult(codeEvalTarget, realEvalTarget) = evaluateCompileTime(target, scope, context)
 
@@ -290,14 +287,14 @@ class Interpreter(val runMode: RunMode) {
         )
 
         // TODO: This is not 100% correct, we should be able to call methods on a partial struct
-        if (realEvalTarget.isFullyKnown) {
+        if (realEvalTarget.value.isFullyKnown) {
           val hasFullyEvaluatedArguments = {
             // TODO: There is room for optimization here, we're calling `isFullyKnown` multiple times
-            realEvalArguments.positional.forall(_.isFullyKnown) &&
-              realEvalArguments.named.view.values.forall(_.isFullyKnown)
+            positionalRealEvalArguments.forall(_.value.isFullyKnown) &&
+              namedRealEvalArguments.view.values.forall(_.value.isFullyKnown)
           }
 
-          val nativeValueForTarget = Core.nativeValueFor(realEvalTarget)
+          val nativeValueForTarget = Core.nativeValueFor(realEvalTarget.value)
 
           val method = nativeValueForTarget.method(
             name,
@@ -329,6 +326,11 @@ class Interpreter(val runMode: RunMode) {
               !reachedRecursiveCallLimit
 
           if (canCallFunctionCompileTime) {
+            val realEvalArguments = Arguments(
+              positional = positionalRealEvalArguments.map(_.value),
+              named = namedRealEvalArguments.view.mapValues(_.value).toMap
+            )
+
             val callContext = CallContext(
               this,
               runMode,
@@ -338,20 +340,33 @@ class Interpreter(val runMode: RunMode) {
               callScope = scope
             )
 
+            // We're relying on the method call to return something that is adequate in `scope`
             val realValue = method.call(
               callContext,
-              addSelfArgument(realEvalArguments, realEvalTarget),
+              addSelfArgument(realEvalArguments, realEvalTarget.value),
               location
             )
 
+            val realValueWithScope = ValueWithScope(realValue, scope)
+
             logger.debug(s"[compile-time] [call] Evaluated $codeValue to $realValue")
 
-            return CompileTimeResult(realValue, realValue)
+            return CompileTimeResult(realValue, realValueWithScope)
           }
 
           if (canCallFunctionPartially) {
             logger.debug(s"[partial] [call] Can call $codeValue partially")
 
+            // TODO: Not sure if the realvalues here need to be moveScope'd or not
+            val partialEvalArguments = Arguments(
+              positional = positionalEvals.map { case CompileTimeResult(codeValue, realValue) =>
+                if (realValue.value.isFullyKnown) realValue.value else codeValue
+              },
+              named = namedEvals.view.mapValues { case CompileTimeResult(codeValue, realValue) =>
+                if (realValue.value.isFullyKnown) realValue.value else codeValue
+              }.toMap
+            )
+
             val callContext = CallContext(
               this,
               runMode,
@@ -363,7 +378,7 @@ class Interpreter(val runMode: RunMode) {
 
             val realValue = method.call(
               callContext,
-              addSelfArgument(partialEvalArguments, realEvalTarget),
+              addSelfArgument(partialEvalArguments, realEvalTarget.value),
               location
             )
 
@@ -372,11 +387,11 @@ class Interpreter(val runMode: RunMode) {
             logger.debug(s"[partial] [call] Evaluated $codeValue to $realValue")
 
             // TODO: Should the codeValue here be `codeValue` or `realValue`?
-            return CompileTimeResult(realValue, realValue)
+            return CompileTimeResult(realValue, ValueWithScope(realValue, scope))
           }
         }
 
-        CompileTimeResult(codeValue, codeValue)
+        CompileTimeResult(codeValue, ValueWithScope(codeValue, scope))
     }
   }
 
@@ -554,7 +569,14 @@ class Interpreter(val runMode: RunMode) {
 //    }
 //  }
 
-  def moveScope(value: Value, from: Scope, to: Scope): Value = moveScope(value, from, to, Map.empty)
+  private def moveScope(value: ValueWithScope, to: Scope): Value = {
+    if (value.scope eq to) {
+      return value.value
+    }
+
+    moveScope(value.value, value.scope, to, Map.empty)
+  }
+
   private def moveScope(value: Value, from: Scope, to: Scope, renames: Map[VariableName, VariableName]): Value = {
     val namesToMove = detectNamesToMove(value.unboundNames, from, to)
 
