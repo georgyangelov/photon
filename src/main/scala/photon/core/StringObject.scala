@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{RealValue, Value}
+import photon.{PureValue}
 import photon.core.NativeValue._
 
 object StringObjectParams {
@@ -13,9 +13,6 @@ import StringObjectParams._
 object StringObject extends NativeObject(Map(
   "==" -> ScalaMethod(
     MethodOptions(Seq(EqualsLeft, EqualsRight)),
-    { (_, args, l) => Value.Real(
-      RealValue.Boolean(args.getString(EqualsLeft) == args.getString(EqualsRight)),
-      l
-    ) }
+    { (_, args, l) => PureValue.Boolean(args.getString(EqualsLeft) == args.getString(EqualsRight), l) }
   )
 ))

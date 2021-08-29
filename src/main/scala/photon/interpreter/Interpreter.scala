@@ -1,7 +1,7 @@
 package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
-import photon.{Arguments, BoundFunction, FunctionTrait, Location, Operation, PhotonError, RealValue, Scope, Value, Variable}
+import photon.{Arguments, BoundValue, FunctionTrait, Location, Operation, PhotonError, PureValue, Scope, UnboundValue, Value, Variable}
 import photon.core.{CallContext, Core}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 
@@ -28,64 +28,62 @@ class Interpreter {
       parser
     )
 
-  def evaluate(astValue: ASTValue): Value = evaluate(
-    ASTToValue.transform(astValue, core.staticRootScope),
-    core.rootScope
-  )
+  def evaluate(astValue: ASTValue): UnboundValue = {
+    val value = ASTToValue.transform(astValue, core.staticRootScope)
+    val result = evaluate(value, core.rootScope)
 
-  def evaluate(astBlock: ASTBlock): Value = {
-    val block = ASTToValue.transformBlock(astBlock, core.staticRootScope)
-
-    evaluate(
-      Value.Operation(block, None),
-      core.rootScope
-    )
+    Unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
   }
 
-  def evaluate(value: Value, scope: Scope): Value = {
+  def evaluate(astBlock: ASTBlock): UnboundValue = {
+    // TODO: Pass actual location
+    val block = ASTToValue.transformBlock(astBlock, core.staticRootScope, None)
+    val result = evaluate(block, core.rootScope)
+
+    Unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
+  }
+
+  def evaluate(value: UnboundValue, scope: Scope): Value = {
     val result = evaluateCompileTime(value, scope)
 
-    result.realValueOrSelf
+    // TODO: Unbind result?
+    // result.realValueOrSelf
+    result
   }
 
-  private def evaluateCompileTime(value: Value, scope: Scope): Value = {
-    value match {
-      case Value.Real(_, _) => value
-      case Value.Operation(operation, location) => evaluateOperation(operation, scope, location)
-    }
+  private def evaluateCompileTime(value: UnboundValue, scope: Scope): UnboundValue = value match {
+    case value: PureValue => value
+    case operation: Operation => evaluateOperation(operation, scope)
   }
 
-  private def evaluateOperation(operation: Operation, scope: Scope, location: Option[Location]): Value = {
+  private def evaluateOperation(operation: Operation, scope: Scope): UnboundValue = {
     operation match {
-      case Operation.Block(values, _) =>
+      case Operation.Block(values, _, location) =>
         val lastValueIndex = values.length - 1
         val evaledValues = values.map(evaluateCompileTime(_, scope))
           .view
           .zipWithIndex
-          .filter { case (value, index) => index == lastValueIndex || value.isOperation }
+          .filter { case (value, index) => index == lastValueIndex || value.mayHaveSideEffects }
           .map(_._1)
           .toSeq
 
         val realValue =
-          if (evaledValues.isEmpty) Some(RealValue.Nothing)
+          if (evaledValues.isEmpty) Some(PureValue.Nothing(location))
           else if (evaledValues.length == 1) evaledValues.last.realValue
           else None
 
-        Value.Operation(
-          Operation.Block(evaledValues, realValue),
-          location
-        )
+        Operation.Block(evaledValues, realValue, location)
 
-      case Operation.Let(name, letValue, block, _) =>
+      case Operation.Let(name, letValue, block, _, location) =>
         // TODO: Make this not nothing and maybe remove the need for the `Variable` class
-        val variable = new Variable(name, Value.Real(RealValue.Nothing, location))
+        val variable = new Variable(name, PureValue.Nothing(location))
         val letScope = scope.newChild(Seq(variable))
 
         val letResult = evaluateCompileTime(letValue, letScope)
 
         variable.dangerouslySetValue(letResult)
 
-        val blockResult = evaluateCompileTime(Value.Operation(block, location), letScope)
+        val blockResult = evaluateCompileTime(block, letScope)
 
         val letUsesVariable = letResult.unboundNames.contains(variable.name)
         val blockUsesVariable = blockResult.unboundNames.contains(variable.name)
@@ -93,67 +91,47 @@ class Interpreter {
         val realValue =
           // The idea here is to check if `letResult` has fully evaluated. If it still has unevaluated
           // operations, then we don't want to set the real value, as it may skip evaluating these
-          if (letResult.realValueAsValue.isDefined) blockResult.realValue
+          if (letResult.realValue.isDefined) blockResult.realValue
           else None
 
         if (!letUsesVariable && !blockUsesVariable) {
           // TODO: Smarter check with traits?
-          if (letResult.isOperation) {
+          if (letResult.mayHaveSideEffects) {
             // We should keep the operation as it may have side-effects
-            return Value.Operation(
-              Operation.Block(Seq(letResult, blockResult), realValue),
-              location
-            )
+            return Operation.Block(Seq(letResult, blockResult), realValue, location)
           } else {
             // We can remove the value - it shouldn't have any side-effects
             return blockResult
           }
         }
 
-        Value.Operation(
-          Operation.Let(name, letResult, blockResult.asBlock, realValue),
-          location
-        )
+        Operation.Let(name, letResult, blockResult.asBlock, realValue, location)
 
-      case Operation.Reference(name, _) =>
+      case Operation.Reference(name, _, location) =>
         val realValue = scope.find(name) match {
           case Some(variable) => variable.value.realValue
           case None => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
         }
 
-        Value.Operation(
-          Operation.Reference(name, realValue),
-          location
-        )
+        Operation.Reference(name, realValue, location)
 
-      case Operation.Function(fn, _) =>
-        val boundFn = BoundFunction(
-          fn,
-          scope,
-          traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
-        )
-        // TODO: Maybe remove the indirection?
-        val realValue = RealValue.BoundFn(boundFn)
+      case Operation.Function(fn, _, location) =>
+        val traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
+        val realValue = BoundValue.Function(fn, traits, scope, location)
 
-        Value.Operation(
-          Operation.Function(fn, Some(realValue)),
-          location
-        )
+        Operation.Function(fn, Some(realValue), location)
 
-      case Operation.Call(target, name, arguments, _) =>
+      case Operation.Call(target, name, arguments, _, location) =>
         val targetResult = evaluateCompileTime(target, scope)
         val argumentResults = arguments.map(evaluateCompileTime(_, scope))
 
         val realTargetMaybe = targetResult.realValue
-        val realPositionalArguments = argumentResults.positional.map(_.realValueAsValue)
-        val realNamedArguments = argumentResults.named.view.mapValues(_.realValueAsValue).toMap
+        val realPositionalArguments = argumentResults.positional.map(_.realValue)
+        val realNamedArguments = argumentResults.named.view.mapValues(_.realValue).toMap
 
         val realTarget = realTargetMaybe match {
           case Some(realValue) => realValue
-          case None => return Value.Operation(
-            Operation.Call(targetResult, name, argumentResults, None),
-            None
-          )
+          case None => return Operation.Call(targetResult, name, argumentResults, None, location)
         }
 
         val targetIsFullyKnown = realTarget.isFullyKnown
@@ -169,7 +147,7 @@ class Interpreter {
             )
             val argumentsAreFullyKnown = realArguments.forall(_.isFullyKnown)
 
-            val nativeValueForTarget = Core.nativeValueFor(realTarget, location)
+            val nativeValueForTarget = Core.nativeValueFor(realTarget)
             val method = nativeValueForTarget.method(name, location) match {
               case Some(value) => value
               case None => throw EvalError(s"Cannot call method $name on $realTarget", location)
@@ -185,22 +163,22 @@ class Interpreter {
 
               val result = method.call(
                 callContext,
-                realArguments.withSelf(realTarget.asValue(targetResult.location)),
+                realArguments.withSelf(realTarget),
                 location
               )
 
               logger.debug(s"[compile-time] [call] Evaluated $operation to $result")
 
-              result
+              Unbinder.unbind(result, scope)
             } else {
-              Value.Operation(operation, location)
+              Operation.Call(targetResult, name, argumentResults, None, location)
             }
           } else {
             // TODO: Partial evaluation
-            Value.Operation(operation, location)
+            Operation.Call(targetResult, name, argumentResults, None, location)
           }
         } else {
-          Value.Operation(operation, location)
+          Operation.Call(targetResult, name, argumentResults, None, location)
         }
     }
   }

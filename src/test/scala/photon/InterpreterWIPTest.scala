@@ -199,8 +199,8 @@ class InterpreterWIPTest extends FunSuite {
     )
 
     expectEvalCompileTime(
-      "a = 11; outer = (a) { () { a } }; outer(42) + a",
-      "a = 11; (a = 42; () { a }) + a"
+      "a = 11; outer = (a) { () { a } }; outer(42); a",
+      "a = 11; (a = 42; () { a }); a"
     )
 
     expectEvalCompileTime(
@@ -262,16 +262,17 @@ class InterpreterWIPTest extends FunSuite {
       """,
       """
         a = 42
-        () { a }
+        b = 11
+        () { a + b }
       """
     )
   }
 
   test("variables do not escape the scope") {
-//    expectEvalCompileTime(
-//      "outer = (a) { () { a } }; outer(42)",
-//      "() { 42 }"
-//    )
+    expectEvalCompileTime(
+      "outer = (a) { () { a } }; outer(42)",
+      "a = 42; () { a }"
+    )
 
 //    TODO: This probably needs to happen at some point, but it's fine for now.
 //          The problem is that to do this, we need to track and preserve the scopes correctly.
@@ -280,27 +281,23 @@ class InterpreterWIPTest extends FunSuite {
 //      "unknown = (){}; () { unknown() }"
 //    )
 
-//    TODO: This probably needs to happen at some point, but it's fine for now.
-//          The problem is that to do this, we need to track and preserve the scopes correctly.
-//    expectEvalCompileTime(
-//      """
-//        scope1 = (a) {
-//          unknown = () { 42 }.runTimeOnly
-//
-//          () { a + unknown() }
-//        }
-//
-//        scope1(1)
-//      """,
-//      // TODO: This should rename the `unknown` variable because there may be another one in scope?
-//      // TODO: Should this not eval `scope1` at all? How can it know? It can see that the function calls
-//      //       something that's runtime-only. This can be a heuristic for defining the traits of a function.
-//      """
-//        unknown = () 42
-//
-//        () { 1 + unknown() }
-//      """
-//    )
+    expectEvalCompileTime(
+      """
+        scope1 = (a) {
+          unknown = () { 42 }.runTimeOnly
+
+          () { a + unknown() }
+        }
+
+        scope1(1)
+      """,
+      """
+        a = 1
+        unknown = () 42
+
+        () { a + unknown() }
+      """
+    )
   }
 
 //    TODO: This probably needs to happen at some point, but it's fine for now.

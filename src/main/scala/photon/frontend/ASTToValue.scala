@@ -1,23 +1,20 @@
 package photon.frontend
 
 import photon.interpreter.EvalError
-import photon.{Arguments, Function, Operation, Parameter, RealValue, Scope, Value, VariableName}
+import photon.{Arguments, Function, Location, Operation, Parameter, PureValue, Scope, UnboundValue, VariableName}
 
 import scala.collection.Map
 
 object ASTToValue {
-  def transform(ast: ASTValue, scope: StaticScope): Value = {
+  def transform(ast: ASTValue, scope: StaticScope): UnboundValue = {
     ast match {
-      case ASTValue.Boolean(value, location) => Value.Real(RealValue.Boolean(value), location)
-      case ASTValue.Int(value, location) => Value.Real(RealValue.Int(value), location)
-      case ASTValue.Float(value, location) => Value.Real(RealValue.Float(value), location)
-      case ASTValue.String(value, location) => Value.Real(RealValue.String(value), location)
+      case ASTValue.Boolean(value, location) => PureValue.Boolean(value, location)
+      case ASTValue.Int(value, location) => PureValue.Int(value, location)
+      case ASTValue.Float(value, location) => PureValue.Float(value, location)
+      case ASTValue.String(value, location) => PureValue.String(value, location)
 
       case ASTValue.Block(block, location) =>
-        Value.Operation(
-          Operation.Block(block.values.map(transform(_, scope)), None),
-          location
-        )
+        Operation.Block(block.values.map(transform(_, scope)), None, location)
 
       case ASTValue.Function(params, astBody, location) =>
         val parameters = params.map { case ASTParameter(name, typeValue) =>
@@ -26,13 +23,10 @@ object ASTToValue {
 
         val lambdaScope = scope.newChild(parameters.map(_.name))
 
-        val body = transformBlock(astBody, lambdaScope)
+        val body = transformBlock(astBody, lambdaScope, location)
         val fn = new Function(parameters, body)
 
-        Value.Operation(
-          Operation.Function(fn, None),
-          location
-        )
+        Operation.Function(fn, None, location)
 
       case ASTValue.Call(target, name, astArguments, mayBeVarCall, location) =>
         val arguments = Arguments(
@@ -43,13 +37,11 @@ object ASTToValue {
         if (mayBeVarCall) {
           scope.find(name) match {
             case Some(value) =>
-              return Value.Operation(
-                Operation.Call(
-                  target = Value.Operation(Operation.Reference(value, None), location),
-                  name = "call",
-                  arguments = arguments,
-                  None
-                ),
+              return Operation.Call(
+                target = Operation.Reference(value, None, location),
+                name = "call",
+                arguments = arguments,
+                None,
                 location
               )
 
@@ -57,29 +49,21 @@ object ASTToValue {
           }
         }
 
-        Value.Operation(
-          Operation.Call(transform(target, scope), name, arguments, None),
-          location
-        )
+        Operation.Call(transform(target, scope), name, arguments, None, location)
 
       case ASTValue.NameReference(name, location) =>
         scope.find(name) match {
           case Some(variable) =>
-            Value.Operation(
-              Operation.Reference(variable, None),
-              location
-            )
+            Operation.Reference(variable, None, location)
 
           case None =>
             val self = scope.find("self").getOrElse { throw EvalError("Cannot find 'self' in scope", location) }
 
-            Value.Operation(
-              Operation.Call(
-                target = Value.Operation(Operation.Reference(self, None), location),
-                name = name,
-                arguments = Arguments.empty,
-                None
-              ),
+            Operation.Call(
+              target = Operation.Reference(self, None, location),
+              name = name,
+              arguments = Arguments.empty,
+              None,
               location
             )
         }
@@ -88,19 +72,17 @@ object ASTToValue {
         val variable = new VariableName(name)
         val innerScope = scope.newChild(Seq(variable))
         val expression = transform(value, innerScope)
-        val body = transformBlock(block, innerScope)
+        val body = transformBlock(block, innerScope, location)
 
-        Value.Operation(
-          Operation.Let(variable, expression, body, None),
-          location
-        )
+        Operation.Let(variable, expression, body, None, location)
     }
   }
 
-  def transformBlock(block: ASTBlock, scope: StaticScope): Operation.Block = {
+  def transformBlock(block: ASTBlock, scope: StaticScope, location: Option[Location]): Operation.Block = {
     Operation.Block(
       block.values.map(transform(_, scope)),
-      None
+      None,
+      location
     )
   }
 }

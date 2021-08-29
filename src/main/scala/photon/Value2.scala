@@ -11,37 +11,85 @@ import scala.collection.Map
 
 /* Values and operations */
 
-sealed abstract class RealValue {
-  def isFullyKnown: scala.Boolean = isFullyKnown(Set.empty)
-  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundFunction]): scala.Boolean = true
-
-  def asValue(location: Option[Location]) = Value.Real(this, location)
-
+sealed trait Value {
   override def toString = ValueToAST.transformForInspection(this).toString
+
+  def unboundNames: Set[VariableName]
+  val location: Option[Location]
+
+  def realValue: Option[RealValue]
 }
-object RealValue {
-  case object Nothing extends RealValue
-  case class Boolean(value: scala.Boolean) extends RealValue
-  case class Int(value: scala.Int) extends RealValue
-  case class Float(value: scala.Double) extends RealValue
-  case class String(value: java.lang.String) extends RealValue
-  case class Native(native: NativeValue) extends RealValue {
-    override def isFullyKnown(_alreadyKnownBoundFunctions: Set[BoundFunction])
-      = native.isFullyEvaluated
+
+// Type groups
+sealed trait RealValue extends Value {
+  def isFullyKnown: scala.Boolean = isFullyKnown(Set.empty)
+  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = true
+}
+
+sealed trait UnboundValue extends Value {
+  def realValue: Option[RealValue]
+  def mayHaveSideEffects: Boolean
+
+  def asBlock: Operation.Block = this match {
+    case block: Operation.Block => block
+    case _ => Operation.Block(Seq(this), realValue, location)
   }
-  case class BoundFn(boundFn: BoundFunction) extends RealValue {
-    override def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundFunction]): scala.Boolean = {
-      if (alreadyKnownBoundFunctions.contains(boundFn)) {
+}
+
+// Specific types
+sealed trait PureValue extends RealValue with UnboundValue {
+  override def isFullyKnown = true
+  override def isFullyKnown(_alreadyKnownBoundFunctions: Set[BoundValue.Function]) = true
+
+  def realValue: Some[RealValue] = Some(this)
+  override def mayHaveSideEffects = false
+
+  override def unboundNames = Set.empty
+}
+
+sealed trait BoundValue extends RealValue {
+  val scope: Scope
+}
+
+sealed trait Operation extends UnboundValue {
+  val realValue: Option[RealValue]
+  val unboundNames: Set[VariableName]
+
+  override def mayHaveSideEffects = true
+}
+
+object PureValue {
+  case class Nothing(location: Option[Location])                         extends Value with PureValue with RealValue with UnboundValue
+  case class Boolean(value: scala.Boolean, location: Option[Location])   extends Value with PureValue with RealValue with UnboundValue
+  case class Int(value: scala.Int, location: Option[Location])           extends Value with PureValue with RealValue with UnboundValue
+  case class Float(value: scala.Double, location: Option[Location])      extends Value with PureValue with RealValue with UnboundValue
+  case class String(value: java.lang.String, location: Option[Location]) extends Value with PureValue with RealValue with UnboundValue
+  case class Native(native: NativeValue, location: Option[Location])     extends Value with PureValue with RealValue with UnboundValue {
+    override def isFullyKnown = native.isFullyEvaluated
+
+    // TODO: Not sure about this. Maybe the `Native` values should be their own category (outside of PureValue)
+    override def mayHaveSideEffects = true
+  }
+}
+
+object BoundValue {
+  case class Function(fn: photon.Function, traits: Set[FunctionTrait], scope: Scope, location: Option[Location])
+    extends Value with BoundValue with RealValue {
+    override def unboundNames = fn.unboundNames
+    override def realValue = Some(this)
+
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = {
+      if (alreadyKnownBoundFunctions.contains(this)) {
         return true
       }
 
-      if (!boundFn.traits.contains(FunctionTrait.CompileTime)) {
+      if (!traits.contains(FunctionTrait.CompileTime)) {
         return false
       }
 
-      boundFn.fn.unboundNames.forall { name =>
-        boundFn.scope.find(name) match {
-          case Some(Variable(_, value)) => value.isFullyKnown(alreadyKnownBoundFunctions + boundFn)
+      fn.unboundNames.forall { name =>
+        scope.find(name) match {
+          case Some(Variable(_, value)) => value.realValue.exists(_.isFullyKnown(alreadyKnownBoundFunctions + this))
           // TODO: Specify location
           case None => throw EvalError(s"Cannot find name $name during isFullyKnown check", None)
         }
@@ -50,30 +98,29 @@ object RealValue {
   }
 }
 
-sealed abstract class Operation {
-  val realValue: Option[RealValue]
-  val unboundNames: Set[VariableName]
-
-  override def toString = ValueToAST.transformForInspection(this).toString
-}
 object Operation {
-  case class Block(values: Seq[Value], realValue: Option[RealValue]) extends Operation {
+  case class Block(values: Seq[UnboundValue], realValue: Option[RealValue], location: Option[Location])
+    extends Value with Operation with UnboundValue {
     lazy override val unboundNames = values.view.flatMap(_.unboundNames).toSet
   }
 
-  case class Let(name: VariableName, letValue: Value, block: Block, realValue: Option[RealValue])
-    extends Operation {
+  case class Let(name: VariableName, letValue: UnboundValue, block: Block, realValue: Option[RealValue], location: Option[Location])
+    extends Value with Operation with UnboundValue {
     lazy override val unboundNames = (letValue.unboundNames ++ block.unboundNames) - name
   }
-  case class Reference(name: VariableName, realValue: Option[RealValue]) extends Operation {
+  case class Reference(name: VariableName, realValue: Option[RealValue], location: Option[Location])
+    extends Value with Operation with UnboundValue {
     override val unboundNames = Set(name)
+    override def mayHaveSideEffects = false
   }
 
-  case class Function(fn: photon.Function, realValue: Option[RealValue]) extends Operation {
+  case class Function(fn: photon.Function, realValue: Option[RealValue], location: Option[Location])
+    extends Value with Operation with UnboundValue {
     override val unboundNames = fn.unboundNames
+    override def mayHaveSideEffects = false
   }
-  case class Call(target: Value, name: String, arguments: Arguments, realValue: Option[RealValue])
-    extends Operation {
+  case class Call(target: UnboundValue, name: String, arguments: Arguments[UnboundValue], realValue: Option[RealValue], location: Option[Location])
+    extends Value with Operation with UnboundValue {
     lazy override val unboundNames =
       target.unboundNames ++
         arguments.positional.view.flatMap(_.unboundNames).toSet ++
@@ -81,48 +128,55 @@ object Operation {
   }
 }
 
-sealed abstract class Value {
-  def realValue: Option[RealValue]
-  val location: Option[Location]
-
-  def isReal: Boolean
-  def isOperation: Boolean
-
-  def realValueAsValue: Option[Value] = realValue.map(Value.Real(_, location))
-  def realValueOrSelf = realValueAsValue.getOrElse(this)
-
-  def unboundNames: Set[VariableName]
-
-  override def toString = ValueToAST.transformForInspection(this).toString
-
-  def asBlock: Operation.Block =
-    this match {
-      case Value.Operation(block @ Operation.Block(_, _), _) => block
-      case _ => Operation.Block(Seq(this), realValue)
-    }
-
-  def isFullyKnown: Boolean = isFullyKnown(Set.empty)
-  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundFunction]): Boolean =
-    this match {
-      case Value.Real(realValue, _) => realValue.isFullyKnown(alreadyKnownBoundFunctions)
-      case Value.Operation(_, _) => false
-    }
-}
-object Value {
-  case class Real(value: RealValue, location: Option[Location]) extends Value {
-    override def realValue = Some(value)
-    override def isReal = true
-    override def isOperation = false
-    override def unboundNames = Set.empty
-  }
-
-  case class Operation(operation: photon.Operation, location: Option[Location]) extends Value {
-    override def realValue = operation.realValue
-    override def isReal = false
-    override def isOperation = true
-    override def unboundNames = operation.unboundNames
-  }
-}
+//sealed abstract class Value {
+//  def realValue: Option[RealValue]
+//  val location: Option[Location]
+//
+//  def isReal: Boolean
+//  def isOperation: Boolean
+//
+//  def realValueAsValue: Option[Value] = realValue.map(Value.Real(_, location))
+//  def realValueOrSelf = realValueAsValue.getOrElse(this)
+//
+//  def unboundNames: Set[VariableName]
+//
+//  override def toString = ValueToAST.transformForInspection(this).toString
+//
+//  def asBlock: Operation.Block =
+//    this match {
+//      case Value.Operation(block @ Operation.Block(_, _), _) => block
+//      case _ => Operation.Block(Seq(this), realValue)
+//    }
+//
+//  def isFullyKnown: Boolean = isFullyKnown(Set.empty)
+//  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundFunction]): Boolean =
+//    this match {
+//      case Value.Real(realValue, _) => realValue.isFullyKnown(alreadyKnownBoundFunctions)
+//      case Value.Operation(_, _) => false
+//    }
+//}
+//object Value {
+//  case class Pure(value: PureValue, location: Option[Location]) extends Value {
+//    override def realValue = Some(RealValue.Pure(value))
+//    override def isReal = true
+//    override def isOperation = false
+//    override def unboundNames = Set.empty
+//  }
+//
+//  case class Bound(value: BoundValue, location: Option[Location]) extends Value {
+//    override def realValue = operation.realValue
+//    override def isReal = false
+//    override def isOperation = true
+//    override def unboundNames = operation.unboundNames
+//  }
+//
+//  case class Operation(operation: photon.Operation, location: Option[Location]) extends Value {
+//    override def realValue = operation.realValue
+//    override def isReal = false
+//    override def isOperation = true
+//    override def unboundNames = operation.unboundNames
+//  }
+//}
 
 
 
@@ -189,12 +243,12 @@ case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) 
 
 /* Functions */
 
-case class BoundFunction(
-  fn: Function,
-  scope: Scope,
-
-  traits: Set[FunctionTrait]
-)
+//case class BoundFunction(
+//  fn: Function,
+//  scope: Scope,
+//
+//  traits: Set[FunctionTrait]
+//)
 
 sealed abstract class FunctionTrait
 
@@ -229,20 +283,24 @@ case class Parameter(name: VariableName, typeValue: Option[Value])
 
 /* Arguments */
 
-case class Arguments(positional: Seq[Value], named: Map[String, Value]) {
+case class Arguments[T <: Value](positional: Seq[T], named: Map[String, T]) {
   def withoutSelf = Arguments(positional.drop(1), named)
-  def withSelf(value: Value) = Arguments(value +: positional, named)
+  def withSelf(value: T) = Arguments(value +: positional, named)
 
-  def map(f: Value => Value) = Arguments(
+  def map[R <: Value](f: T => R) = Arguments(
     positional.map(f),
     named.view.mapValues(f).toMap
   )
 
-  def forall(f: Value => Boolean) = positional.forall(f) && named.view.values.forall(f)
+  def forall(f: T => Boolean) = positional.forall(f) && named.view.values.forall(f)
 
-  override def toString = Unparser.unparse(ValueToAST.transformForInspection(this))
+  override def toString = Unparser.unparse(
+    ValueToAST.transformForInspection(
+      this.asInstanceOf[Arguments[Value]]
+    )
+  )
 }
 
 object Arguments {
-  val empty: Arguments = Arguments(Seq.empty, Map.empty)
+  val empty: Arguments[UnboundValue] = Arguments(Seq.empty, Map.empty)
 }

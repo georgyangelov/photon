@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{RealValue, Value}
+import photon.{PureValue, RealValue, Value}
 import photon.core.NativeValue._
 
 object IntParams {
@@ -13,43 +13,31 @@ import IntParams._
 object IntObject extends NativeObject(Map(
   "+" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Real(
-      RealValue.Int(args.getInt(FirstParam) + args.getInt(SecondParam)),
-      l
-    ) }
+    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) + args.getInt(SecondParam), l) }
   ),
 
   "-" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Real(
-      RealValue.Int(args.getInt(FirstParam) - args.getInt(SecondParam)),
-      l,
-    ) }
+    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) - args.getInt(SecondParam), l) }
   ),
 
   "*" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Real(
-      RealValue.Int(args.getInt(FirstParam) * args.getInt(SecondParam)),
-      l
-    ) }
+    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) * args.getInt(SecondParam), l) }
   ),
 
   "/" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Real(
-      RealValue.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam)),
-      l
-    ) }
+    { (_, args, l) => PureValue.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam), l) }
   ),
 
   "==" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Real(RealValue.Boolean(args.getInt(FirstParam) == args.getInt(SecondParam)), l) }
+    { (_, args, l) => PureValue.Boolean(args.getInt(FirstParam) == args.getInt(SecondParam), l) }
   ),
 
   "to_bool" -> ScalaMethod(
     MethodOptions(Seq()),
-    { (_, _, l) => Value.Real(RealValue.Boolean(true), l) }
+    { (_, _, l) => PureValue.Boolean(true, l) }
   )
 ))

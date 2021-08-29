@@ -14,7 +14,7 @@ object TestHelpers {
     ASTBlock(values)
   }
 
-  def evalCompileTime(prelude: Option[String], code: String): Value = {
+  def evalCompileTime(prelude: Option[String], code: String): UnboundValue = {
     val interpreter = new Interpreter(/* RunMode.CompileTime */)
 
     prelude match {

@@ -1,30 +1,24 @@
 package photon.core
 
 import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
-import photon.{Arguments, BoundFunction, FunctionTrait, Location, RealValue, Scope, Value, Variable, VariableName}
-import photon.core.NativeValue._
-import photon.interpreter.EvalError
+import photon.{Arguments, BoundValue, Location, PureValue, RealValue, Scope, Variable, VariableName}
+import photon.interpreter.{EvalError, Unbinder}
 
 import scala.collection.mutable
 
 object Core {
-  def nativeValueFor(value: Value): NativeValue = value match {
-    case Value.Real(value, location) => nativeValueFor(value, location)
-    case Value.Operation(_, location) =>
-      throw EvalError("Cannot get native value for operation", location)
+  def nativeValueFor(realValue: RealValue): NativeValue = realValue match {
+    case PureValue.Nothing(location) => error(location)
+    case PureValue.Boolean(_, _) => BoolObject
+    case PureValue.Int(_, _) => IntObject
+    case PureValue.Float(_, location) => error(location)
+    case PureValue.String(_, _) => StringObject
+    case PureValue.Native(native, _) => native
+
+    case fn: BoundValue.Function => nativeValueFor(fn)
   }
 
-  def nativeValueFor(realValue: RealValue, location: Option[Location]): NativeValue = realValue match {
-    case RealValue.Nothing => error(location)
-    case RealValue.Boolean(_) => BoolObject
-    case RealValue.Int(_) => IntObject
-    case RealValue.Float(_) => error(location)
-    case RealValue.String(_) => StringObject
-    case RealValue.Native(native) => native
-    case RealValue.BoundFn(boundFn) => nativeValueFor(boundFn)
-  }
-
-  def nativeValueFor(boundFn: BoundFunction): NativeValue = BoundFunctionObject(boundFn)
+  def nativeValueFor(boundFn: BoundValue.Function): NativeValue = BoundFunctionObject(boundFn)
 //  def nativeValueFor(struct: Struct): NativeValue = StructObject(struct)
 
   private def error(l: Option[Location]): Nothing = {
@@ -77,12 +71,12 @@ object CoreParams {
 }
 
 class Core extends NativeValue {
-  val macros: mutable.TreeMap[String, Value] = mutable.TreeMap.empty
+  val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
   val rootScope: Scope = Scope.newRoot(Seq(
-    new Variable(new VariableName("Core"),   Value.Real(RealValue.Native(this),       None)),
-    new Variable(new VariableName("Struct"), Value.Real(RealValue.Native(StructRoot), None)),
-    new Variable(new VariableName("Int"),    Value.Real(RealValue.Native(IntRoot),    None)),
-    new Variable(new VariableName("String"), Value.Real(RealValue.Native(StringRoot), None))
+    new Variable(new VariableName("Core"),   PureValue.Native(this,       None)),
+    new Variable(new VariableName("Struct"), PureValue.Native(StructRoot, None)),
+    new Variable(new VariableName("Int"),    PureValue.Native(IntRoot,    None)),
+    new Variable(new VariableName("String"), PureValue.Native(StringRoot, None))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)
@@ -90,20 +84,22 @@ class Core extends NativeValue {
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
     macros.get(name) match {
       case Some(handler) =>
-        val parserValue = Value.Real(RealValue.Native(ParserObject(parser)), None)
+        val parserValue = PureValue.Native(ParserObject(parser), None)
         val valueResult = Core.nativeValueFor(handler).callOrThrowError(
           context,
           "call",
           Arguments(Seq(handler, parserValue), Map.empty),
-          // TODO: Pass `location` to the `macroHandler` and use that
-          None
+          handler.location
         )
+
+        // TODO: Unbind `valueResult`
+        val unboundResult = Unbinder.unbind(valueResult, rootScope)
 
         // TODO: Normalize `name` so it doesn't have any symbols not allowed in variable names
         // TODO: Make the name completely unique, right now it's predictable
         // TODO: Can the names from one call of a macro collide with another one? Maybe we need
         //       the objectids as part of the rename?
-        val astResult = ValueToAST.transformRenamingAll(valueResult, name)
+        val astResult = ValueToAST.transformRenamingAll(unboundResult, name)
 
         Some(astResult)
 
@@ -120,13 +116,15 @@ class Core extends NativeValue {
       case "define_macro" => Some(
         ScalaMethod(
           MethodOptions(Seq(CoreParams.Self, CoreParams.DefineMacroName, CoreParams.DefineMacroLambda)),
-          { (_, args, location) => defineMacro(
-            args.getString(CoreParams.DefineMacroName),
-            Value.Real(
-              RealValue.BoundFn(args.getFunction(CoreParams.DefineMacroLambda)),
-              location
+          { (_, args, location) =>
+            defineMacro(
+              args.getString(CoreParams.DefineMacroName),
+              // TODO: Support more value types as macro handlers (e.g. Structs or Natives)
+              args.getFunction(CoreParams.DefineMacroLambda)
             )
-          ) }
+
+            PureValue.Nothing(location)
+          }
         )
       )
 
@@ -167,11 +165,8 @@ class Core extends NativeValue {
     }
   }
 
-  def defineMacro(name: String, handler: Value): Value = {
+  def defineMacro(name: String, handler: RealValue): Unit =
     macros.addOne(name, handler)
-
-    Value.Real(RealValue.Nothing, None)
-  }
 
 //  private def typeOf(value: Value): Option[TypeObject] = {
 //    value match {

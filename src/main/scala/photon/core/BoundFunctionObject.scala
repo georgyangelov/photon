@@ -1,31 +1,30 @@
 package photon.core
 
 import com.typesafe.scalalogging.Logger
-import photon.core.BoundFunctionObject.wrapInLets
 import photon.interpreter.EvalError
-import photon.{BoundFunction, FunctionTrait, Location, Operation, RealValue, Value, Variable}
+import photon.{BoundValue, FunctionTrait, PureValue, Variable}
 
 object FunctionParams {
   val Self: Parameter = Parameter(0, "self")
 }
 
-object BoundFunctionObject {
-  def wrapInLets(
-    operation: Value,
-    realValue: Option[RealValue],
-    variables: Seq[Variable],
-    location: Option[Location]
-  ): Value = {
-    variables.foldRight(operation) { case (Variable(name, value), op) =>
-      Value.Operation(
-        Operation.Let(name, value, op.asBlock, realValue),
-        location
-      )
-    }
-  }
-}
+//object BoundFunctionObject {
+//  def wrapInLets(
+//    operation: Value,
+//    realValue: Option[RealValue],
+//    variables: Seq[Variable],
+//    location: Option[Location]
+//  ): Value = {
+//    variables.foldRight(operation) { case (Variable(name, value), op) =>
+//      Value.Operation(
+//        Operation.Let(name, value, op.asBlock, realValue),
+//        location
+//      )
+//    }
+//  }
+//}
 
-case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
+case class BoundFunctionObject(boundFn: BoundValue.Function) extends NativeObject(Map(
   "call" -> ScalaVarargMethod({ (c, args, location) =>
     if (args.positional.size - 1 + args.named.size != boundFn.fn.params.size) {
       throw EvalError("Wrong number of arguments for this lambda", location)
@@ -60,24 +59,23 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
     val scope = boundFn.scope.newChild(positionalVariables ++ namedVariables)
 
     val result = c.interpreter.evaluate(
-      // TODO: Should this be the location of the function definition instead of the call?
-      Value.Operation(boundFn.fn.body, location),
+      boundFn.fn.body,
       scope,
 //      c.callScope,
 //      c.runMode,
 //      c.callStack
     )
 
-    result match {
-      case result @ Value.Real(RealValue.BoundFn(boundFn), location) =>
-        val fn = boundFn.fn
-        val wrappedValue = wrapInLets(Operation.Function(fn, None), result, )
+//    result match {
+//      case result @ Value.Real(RealValue.BoundFn(boundFn), location) =>
+//        val fn = boundFn.fn
+//        val wrappedValue = wrapInLets(Operation.Function(fn, None), result, )
+//
+//      case Value.Real(value, location) =>
+//      case Value.Operation(operation, location) =>
+//    }
 
-      case Value.Real(value, location) =>
-      case Value.Operation(operation, location) =>
-    }
-
-    result
+    result.realValue.getOrElse(result)
   }, traits = boundFn.traits, methodId = boundFn.fn.objectId),
 
   "runTimeOnly" -> ScalaMethod(
@@ -86,10 +84,10 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
       val boundFn = args.getFunction(FunctionParams.Self)
       val traits = boundFn.traits.removedAll(Set(FunctionTrait.CompileTime, FunctionTrait.Partial))
 
-      Value.Real(
-        RealValue.BoundFn(
-          BoundFunction(boundFn.fn, boundFn.scope, traits)
-        ),
+      BoundValue.Function(
+        boundFn.fn,
+        traits,
+        boundFn.scope,
         l
       )
     }
@@ -101,10 +99,10 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
       val boundFn = args.getFunction(FunctionParams.Self)
       val traits = boundFn.traits.removedAll(Set(FunctionTrait.Runtime, FunctionTrait.Partial))
 
-      Value.Real(
-        RealValue.BoundFn(
-          BoundFunction(boundFn.fn, boundFn.scope, traits)
-        ),
+      BoundValue.Function(
+        boundFn.fn,
+        traits,
+        boundFn.scope,
         l
       )
     }
@@ -112,6 +110,6 @@ case class BoundFunctionObject(boundFn: BoundFunction) extends NativeObject(Map(
 
   "to_bool" -> ScalaMethod(
     MethodOptions(Seq.empty),
-    { (_, _, l) => Value.Real(RealValue.Boolean(true), l) }
+    { (_, _, l) => PureValue.Boolean(true, l) }
   )
 ))

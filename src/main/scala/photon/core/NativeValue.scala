@@ -3,38 +3,34 @@ package photon.core
 import photon.core.NativeValue.ValueAssert
 import photon.interpreter.{CallStackEntry, EvalError, Interpreter, RunMode}
 import photon.lib.ObjectId
-import photon.{Arguments, BoundFunction, FunctionTrait, Location, RealValue, Scope, Value}
+import photon.{Arguments, BoundValue, FunctionTrait, Location, PureValue, RealValue, Scope, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
     def asBool: Boolean = value match {
-      case Value.Real(RealValue.Boolean(value), _) => value
-      // TODO: Message and location
-      case _ => throw EvalError("Invalid value type ...", None)
+      case PureValue.Boolean(value, _) => value
+      case _ => throw EvalError(s"Invalid value type $value, expected Boolean", value.location)
     }
 
     def asInt: Int = value match {
-      case Value.Real(RealValue.Int(value), _) => value
-      // TODO: Message and location
-      case _ => throw EvalError("Invalid value type ...", None)
+      case PureValue.Int(value, _) => value
+      case _ => throw EvalError(s"Invalid value type $value, expected Int", value.location)
     }
 
     def asDouble: Double = value match {
-      case Value.Real(RealValue.Int(value), _) => value.toDouble
-      case Value.Real(RealValue.Float(value), _) => value
-      // TODO: Message and location
-      case _ => throw EvalError("Invalid value type ...", None)
+      case PureValue.Int(value, _) => value.toDouble
+      case PureValue.Float(value, _) => value
+      case _ => throw EvalError(s"Invalid value type $value, expected Int or Float", value.location)
     }
 
     def asString: String = value match {
-      case Value.Real(RealValue.String(value), _) => value
-      // TODO: Message and location
+      case PureValue.String(value, _) => value
       case _ => throw EvalError(s"Invalid value type $value, expected String", value.location)
     }
 
-    def asBoundFunction: BoundFunction = value match {
-      case Value.Real(RealValue.BoundFn(fn), _) => fn
-      case _ => throw EvalError(s"Expected BoundFunction, got $value", value.location)
+    def asBoundFunction: BoundValue.Function = value match {
+      case fn: BoundValue.Function => fn
+      case _ => throw EvalError(s"Invalid value type $value, expected Function", value.location)
     }
 
 //    TODO
@@ -49,7 +45,7 @@ object NativeValue {
     def getInt(index: Int): Int = get(index).asInt
     def getDouble(index: Int): Double = get(index).asDouble
     def getString(index: Int): String = get(index).asString
-    def getFunction(index: Int): BoundFunction = get(index).asBoundFunction
+    def getFunction(index: Int): BoundValue.Function = get(index).asBoundFunction
 
     def get(index: Int): Value = {
       if (index >= argumentList.size) {
@@ -83,7 +79,7 @@ trait NativeValue {
   def callOrThrowError(
     context: CallContext,
     name: String,
-    args: Arguments,
+    args: Arguments[RealValue],
     location: Option[Location]
   ): Value = {
     method(name, location) match {
@@ -99,19 +95,19 @@ trait NativeMethod {
 
   def call(
     context: CallContext,
-    arguments: Arguments,
+    arguments: Arguments[RealValue],
     location: Option[Location]
   ): Value
 }
 
 case class Parameter(index: Int, name: String)
 
-case class AppliedParameters(parameters: Seq[Parameter], arguments: Arguments) {
+case class AppliedParameters(parameters: Seq[Parameter], arguments: Arguments[RealValue]) {
   def getBool(parameter: Parameter): Boolean = get(parameter).asBool
   def getInt(parameter: Parameter): Int = get(parameter).asInt
   def getDouble(parameter: Parameter): Double = get(parameter).asDouble
   def getString(parameter: Parameter): String = get(parameter).asString
-  def getFunction(parameter: Parameter): BoundFunction = get(parameter).asBoundFunction
+  def getFunction(parameter: Parameter): BoundValue.Function = get(parameter).asBoundFunction
 
   def get(parameter: Parameter): Value = {
     if (parameter.index < arguments.positional.size) {
@@ -141,7 +137,7 @@ case class ScalaMethod(
 
   override val traits: Set[FunctionTrait] = options.traits
 
-  override def call(context: CallContext, arguments: Arguments, location: Option[Location]) =
+  override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
     handler.apply(
       context,
       AppliedParameters(options.parameters, arguments),
@@ -154,9 +150,9 @@ case class ScalaVarargMethod(
   traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure),
   methodId: ObjectId = ObjectId()
 ) extends NativeMethod {
-  type MethodHandler = (CallContext, Arguments, Option[Location]) => Value
+  type MethodHandler = (CallContext, Arguments[RealValue], Option[Location]) => Value
 
-  override def call(context: CallContext, arguments: Arguments, location: Option[Location]) =
+  override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
     handler.apply(context, arguments, location)
 }
 
