@@ -20,12 +20,13 @@ class InterpreterWIPTest extends FunSuite {
     expectEvalRuntime("a = 1; fn = (b) a + b; fn.call(41)", "42")
   }
 
-  test("supports recursive functions") {
-    expectEvalRuntime(
-      "factorial = (n) { (n == 0).if_else({ 1 }, { n * factorial(n - 1) }) }; factorial(1)",
-      "1"
-    )
-  }
+//  TODO: Enable this to test
+//  test("supports recursive functions") {
+//    expectEvalRuntime(
+//      "factorial = (n) { (n == 0).if_else({ 1 }, { n * factorial(n - 1) }) }; factorial(1)",
+//      "1"
+//    )
+//  }
 
   test("supports structs") {
     expectEvalRuntime(
@@ -187,25 +188,25 @@ class InterpreterWIPTest extends FunSuite {
   }
 
   test("variables do not escape the scope (without partial evaluation)") {
-//    expectEvalCompileTime(
-//      "outer = (a) { () { a } }; outer(42)",
-//      "a = 42; () { a }"
-//    )
-//
-//    expectEvalCompileTime(
-//      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
-//      "a = 42; () { a }"
-//    )
-//
-//    expectEvalCompileTime(
-//      "a = 11; outer = (a) { () { a } }; outer(42) + a",
-//      "a = 11; (a = 42; () { a }) + a"
-//    )
-//
-//    expectEvalCompileTime(
-//      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
-//      "something = (x) { x }; something(param = (a = 42; () { a }))"
-//    )
+    expectEvalCompileTime(
+      "outer = (a) { () { a } }; outer(42)",
+      "a = 42; () { a }"
+    )
+
+    expectEvalCompileTime(
+      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
+      "a = 42; () { a }"
+    )
+
+    expectEvalCompileTime(
+      "a = 11; outer = (a) { () { a } }; outer(42) + a",
+      "a = 11; (a = 42; () { a }) + a"
+    )
+
+    expectEvalCompileTime(
+      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
+      "something = (x) { x }; something(param = (a = 42; () { a }))"
+    )
 
     expectEvalCompileTime(
       """
@@ -225,23 +226,23 @@ class InterpreterWIPTest extends FunSuite {
       """
     )
 
-//    expectEvalCompileTime(
-//      """
-//        scope1 = (a) {
-//          unknown = () { a + 42 }.runTimeOnly
-//
-//          () { a + unknown() }
-//        }
-//
-//        scope1(1)
-//      """,
-//      """
-//        a = 1
-//        unknown = () a + 42
-//
-//        () { a + unknown() }
-//      """
-//    )
+    expectEvalCompileTime(
+      """
+        scope1 = (a) {
+          unknown = () { a + 42 }.runTimeOnly
+
+          () { a + unknown() }
+        }
+
+        scope1(1)
+      """,
+      """
+        a = 1
+        unknown = () a + 42
+
+        () { a + unknown() }
+      """
+    )
   }
 
   test("scope escapes with inner lets") {

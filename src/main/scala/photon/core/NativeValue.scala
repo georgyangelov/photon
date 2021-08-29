@@ -1,44 +1,47 @@
 package photon.core
 
 import photon.core.NativeValue.ValueAssert
-import photon.{Arguments, BoundFunction, CallStackEntry, EvalError, FunctionTrait, Interpreter, Location, ObjectId, RunMode, Scope, Struct, Value}
+import photon.interpreter.{CallStackEntry, EvalError, Interpreter, RunMode}
+import photon.lib.ObjectId
+import photon.{Arguments, BoundFunction, FunctionTrait, Location, RealValue, Scope, Value}
 
 object NativeValue {
   implicit class ValueAssert(value: Value) {
     def asBool: Boolean = value match {
-      case Value.Boolean(value, _) => value
+      case Value.Real(RealValue.Boolean(value), _) => value
       // TODO: Message and location
       case _ => throw EvalError("Invalid value type ...", None)
     }
 
     def asInt: Int = value match {
-      case Value.Int(value, _, _) => value
+      case Value.Real(RealValue.Int(value), _) => value
       // TODO: Message and location
       case _ => throw EvalError("Invalid value type ...", None)
     }
 
     def asDouble: Double = value match {
-      case Value.Int(value, _, _) => value.toDouble
-      case Value.Float(value, _) => value
+      case Value.Real(RealValue.Int(value), _) => value.toDouble
+      case Value.Real(RealValue.Float(value), _) => value
       // TODO: Message and location
       case _ => throw EvalError("Invalid value type ...", None)
     }
 
     def asString: String = value match {
-      case Value.String(value, _) => value
+      case Value.Real(RealValue.String(value), _) => value
       // TODO: Message and location
       case _ => throw EvalError(s"Invalid value type $value, expected String", value.location)
     }
 
     def asBoundFunction: BoundFunction = value match {
-      case Value.BoundFunction(fn, _) => fn
+      case Value.Real(RealValue.BoundFn(fn), _) => fn
       case _ => throw EvalError(s"Expected BoundFunction, got $value", value.location)
     }
 
-    def asStruct: Struct = value match {
-      case Value.Struct(struct, _) => struct
-      case _ => throw EvalError(s"Invalid value type $value, expected Struct", value.location)
-    }
+//    TODO
+//    def asStruct: Struct = value match {
+//      case Value.Struct(struct, _) => struct
+//      case _ => throw EvalError(s"Invalid value type $value, expected Struct", value.location)
+//    }
   }
 
   implicit class ArgListAssert(argumentList: Seq[Value]) {

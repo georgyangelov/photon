@@ -3,7 +3,8 @@ package photon
 import com.typesafe.scalalogging.Logger
 import org.scalatest.Matchers.intercept
 import org.scalatest.Assertions._
-import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Lexer, Parser, Unparser, ValueToAST}
+import photon.frontend.{ASTBlock, Lexer, Parser, Unparser, ValueToAST}
+import photon.interpreter.{EvalError, Interpreter}
 
 object TestHelpers {
   def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTBlock = {
@@ -14,7 +15,7 @@ object TestHelpers {
   }
 
   def evalCompileTime(prelude: Option[String], code: String): Value = {
-    val interpreter = new Interpreter(RunMode.CompileTime)
+    val interpreter = new Interpreter(/* RunMode.CompileTime */)
 
     prelude match {
       case Some(prelude) =>
@@ -30,7 +31,7 @@ object TestHelpers {
   }
 
   def evalRunTime(code: String): Value = {
-    val interpreter = new Interpreter(RunMode.Runtime)
+    val interpreter = new Interpreter(/* RunMode.Runtime */)
     val value = parseCode(code, Parser.BlankMacroHandler)
 
     interpreter.evaluate(value)
@@ -60,7 +61,7 @@ object TestHelpers {
   def expectFailCompileTime(actualCode: String, message: String): Unit = {
     val evalError = intercept[EvalError] { evalCompileTime(None, actualCode) }
 
-    assert(evalError.message.contains(message));
+    assert(evalError.message.contains(message))
   }
 
   def expectEval(prelude: String, actualCode: String, expectedResult: String): Unit = {
@@ -97,6 +98,6 @@ object TestHelpers {
 
     val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
 
-    assert(evalError.message.contains(message));
+    assert(evalError.message.contains(message))
   }
 }

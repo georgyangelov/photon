@@ -1,7 +1,6 @@
 package photon.core
 
-import com.typesafe.scalalogging.Logger
-import photon.{Arguments, Value}
+import photon.{Arguments, RealValue, Value}
 import photon.core.NativeValue.ValueAssert
 
 private object BoolObjectArgs {
@@ -18,28 +17,28 @@ import BoolObjectArgs._
 object BoolObject extends NativeObject(Map(
   "!" -> ScalaMethod(
     MethodOptions(Seq(FirstParam)),
-    { (_, args, l) => Value.Boolean(!args.getBool(FirstParam), l) }
+    { (_, args, l) => Value.Real(RealValue.Boolean(!args.getBool(FirstParam)), l) }
   ),
 
   "not" -> ScalaMethod(
     MethodOptions(Seq(FirstParam)),
-    { (_, args, l) => Value.Boolean(!args.getBool(FirstParam), l) }
+    { (_, args, l) => Value.Real(RealValue.Boolean(!args.getBool(FirstParam)), l) }
   ),
 
   // TODO: Short-circuiting
   "and" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Boolean(args.getBool(FirstParam) && args.getBool(SecondParam), l) }
+    { (_, args, l) => Value.Real(RealValue.Boolean(args.getBool(FirstParam) && args.getBool(SecondParam)), l) }
   ),
 
   "or" -> ScalaMethod(
     MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => Value.Boolean(args.getBool(FirstParam) || args.getBool(SecondParam), l) }
+    { (_, args, l) => Value.Real(RealValue.Boolean(args.getBool(FirstParam) || args.getBool(SecondParam)), l) }
   ),
 
   "to_bool" -> ScalaMethod(
     MethodOptions(Seq(FirstParam)),
-    { (_, args, l) => Value.Boolean(args.getBool(FirstParam), l) }
+    { (_, args, l) => Value.Real(RealValue.Boolean(args.getBool(FirstParam)), l) }
   ),
 
   "if_else" -> ScalaMethod(

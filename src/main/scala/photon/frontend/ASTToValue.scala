@@ -1,20 +1,21 @@
 package photon.frontend
 
-import photon.{Arguments, EvalError, Function, Operation, Parameter, Scope, Value, VariableName}
+import photon.interpreter.EvalError
+import photon.{Arguments, Function, Operation, Parameter, RealValue, Scope, Value, VariableName}
 
 import scala.collection.Map
 
 object ASTToValue {
   def transform(ast: ASTValue, scope: StaticScope): Value = {
     ast match {
-      case ASTValue.Boolean(value, location) => Value.Boolean(value, location)
-      case ASTValue.Int(value, location) => Value.Int(value, location, None)
-      case ASTValue.Float(value, location) => Value.Float(value, location)
-      case ASTValue.String(value, location) => Value.String(value, location)
+      case ASTValue.Boolean(value, location) => Value.Real(RealValue.Boolean(value), location)
+      case ASTValue.Int(value, location) => Value.Real(RealValue.Int(value), location)
+      case ASTValue.Float(value, location) => Value.Real(RealValue.Float(value), location)
+      case ASTValue.String(value, location) => Value.Real(RealValue.String(value), location)
 
       case ASTValue.Block(block, location) =>
         Value.Operation(
-          Operation.Block(block.values.map(transform(_, scope))),
+          Operation.Block(block.values.map(transform(_, scope)), None),
           location
         )
 
@@ -29,7 +30,7 @@ object ASTToValue {
         val fn = new Function(parameters, body)
 
         Value.Operation(
-          Operation.Function(fn),
+          Operation.Function(fn, None),
           location
         )
 
@@ -44,9 +45,10 @@ object ASTToValue {
             case Some(value) =>
               return Value.Operation(
                 Operation.Call(
-                  target = Value.Operation(Operation.Reference(value), location),
+                  target = Value.Operation(Operation.Reference(value, None), location),
                   name = "call",
-                  arguments = arguments
+                  arguments = arguments,
+                  None
                 ),
                 location
               )
@@ -56,7 +58,7 @@ object ASTToValue {
         }
 
         Value.Operation(
-          Operation.Call(transform(target, scope), name, arguments),
+          Operation.Call(transform(target, scope), name, arguments, None),
           location
         )
 
@@ -64,7 +66,7 @@ object ASTToValue {
         scope.find(name) match {
           case Some(variable) =>
             Value.Operation(
-              Operation.Reference(variable),
+              Operation.Reference(variable, None),
               location
             )
 
@@ -73,9 +75,10 @@ object ASTToValue {
 
             Value.Operation(
               Operation.Call(
-                target = Value.Operation(Operation.Reference(self), location),
+                target = Value.Operation(Operation.Reference(self, None), location),
                 name = name,
-                arguments = Arguments.empty
+                arguments = Arguments.empty,
+                None
               ),
               location
             )
@@ -88,7 +91,7 @@ object ASTToValue {
         val body = transformBlock(block, innerScope)
 
         Value.Operation(
-          Operation.Let(variable, expression, body),
+          Operation.Let(variable, expression, body, None),
           location
         )
     }
@@ -96,7 +99,8 @@ object ASTToValue {
 
   def transformBlock(block: ASTBlock, scope: StaticScope): Operation.Block = {
     Operation.Block(
-      block.values.map(transform(_, scope))
+      block.values.map(transform(_, scope)),
+      None
     )
   }
 }

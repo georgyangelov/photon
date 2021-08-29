@@ -1,7 +1,7 @@
 package photon.frontend
 
 import photon.core.MacroASTValue
-import photon.{Arguments, Function, Location, Operation, Value, VariableName}
+import photon.{Arguments, Function, Location, Operation, RealValue, Value, VariableName}
 
 object ValueToAST {
   def transformRenamingAll(value: Value, prefix: String): ASTValue =
@@ -10,119 +10,126 @@ object ValueToAST {
   def transform(value: Value, varNames: Map[VariableName, String]): ASTValue =
     transform(value, varNames, renameAllPrefix = None)
 
-  def transform(value: Value, varNames: Map[VariableName, String], renameAllPrefix: Option[String]): ASTValue = {
-    value match {
-      case Value.Unknown(location) =>
-        // TODO: Separate values for inspection and for actual AST generation
-        // throw EvalError("Cannot represent Unknown as AST, this is a compiler bug", location)
-        ASTValue.NameReference("<unknown>", location)
+  def transform(
+    value: Value,
+    varNames: Map[VariableName, String],
+    renameAllPrefix: Option[String]
+  ): ASTValue = value match {
+    case Value.Real(value, location) =>
+      transformRealValue(value, location, varNames, renameAllPrefix)
 
-      // TODO: Support this in the root scope
-      case Value.Nothing(location) => ASTValue.NameReference("None", location)
+    case Value.Operation(operation, location) =>
+      transformOperation(operation, location, varNames, renameAllPrefix)
+  }
 
-      case Value.Boolean(value, location) => ASTValue.Boolean(value, location)
-      case Value.Int(value, location, _) => ASTValue.Int(value, location)
-      case Value.Float(value, location) => ASTValue.Float(value, location)
-      case Value.String(value, location) => ASTValue.String(value, location)
+  def transformRealValue(
+    realValue: RealValue,
+    location: Option[Location],
+    varNames: Map[VariableName, String],
+    renameAllPrefix: Option[String]
+  ): ASTValue = realValue match {
+    case RealValue.Nothing => ASTValue.NameReference("None", location)
+    case RealValue.Boolean(value) => ASTValue.Boolean(value, location)
+    case RealValue.Int(value) => ASTValue.Int(value, location)
+    case RealValue.Float(value) => ASTValue.Float(value, location)
+    case RealValue.String(value) => ASTValue.String(value, location)
+    case RealValue.Native(MacroASTValue(ast)) => ast
 
-      case Value.Native(MacroASTValue(ast), _) => ast
+    // TODO: Separate values for inspection and for actual AST generation
+    case RealValue.Native(native) => ASTValue.NameReference("<native>", location)
 
-      case Value.Native(_, location) =>
-        // TODO: Separate values for inspection and for actual AST generation
-        // throw EvalError("Cannot represent Native as AST, this is a compiler bug", location)
-        ASTValue.NameReference("<native>", location)
+    // TODO: Unbind, then transform?
+    case RealValue.BoundFn(boundFn) => transformFn(boundFn.fn, varNames, location)
+  }
 
-      case Value.Struct(struct, location) =>
-        ASTValue.Call(
-          target = ASTValue.NameReference("self", location),
-          name = "Struct",
-          arguments = ASTArguments(
-            positional = Seq.empty,
-            named = struct.props.map { case (name, value) =>
-              (name, transform(value, varNames, renameAllPrefix))
-            }
-          ),
-          mayBeVarCall = true,
-          location
-        )
+  def transformOperation(
+    operation: Operation,
+    location: Option[Location],
+    varNames: Map[VariableName, String],
+    renameAllPrefix: Option[String]
+  ): ASTValue = operation match {
+    case Operation.Block(values, _) =>
+      ASTValue.Block(
+        ASTBlock(values.map(transform(_, varNames, renameAllPrefix))),
+        location
+      )
 
-      case Value.BoundFunction(boundFn, location) =>
-        // TODO: Serialize traits to AST
-        transformFn(boundFn.fn, varNames, location)
+    case Operation.Let(variable, letValue, block, _) =>
+      val name = renameAllPrefix match {
+        case Some(prefix) => s"${prefix}$$${variable.originalName}"
+        case None =>
+          uniqueName(
+            variable.originalName,
+            letValue.unboundNames.map(_.originalName)
+          )
+      }
 
-      case Value.Operation(Operation.Block(values), location) =>
-        ASTValue.Block(ASTBlock(values.map(transform(_, varNames, renameAllPrefix))), location)
+      val innerVarNames = varNames.updated(variable, name)
 
-      case Value.Operation(Operation.Let(variable, letValue, block), location) =>
-        val name = renameAllPrefix match {
-          case Some(prefix) => s"${prefix}$$${variable.originalName}"
-          case None =>
-            uniqueName(
-              variable.originalName,
-              value.unboundNames.map(_.originalName)
-            )
-        }
+      ASTValue.Let(
+        name,
+        transform(letValue, innerVarNames, renameAllPrefix),
+        transformBlock(block, innerVarNames),
+        location
+      )
 
-        val innerVarNames = varNames.updated(variable, name)
+    case Operation.Reference(name, _) =>
+      ASTValue.NameReference(
+        varNames.getOrElse(name, name.originalName),
+        location
+      )
 
-        ASTValue.Let(
-          name,
-          transform(letValue, innerVarNames, renameAllPrefix),
-          transformBlock(block, innerVarNames),
-          location
-        )
+    case Operation.Function(fn, _) =>
+      transformFn(fn, varNames, location)
 
-      case Value.Operation(Operation.Reference(name), location) =>
-        ASTValue.NameReference(
-          varNames.getOrElse(name, name.originalName),
-          location
-        )
+    case Operation.Call(target, name, arguments, _) =>
+      val astTarget = transform(target, varNames, renameAllPrefix)
+      val astArguments = ASTArguments(
+        positional = arguments.positional.map(transform(_, varNames, renameAllPrefix)),
 
-      case Value.Operation(Operation.Function(fn), location) => transformFn(fn, varNames, location)
+        // TODO: Support renames of function parameters
+        named = arguments.named.view.mapValues(transform(_, varNames, renameAllPrefix)).toMap
+      )
 
-      case Value.Operation(Operation.Call(target, name, arguments), location) =>
-        val astTarget = transform(target, varNames, renameAllPrefix)
-        val astArguments = ASTArguments(
-          positional = arguments.positional.map(transform(_, varNames, renameAllPrefix)),
-
-          // TODO: Support renames of function parameters
-          named = arguments.named.map { case (name, value) => (name, transform(value, varNames, renameAllPrefix)) }
-        )
-
-        astTarget match {
-          case ASTValue.NameReference(targetName, _) if name == "call" =>
-            ASTValue.Call(
-              target = ASTValue.NameReference("self", location),
-              name = targetName,
-              arguments = astArguments,
-              mayBeVarCall = true,
-              location = location
-            )
-          case _ =>
-            ASTValue.Call(
-              target = astTarget,
-              name = name,
-              arguments = astArguments,
-              mayBeVarCall = false,
-              location = location
-            )
-        }
-    }
+      astTarget match {
+        case ASTValue.NameReference(targetName, _) if name == "call" =>
+          ASTValue.Call(
+            target = ASTValue.NameReference("self", location),
+            name = targetName,
+            arguments = astArguments,
+            mayBeVarCall = true,
+            location = location
+          )
+        case _ =>
+          ASTValue.Call(
+            target = astTarget,
+            name = name,
+            arguments = astArguments,
+            mayBeVarCall = false,
+            location = location
+          )
+      }
   }
 
   def transformAsBlock(value: Value): ASTBlock = {
     value match {
-      case Value.Operation(Operation.Block(values), _) => ASTBlock(values.map(transform(_, Map.empty)))
+      case Value.Operation(Operation.Block(values, _), _) => ASTBlock(values.map(transform(_, Map.empty)))
       case _ => ASTBlock(Seq(transform(value, Map.empty)))
     }
   }
 
   def transformForInspection(value: Value): ASTBlock = {
     value match {
-      case Value.Operation(Operation.Block(values), _) => ASTBlock(values.map(transform(_, Map.empty)))
+      case Value.Operation(Operation.Block(values, _), _) => ASTBlock(values.map(transform(_, Map.empty)))
       case _ => ASTBlock(Seq(transform(value, Map.empty)))
     }
   }
+
+  def transformForInspection(value: RealValue): ASTBlock =
+    ASTBlock(Seq(transformRealValue(value, None, Map.empty, None)))
+
+  def transformForInspection(operation: Operation): ASTBlock =
+    ASTBlock(Seq(transformOperation(operation, None, Map.empty, None)))
 
   def transformForInspection(arguments: Arguments) = ASTArguments(
     positional = arguments.positional.map(transform(_, Map.empty)),

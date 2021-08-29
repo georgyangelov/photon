@@ -24,3 +24,28 @@ Is there a use-case where Solution 1 won't work?
 ## Problem 2
 
 `() { a = 42; () { a } }()` fails with NoSuchElementException while trying to get scope
+
+
+---
+
+## Code and Real values returned by compile time eval
+
+Code values are needed so that a decision can be made to either use the processed or unprocessed value.
+
+---
+
+```
+test = (a) {
+  (b) { a + b } 
+}
+
+test(1).call(2)
+```
+
+```
+_fn = (scope, b) { scope.a + b }
+
+test = (a) { Object(fn = _fn, scope = Object(a = a), call = (self, b) { self.fn(self.scope, b) }) }
+
+test(1).call(2)
+```
