@@ -4,40 +4,20 @@ import org.scalatest._
 
 import photon.TestHelpers._
 
-class InterpreterWIPTest extends FunSuite {
-  test("supports constants") {
-    expectEvalRuntime("42", "42")
-    expectEvalRuntime("'test'", "'test'")
-  }
-
-  test("can add numbers") {
-    expectEvalRuntime("1 + 41", "42")
-  }
-
+class CompileTimeEvaluationTest extends FunSuite {
   test("supports closures") {
-    expectEvalRuntime("(a){ (b){ a + b } }(1)(41)", "42")
-    expectEvalRuntime("a = 1; fn = (b) a + b; fn(41)", "42")
-    expectEvalRuntime("a = 1; fn = (b) a + b; fn.call(41)", "42")
+    expectEvalCompileTime("(a){ (b){ a + b } }(1)(41)", "42")
+    expectEvalCompileTime("a = 1; fn = (b) a + b; fn(41)", "42")
+    expectEvalCompileTime("a = 1; fn = (b) a + b; fn.call(41)", "42")
   }
 
 //  TODO: Enable this to test
 //  test("supports recursive functions") {
-//    expectEvalRuntime(
+//    expectEvalCompileTime(
 //      "factorial = (n) { (n == 0).if_else({ 1 }, { n * factorial(n - 1) }) }; factorial(1)",
 //      "1"
 //    )
 //  }
-
-  test("supports structs") {
-    expectEvalRuntime(
-      "user = Struct(name = 'Joro'); user.name",
-      "'Joro'"
-    )
-    expectEvalRuntime(
-      "computer = Struct(answer = 1 + 41); computer.answer",
-      "42"
-    )
-  }
 
   test("supports constants compile-time") {
     expectEvalCompileTime("42", "42")
@@ -119,31 +99,6 @@ class InterpreterWIPTest extends FunSuite {
     )
   }
 
-  test("evaluates some functions compile-time inside of lambdas during compile-time") {
-    expectEvalCompileTime(
-      """
-          () {
-            unknown = () { 42 }.runTimeOnly
-            add = (a, b) { a + b }
-            var1 = unknown()
-            var2 = add(1, 10)
-
-            add(var1, var2)
-          }
-      """,
-      """
-          () {
-            unknown = () { 42 }
-            add = (a, b) { a + b }
-            var1 = unknown()
-            var2 = 11
-
-            add(var1, var2)
-          }
-      """
-    )
-  }
-
   test("removes unused let bindings, keeping expressions for side-effects") {
     expectEvalCompileTime("unused = 11; 42", "42")
     expectEvalCompileTime(
@@ -200,7 +155,8 @@ class InterpreterWIPTest extends FunSuite {
 
     expectEvalCompileTime(
       "a = 11; outer = (a) { () { a } }; outer(42); a",
-      "a = 11; (a = 42; () { a }); a"
+//      "a = 11; (a = 42; () { a }); a"
+      "11"
     )
 
     expectEvalCompileTime(
@@ -328,166 +284,6 @@ class InterpreterWIPTest extends FunSuite {
 //      """
 //    )
 //  }
-
-  test("supports simple parser macros") {
-    val macroDefinition = """
-        Core.define_macro 'plusOne', (parser) {
-          parser.parseNext.eval + 1
-        }
-    """
-
-    expectEvalCompileTime(macroDefinition, "plusOne 41","42")
-    expectEvalCompileTime(
-      macroDefinition,
-      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
-      "unknown = () { 41 }; unknown() + 1"
-    )
-  }
-
-  test("supports simple parser macros with lets") {
-    val macroDefinition = """
-        Core.define_macro 'plusOne', (parser) {
-          number = parser.parseNext.eval
-
-          number + 1
-        }
-    """
-
-    expectEvalCompileTime(macroDefinition, "plusOne 41","42")
-    expectEvalCompileTime(
-      macroDefinition,
-      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
-      "unknown = () { 41 }; plusOne$number = unknown(); plusOne$number + 1"
-    )
-  }
-
-  test("supports parser macros") {
-    val macroDefinition = """
-        Core.define_macro 'if', (parser) {
-          condition = parser.parseNext
-          if_true = parser.parseNext
-          if_false = (parser.nextToken.string == "else").if_else({ parser.skipNextToken; parser.parseNext.eval }, { {} })
-
-          condition.eval.to_bool.if_else(if_true.eval, if_false)
-        }
-    """
-
-    expectEvalCompileTime(macroDefinition, "if true { 42 }","42")
-    expectEvalCompileTime(macroDefinition, "if true { 42 } else { 11 }","42")
-    expectEvalCompileTime(macroDefinition, "if false { 42 } else { 11 }","11")
-
-    expectEvalCompileTime(
-      macroDefinition,
-      "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
-      "unknown = (){ true }; if$if_false = { 11 }; unknown().to_bool.if_else({ 42 }, if$if_false)"
-    )
-  }
-
-  test("lambdas parsed by macros can use closure scope") {
-    val macroDefinition = """
-        Core.define_macro 'run', (parser) {
-          lambda = parser.parseNext
-
-          lambda.eval.call
-        }
-    """
-
-    expectEvalCompileTime(macroDefinition, "run { 42 }","42")
-    expectEvalCompileTime(macroDefinition, "answer = 42; run { answer }", "42")
-  }
-
-  test("macro variables do not collide with in-scope variables") {
-    val macroDefinition = """
-        Core.define_macro 'run', (parser) {
-          variable = parser.parseNext.eval
-
-          variable.call
-        }
-    """
-
-    expectEval(
-      macroDefinition,
-      """
-         answer = (){ 42 }.runTimeOnly
-         variable = answer()
-
-         run { variable }
-      """,
-      "42"
-    )
-  }
-
-  test("macro functions do not collide with functions in scope") {
-    val macroDef = """
-      Core.define_macro 'objectify', (parser) {
-        Struct(value = parser.parseNext.eval)
-      }
-    """
-
-    expectEval(
-      macroDef,
-      """
-        Struct = 1234
-
-        (objectify 42).value
-      """,
-      "42"
-    )
-  }
-
-  test("macro variables in lambda params do not collide with in-scope variables") {
-    val macroDefinition = """
-        Core.define_macro 'run', (parser) {
-          (variable) {
-            variable.call
-          }(parser.parseNext.eval)
-        }
-    """
-
-    expectEval(
-      macroDefinition,
-      """
-         answer = (){ 42 }.runTimeOnly
-         variable = answer()
-
-         run { variable }
-      """,
-      "42"
-    )
-  }
-
-  test("compile-time evaluation of structs") {
-    expectEvalCompileTime(
-      "object = Struct(answer = 42); object.answer",
-      "42"
-    )
-    expectEvalCompileTime(
-      "object = Struct(answer = () 42); object.answer",
-      "42"
-    )
-    expectEvalCompileTime(
-      "object = Struct(call = () 42); object()",
-      "42"
-    )
-  }
-
-  test("compile-time evaluation of partial structs") {
-    expectEvalCompileTime(
-      "unknown = () { 11 }.runTimeOnly; object = Struct(unknown = unknown, answer = () 42); object.answer",
-      "42"
-    )
-    expectEvalCompileTime(
-      "unknown = () { 42 }.runTimeOnly; object = Struct(unknown = unknown, answer = () 42); object.unknown",
-      "unknown = () { 42 }; object = Struct(unknown = unknown, answer = () 42); object.unknown"
-    )
-  }
-
-  test("variables do not escape their scope as operations on partial structs") {
-    expectEvalCompileTime(
-      "{ unknown = () { 42 }.runTimeOnly; Struct(method = unknown) }().method()",
-      "(unknown = () { 42 }; Struct(method = unknown)).method()"
-    )
-  }
 
 //  test("allows for variable redefinition and usage of the parent variable in let") {
 //    expectEvalCompileTime(

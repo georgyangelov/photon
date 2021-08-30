@@ -67,9 +67,12 @@ class Interpreter {
           .map(_._1)
           .toSeq
 
+        val realValues = evaledValues.flatMap(_.realValue)
+        val allValuesCanBeEvaluated = realValues.length == evaledValues.length
+
         val realValue =
           if (evaledValues.isEmpty) Some(PureValue.Nothing(location))
-          else if (evaledValues.length == 1) evaledValues.last.realValue
+          else if (allValuesCanBeEvaluated) Some(realValues.last)
           else None
 
         Operation.Block(evaledValues, realValue, location)

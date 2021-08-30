@@ -2,7 +2,7 @@ package photon.frontend
 
 import photon.core.MacroASTValue
 import photon.interpreter.EvalError
-import photon.{Arguments, BoundValue, Function, Location, Operation, PureValue, RealValue, UnboundValue, Value, VariableName}
+import photon.{Arguments, BoundValue, Function, Location, Operation, PureValue, UnboundValue, Value, VariableName}
 
 object ValueToAST {
   def transformRenamingAll(value: UnboundValue, prefix: String): ASTValue =

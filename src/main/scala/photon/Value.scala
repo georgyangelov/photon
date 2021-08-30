@@ -68,7 +68,7 @@ object PureValue {
     override def isFullyKnown = native.isFullyEvaluated
 
     // TODO: Not sure about this. Maybe the `Native` values should be their own category (outside of PureValue)
-    override def mayHaveSideEffects = true
+    override def mayHaveSideEffects = false
   }
 }
 
