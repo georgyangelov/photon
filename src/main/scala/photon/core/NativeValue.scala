@@ -145,22 +145,6 @@ case class MethodOptions(
   traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 )
 
-@deprecated
-case class ScalaMethod(
-  options: MethodOptions,
-  callHandler: ScalaMethod#CallHandler,
-  override val methodId: ObjectId = ObjectId()
-) extends NativeMethod {
-  type CallHandler = (CallContext, Arguments[RealValue], Option[Location]) => Value
-
-  override val traits: Set[FunctionTrait] = options.traits
-
-  override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
-    callHandler.apply(context, arguments, location)
-
-  override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = ???
-}
-
 class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(
     name: String,

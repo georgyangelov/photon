@@ -102,7 +102,6 @@ class Core extends NativeValue {
           handler.location
         )
 
-        // TODO: Unbind `valueResult`
         val unboundResult = unbinder.unbind(valueResult, rootScope)
 
         // TODO: Normalize `name` so it doesn't have any symbols not allowed in variable names
