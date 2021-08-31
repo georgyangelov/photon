@@ -20,9 +20,11 @@ class Unbinder(core: Core) {
     val unboundValue = renameReferences(unsafeUnbind(boundValue), renames)
 
     dependentVariables.foldLeft(unboundValue) { case (value, variable) =>
+      val varValue = variable.value.getOrElse { throw EvalError(s"Cannot get variable value for ${variable.name.originalName}", None) }
+
       Operation.Let(
         variable.name,
-        renameReferences(unsafeUnbind(variable.value), renames),
+        renameReferences(unsafeUnbind(varValue), renames),
         value.asBlock,
         value.realValue,
         value.location
@@ -38,7 +40,7 @@ class Unbinder(core: Core) {
     case boundObject @ BoundValue.Object(values, _, location) =>
       Operation.Call(
         // TODO: I don't like this cast
-        Operation.Reference(core.objectRoot.name, Some(core.objectRoot.value.asInstanceOf[PureValue]), location),
+        Operation.Reference(core.objectRoot.name, Some(core.objectRoot.value.get.asInstanceOf[PureValue]), location),
         "call",
         Arguments(
           positional = Seq.empty,
@@ -61,7 +63,7 @@ class Unbinder(core: Core) {
         if (unboundNames.contains(variable.name)) {
           Set(variable.name)
         } else {
-          detectNamesToMove(variable.value.unboundNames, from, to) + variable.name
+          detectNamesToMove(variable.value.get.unboundNames, from, to) + variable.name
         }
       }
   }

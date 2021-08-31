@@ -90,7 +90,7 @@ object BoundValue {
 
       fn.unboundNames.forall { name =>
         scope.find(name) match {
-          case Some(Variable(_, value)) => value.realValue.exists(_.isFullyKnown(alreadyKnownBoundFunctions + this))
+          case Some(Variable(_, value)) => value.flatMap(_.realValue).exists(_.isFullyKnown(alreadyKnownBoundFunctions + this))
           // TODO: Specify location
           case None => throw EvalError(s"Cannot find name $name during isFullyKnown check", None)
         }
@@ -105,8 +105,8 @@ object BoundValue {
     override def realValue = Some(this)
 
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[Function]) =
-      values.view.values.forall {
-        case value: RealValue => value.isFullyKnown(alreadyKnownBoundFunctions)
+      values.view.values.map(_.realValue).forall {
+        case Some(value: RealValue) => value.isFullyKnown(alreadyKnownBoundFunctions)
         case _ => false
       }
   }
@@ -173,10 +173,10 @@ class VariableName(val originalName: String) extends Equals {
   override def hashCode(): Int = objectId.hashCode
 }
 
-class Variable(val name: VariableName, private var _value: Value) {
-  def value: Value = _value
+class Variable(val name: VariableName, private var _value: Option[Value]) {
+  def value: Option[Value] = _value
 
-  def dangerouslySetValue(newValue: Value): Unit = _value = newValue
+  def dangerouslySetValue(newValue: Value): Unit = _value = Some(newValue)
 }
 
 object Variable {

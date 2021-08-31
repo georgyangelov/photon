@@ -101,13 +101,13 @@ object CoreParams {
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
 
-  val objectRoot = new Variable(new VariableName("Object"), PureValue.Native(ObjectRoot, None))
+  val objectRoot = new Variable(new VariableName("Object"), Some(PureValue.Native(ObjectRoot, None)))
 
   val rootScope: Scope = Scope.newRoot(Seq(
-    new Variable(new VariableName("Core"),   PureValue.Native(this,       None)),
+    new Variable(new VariableName("Core"),   Some(PureValue.Native(this,       None))),
     objectRoot,
-    new Variable(new VariableName("Int"),    PureValue.Native(IntRoot,    None)),
-    new Variable(new VariableName("String"), PureValue.Native(StringRoot, None))
+    new Variable(new VariableName("Int"),    Some(PureValue.Native(IntRoot,    None))),
+    new Variable(new VariableName("String"), Some(PureValue.Native(StringRoot, None)))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)

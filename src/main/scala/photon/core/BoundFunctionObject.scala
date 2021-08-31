@@ -46,8 +46,8 @@ case class BoundFunctionObject(boundFn: BoundValue.Function) extends NativeObjec
       }
     }
 
-    val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, value) }
-    val namedVariables = namedParams.map { case (name, value) => new Variable(name, value) }
+    val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, Some(value)) }
+    val namedVariables = namedParams.map { case (name, value) => new Variable(name, Some(value)) }
 
 //    val codeWithLets = BoundFunctionObject.wrapInLets(
 //      Value.Operation(boundFn.fn.body, location),

@@ -43,13 +43,8 @@ class Interpreter {
     core.unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
   }
 
-  def evaluate(value: UnboundValue, scope: Scope): Value = {
-    val result = evaluateCompileTime(value, scope)
-
-    // TODO: Unbind result?
-    // result.realValueOrSelf
-    result
-  }
+  def evaluate(value: UnboundValue, scope: Scope): Value =
+    evaluateCompileTime(value, scope)
 
   private def evaluateCompileTime(value: UnboundValue, scope: Scope): UnboundValue = value match {
     case value: PureValue => value
@@ -78,8 +73,7 @@ class Interpreter {
         Operation.Block(evaledValues, realValue, location)
 
       case Operation.Let(name, letValue, block, _, location) =>
-        // TODO: Make this not nothing and maybe remove the need for the `Variable` class
-        val variable = new Variable(name, PureValue.Nothing(location))
+        val variable = new Variable(name, None)
         val letScope = scope.newChild(Seq(variable))
 
         val letResult = evaluateCompileTime(letValue, letScope)
@@ -112,8 +106,9 @@ class Interpreter {
 
       case Operation.Reference(name, _, location) =>
         val realValue = scope.find(name) match {
-          case Some(variable) => variable.value.realValue
-          case None => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
+          case Some(Variable(_, Some(value))) => value.realValue
+          case Some(Variable(_, None)) => throw EvalError(s"Cannot use the name ${name.originalName} during declaration", location)
+          case _ => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
         }
 
         Operation.Reference(name, realValue, location)
