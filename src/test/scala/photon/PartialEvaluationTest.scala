@@ -4,6 +4,10 @@ import org.scalatest.FunSuite
 import photon.TestHelpers.expectEvalCompileTime
 
 class PartialEvaluationTest extends FunSuite {
+//  test("evaluates functions partially if possible") {
+//
+//  }
+
   test("evaluates some functions compile-time inside of lambdas during compile-time") {
     expectEvalCompileTime(
       """

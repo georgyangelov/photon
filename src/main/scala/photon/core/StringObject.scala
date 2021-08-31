@@ -1,7 +1,7 @@
 package photon.core
 
-import photon.{PureValue}
-import photon.core.NativeValue._
+import photon.PureValue
+import photon.core.Conversions._
 
 object StringObjectParams {
   val EqualsLeft: Parameter = Parameter(0, "left")

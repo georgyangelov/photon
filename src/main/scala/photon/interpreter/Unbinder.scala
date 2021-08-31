@@ -1,8 +1,9 @@
 package photon.interpreter
 
-import photon.{BoundValue, Operation, PureValue, RealValue, Scope, UnboundValue, Value, Variable, VariableName}
+import photon.core.Core
+import photon.{Arguments, BoundValue, Operation, PureValue, RealValue, Scope, UnboundValue, Value, Variable, VariableName}
 
-object Unbinder {
+class Unbinder(core: Core) {
   def unbind(value: Value, toScope: Scope): UnboundValue = value match {
     case boundValue: BoundValue => unbind(boundValue, toScope)
     case other: UnboundValue => other
@@ -34,6 +35,18 @@ object Unbinder {
     case boundFn @ BoundValue.Function(fn, traits, _, location) =>
       // TODO: Serialize traits correctly
       Operation.Function(fn, Some(boundFn), location)
+    case boundObject @ BoundValue.Object(values, _, location) =>
+      Operation.Call(
+        // TODO: I don't like this cast
+        Operation.Reference(core.objectRoot.name, Some(core.objectRoot.value.asInstanceOf[PureValue]), location),
+        "call",
+        Arguments(
+          positional = Seq.empty,
+          named = values.view.mapValues(unsafeUnbind).toMap
+        ),
+        Some(boundObject),
+        location
+      )
   }
 
   // This considers names that:

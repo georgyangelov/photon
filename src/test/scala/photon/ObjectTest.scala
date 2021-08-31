@@ -7,7 +7,7 @@ class ObjectTest extends FunSuite {
   test("simple objects") {
     expectEvalCompileTime("Object(a = 42).a", "42")
     expectEvalCompileTime("o = Object(a = 42); o.a", "42")
-    expectFailCompileTime("o = Object(a = 42); o.b", "Cannot call method b on Object(a = 42)")
+    expectFailCompileTime("o = Object(a = 42); o.b", "Cannot call method b on Object.call(a = 42)")
   }
 
   test("calling methods on objects") {
@@ -23,7 +23,7 @@ class ObjectTest extends FunSuite {
       """
         Dog = Object(
           call = (name, age) {
-            Struct(name = name, age = age)
+            Object(name = name, age = age)
           },
 
           humanAge = (self) self.age * 7
@@ -49,6 +49,13 @@ class ObjectTest extends FunSuite {
     )
   }
 
+  test("partial evaluation of simple objects") {
+    expectEvalCompileTime(
+      "object = Object(unknown = () {}.runTimeOnly, answer = () 42); object.answer",
+      "42"
+    )
+  }
+
   test("compile-time evaluation of partial objects") {
     expectEvalCompileTime(
       "unknown = () { 11 }.runTimeOnly; object = Object(unknown = unknown, answer = () 42); object.answer",
@@ -62,6 +69,9 @@ class ObjectTest extends FunSuite {
 
   test("binding to variable names in objects") {
     expectEvalCompileTime("Answer = Object(call = () Object($type = Answer), get = 42); Answer().$type.get", "42")
+  }
+
+  test("fails when binding recursively") {
     expectFailCompileTime("Answer = Object(get = Answer); Answer.get", "Recursive reference to value being declared")
   }
 

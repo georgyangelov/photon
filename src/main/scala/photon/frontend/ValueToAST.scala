@@ -51,10 +51,26 @@ object ValueToAST {
 
     case BoundValue.Function(fn, _, _, location) =>
       if (!forInspection) {
-        throw EvalError("Cannot convert BoundValue to ASTValue", location)
+        throw EvalError("Cannot convert BoundValue.Function to ASTValue", location)
       }
 
       transformFn(fn, varNames, location, forInspection)
+
+    case BoundValue.Object(values, _, location) =>
+      if (!forInspection) {
+        throw EvalError("Cannot convert BoundValue.Object to ASTValue", location)
+      }
+
+      ASTValue.Call(
+        ASTValue.NameReference("Object", None),
+        "call",
+        ASTArguments(
+          positional = Seq.empty,
+          named = values.view.mapValues(transform(_, varNames, renameAllPrefix, forInspection)).toMap
+        ),
+        mayBeVarCall = false,
+        location
+      )
 
     case Operation.Block(values, _, location) =>
       ASTValue.Block(

@@ -1,7 +1,7 @@
 package photon.core
 
-import photon.{Arguments, PureValue, RealValue, Value}
-import photon.core.NativeValue.ValueAssert
+import photon.{Arguments, PureValue}
+import photon.core.Conversions._
 
 private object BoolObjectArgs {
   val FirstParam: Parameter = Parameter(0, "first")

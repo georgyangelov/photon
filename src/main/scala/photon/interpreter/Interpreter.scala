@@ -32,7 +32,7 @@ class Interpreter {
     val value = ASTToValue.transform(astValue, core.staticRootScope)
     val result = evaluate(value, core.rootScope)
 
-    Unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
+    core.unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
   }
 
   def evaluate(astBlock: ASTBlock): UnboundValue = {
@@ -40,7 +40,7 @@ class Interpreter {
     val block = ASTToValue.transformBlock(astBlock, core.staticRootScope, None)
     val result = evaluate(block, core.rootScope)
 
-    Unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
+    core.unbinder.unbind(result.realValue.getOrElse(result), core.rootScope)
   }
 
   def evaluate(value: UnboundValue, scope: Scope): Value = {
@@ -139,7 +139,15 @@ class Interpreter {
 
         val targetIsFullyKnown = realTarget.isFullyKnown
 
+        val nativeValueForTarget = Core.nativeValueFor(realTarget)
+        val methodMaybe = nativeValueForTarget.method(name, location)
+
         if (targetIsFullyKnown) {
+          val method = methodMaybe match {
+            case Some(value) => value
+            case None => throw EvalError(s"Cannot call method $name on $realTarget", location)
+          }
+
           val argumentsAreAllReal =
             realPositionalArguments.forall(_.isDefined) && realNamedArguments.forall(_._2.isDefined)
 
@@ -149,12 +157,6 @@ class Interpreter {
               named = realNamedArguments.view.mapValues(_.get).toMap
             )
             val argumentsAreFullyKnown = realArguments.forall(_.isFullyKnown)
-
-            val nativeValueForTarget = Core.nativeValueFor(realTarget)
-            val method = nativeValueForTarget.method(name, location) match {
-              case Some(value) => value
-              case None => throw EvalError(s"Cannot call method $name on $realTarget", location)
-            }
 
             val hasCompileTimeRunMode = method.traits.contains(FunctionTrait.CompileTime)
 
@@ -172,17 +174,26 @@ class Interpreter {
 
               logger.debug(s"[compile-time] [call] Evaluated $operation to $result")
 
-              Unbinder.unbind(result, scope)
-            } else {
-              Operation.Call(targetResult, name, argumentResults, None, location)
+              return core.unbinder.unbind(result, scope)
             }
-          } else {
-            // TODO: Partial evaluation
-            Operation.Call(targetResult, name, argumentResults, None, location)
           }
-        } else {
-          Operation.Call(targetResult, name, argumentResults, None, location)
         }
+
+        if (methodMaybe.exists(_.traits.contains(FunctionTrait.Partial))) {
+          val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
+
+          val result = methodMaybe.get.partialCall(
+            callContext,
+            argumentResults.asInstanceOf[Arguments[Value]].withSelf(realTarget),
+            location
+          )
+
+          logger.debug(s"[partial] [call] Evaluated $operation to $result")
+
+          return core.unbinder.unbind(result, scope)
+        }
+
+        Operation.Call(targetResult, name, argumentResults, None, location)
     }
   }
 }

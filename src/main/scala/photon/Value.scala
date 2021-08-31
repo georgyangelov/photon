@@ -75,6 +75,7 @@ object PureValue {
 object BoundValue {
   case class Function(fn: photon.Function, traits: Set[FunctionTrait], scope: Scope, location: Option[Location])
     extends Value with BoundValue with RealValue {
+
     override def unboundNames = fn.unboundNames
     override def realValue = Some(this)
 
@@ -96,87 +97,62 @@ object BoundValue {
       }
     }
   }
+
+  case class Object(values: Map[String, Value], scope: Scope, location: Option[Location])
+    extends Value with BoundValue with RealValue {
+
+    lazy override val unboundNames = values.view.values.flatMap(_.unboundNames).toSet
+    override def realValue = Some(this)
+
+    override def isFullyKnown(alreadyKnownBoundFunctions: Set[Function]) =
+      values.view.values.forall {
+        case value: RealValue => value.isFullyKnown(alreadyKnownBoundFunctions)
+        case _ => false
+      }
+  }
 }
 
 object Operation {
   case class Block(values: Seq[UnboundValue], realValue: Option[RealValue], location: Option[Location])
     extends Value with Operation with UnboundValue {
+
     lazy override val unboundNames = values.view.flatMap(_.unboundNames).toSet
   }
 
   case class Let(name: VariableName, letValue: UnboundValue, block: Block, realValue: Option[RealValue], location: Option[Location])
     extends Value with Operation with UnboundValue {
+
     lazy override val unboundNames = (letValue.unboundNames ++ block.unboundNames) - name
   }
   case class Reference(name: VariableName, realValue: Option[RealValue], location: Option[Location])
     extends Value with Operation with UnboundValue {
+
     override val unboundNames = Set(name)
     override def mayHaveSideEffects = false
   }
 
   case class Function(fn: photon.Function, realValue: Option[RealValue], location: Option[Location])
     extends Value with Operation with UnboundValue {
+
     override val unboundNames = fn.unboundNames
     override def mayHaveSideEffects = false
   }
   case class Call(target: UnboundValue, name: String, arguments: Arguments[UnboundValue], realValue: Option[RealValue], location: Option[Location])
     extends Value with Operation with UnboundValue {
+
     lazy override val unboundNames =
       target.unboundNames ++
         arguments.positional.view.flatMap(_.unboundNames).toSet ++
         arguments.named.view.values.flatMap(_.unboundNames).toSet
   }
-}
 
-//sealed abstract class Value {
-//  def realValue: Option[RealValue]
-//  val location: Option[Location]
+//  case class Object(values: Map[String, UnboundValue], realValue: Option[RealValue], location: Option[Location])
+//    extends Value with Operation with UnboundValue {
 //
-//  def isReal: Boolean
-//  def isOperation: Boolean
-//
-//  def realValueAsValue: Option[Value] = realValue.map(Value.Real(_, location))
-//  def realValueOrSelf = realValueAsValue.getOrElse(this)
-//
-//  def unboundNames: Set[VariableName]
-//
-//  override def toString = ValueToAST.transformForInspection(this).toString
-//
-//  def asBlock: Operation.Block =
-//    this match {
-//      case Value.Operation(block @ Operation.Block(_, _), _) => block
-//      case _ => Operation.Block(Seq(this), realValue)
-//    }
-//
-//  def isFullyKnown: Boolean = isFullyKnown(Set.empty)
-//  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundFunction]): Boolean =
-//    this match {
-//      case Value.Real(realValue, _) => realValue.isFullyKnown(alreadyKnownBoundFunctions)
-//      case Value.Operation(_, _) => false
-//    }
-//}
-//object Value {
-//  case class Pure(value: PureValue, location: Option[Location]) extends Value {
-//    override def realValue = Some(RealValue.Pure(value))
-//    override def isReal = true
-//    override def isOperation = false
-//    override def unboundNames = Set.empty
+//    lazy override val unboundNames = values.view.flatMap(unboundNames).toSet
+//    override def mayHaveSideEffects = false
 //  }
-//
-//  case class Bound(value: BoundValue, location: Option[Location]) extends Value {
-//    override def realValue = operation.realValue
-//    override def isReal = false
-//    override def isOperation = true
-//    override def unboundNames = operation.unboundNames
-//  }
-//
-//  case class Operation(operation: photon.Operation, location: Option[Location]) extends Value {
-//    override def realValue = operation.realValue
-//    override def isReal = false
-//    override def isOperation = true
-//    override def unboundNames = operation.unboundNames
-//  }
-//}
+}
 
 
 

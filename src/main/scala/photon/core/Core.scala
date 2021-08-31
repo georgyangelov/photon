@@ -1,10 +1,11 @@
 package photon.core
 
 import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
-import photon.{Arguments, BoundValue, Location, PureValue, RealValue, Scope, Variable, VariableName}
+import photon.{Arguments, BoundValue, FunctionTrait, Location, PureValue, RealValue, Scope, Value, Variable, VariableName}
 import photon.interpreter.{EvalError, Unbinder}
 
 import scala.collection.mutable
+import photon.core.Conversions._
 
 object Core {
   def nativeValueFor(realValue: RealValue): NativeValue = realValue match {
@@ -16,6 +17,7 @@ object Core {
     case PureValue.Native(native, _) => native
 
     case fn: BoundValue.Function => nativeValueFor(fn)
+    case obj: BoundValue.Object => ObjectObject(obj)
   }
 
   def nativeValueFor(boundFn: BoundValue.Function): NativeValue = BoundFunctionObject(boundFn)
@@ -26,7 +28,28 @@ object Core {
   }
 }
 
-object StructRoot extends NativeObject(Map(
+object ObjectRoot extends NativeObject(Map(
+  "call" -> new {} with PartialMethod {
+    override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
+      partialCall(context, arguments.asInstanceOf[Arguments[Value]], location)
+
+    override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = {
+      if (arguments.positional.size != 1) {
+        throw EvalError("Cannot pass positional arguments to Object constructor", location)
+      }
+
+      BoundValue.Object(arguments.named, context.callScope, location)
+    }
+  }
+
+//  "call" -> ScalaVarargMethod((context, args, location) => {
+//    if (args.positional.size != 1) {
+//      throw EvalError("Cannot pass positional arguments to Struct constructor", location)
+//    }
+//
+//    BoundValue.Object(args.named, context.callScope, location)
+//  })
+
 //  "call" -> ScalaVarargMethod((context, args, l) => {
 //    if (args.positional.size != 1) {
 //      throw EvalError("Cannot pass positional arguments to Struct constructor", l)
@@ -42,6 +65,11 @@ object IntRootParams {
 }
 
 object IntRoot extends NativeObject(Map(
+  "answer" -> new {} with PureMethod {
+    override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Int(42, location)
+  }
+
 //  "assignableFrom" -> ScalaMethod(
 //    MethodOptions(Seq(IntRootParams.Self, IntRootParams.Other)),
 //    (_, args, l) => Value.Boolean(Core.isSameObject(args.get(IntRootParams.Self), args.get(IntRootParams.Other)), l)
@@ -72,14 +100,18 @@ object CoreParams {
 
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
+
+  val objectRoot = new Variable(new VariableName("Object"), PureValue.Native(ObjectRoot, None))
+
   val rootScope: Scope = Scope.newRoot(Seq(
     new Variable(new VariableName("Core"),   PureValue.Native(this,       None)),
-    new Variable(new VariableName("Struct"), PureValue.Native(StructRoot, None)),
+    objectRoot,
     new Variable(new VariableName("Int"),    PureValue.Native(IntRoot,    None)),
     new Variable(new VariableName("String"), PureValue.Native(StringRoot, None))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)
+  val unbinder = new Unbinder(this)
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
     macros.get(name) match {
@@ -93,7 +125,7 @@ class Core extends NativeValue {
         )
 
         // TODO: Unbind `valueResult`
-        val unboundResult = Unbinder.unbind(valueResult, rootScope)
+        val unboundResult = unbinder.unbind(valueResult, rootScope)
 
         // TODO: Normalize `name` so it doesn't have any symbols not allowed in variable names
         // TODO: Make the name completely unique, right now it's predictable

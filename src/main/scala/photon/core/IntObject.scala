@@ -1,7 +1,7 @@
 package photon.core
 
-import photon.{PureValue, RealValue, Value}
-import photon.core.NativeValue._
+import photon.PureValue
+import photon.core.Conversions._
 
 object IntParams {
   val FirstParam: Parameter = Parameter(0, "first")

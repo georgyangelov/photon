@@ -3,6 +3,7 @@ package photon.core
 import com.typesafe.scalalogging.Logger
 import photon.interpreter.EvalError
 import photon.{BoundValue, FunctionTrait, PureValue, Variable}
+import photon.core.Conversions._
 
 object FunctionParams {
   val Self: Parameter = Parameter(0, "self")
