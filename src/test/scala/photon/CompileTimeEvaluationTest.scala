@@ -14,7 +14,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 //  TODO: Enable this to test
 //  test("supports recursive functions") {
 //    expectEvalCompileTime(
-//      "factorial = (n) { (n == 0).if_else({ 1 }, { n * factorial(n - 1) }) }; factorial(1)",
+//      "factorial = (n) { (n == 0).ifElse({ 1 }, { n * factorial(n - 1) }) }; factorial(1)",
 //      "1"
 //    )
 //  }

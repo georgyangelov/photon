@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.PureValue
+import photon.{Arguments, Location, PureValue, RealValue}
 import photon.core.Conversions._
 
 object IntParams {
@@ -11,33 +11,33 @@ object IntParams {
 import IntParams._
 
 object IntObject extends NativeObject(Map(
-  "+" -> ScalaMethod(
-    MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) + args.getInt(SecondParam), l) }
-  ),
+  "+" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Int(args.getInt(FirstParam) + args.getInt(SecondParam), location)
+  },
 
-  "-" -> ScalaMethod(
-    MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) - args.getInt(SecondParam), l) }
-  ),
+  "-" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Int(args.getInt(FirstParam) - args.getInt(SecondParam), location)
+  },
 
-  "*" -> ScalaMethod(
-    MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => PureValue.Int(args.getInt(FirstParam) * args.getInt(SecondParam), l) }
-  ),
+  "*" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Int(args.getInt(FirstParam) * args.getInt(SecondParam), location)
+  },
 
-  "/" -> ScalaMethod(
-    MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => PureValue.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam), l) }
-  ),
+  "/" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Float(args.getDouble(FirstParam) / args.getDouble(SecondParam), location)
+  },
 
-  "==" -> ScalaMethod(
-    MethodOptions(Seq(FirstParam, SecondParam)),
-    { (_, args, l) => PureValue.Boolean(args.getInt(FirstParam) == args.getInt(SecondParam), l) }
-  ),
+  "==" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Boolean(args.getInt(FirstParam) == args.getInt(SecondParam), location)
+  },
 
-  "to_bool" -> ScalaMethod(
-    MethodOptions(Seq()),
-    { (_, _, l) => PureValue.Boolean(true, l) }
-  )
+  "toBool" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Boolean(true, location)
+  }
 ))

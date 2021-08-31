@@ -88,7 +88,7 @@ Core.define_macro "if", (parser) {
   if_true = parser.parse_next
   if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
 
-  condition.eval.to_bool.if_else(if_true.eval, if_false)
+  condition.eval.toBool.if_else(if_true.eval, if_false)
 }
 ```
 
@@ -104,7 +104,7 @@ if true { 42 }
   if_true = parser.parse_next
   if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
 
-  condition.eval.to_bool.if_else(if_true.eval, if_false)
+  condition.eval.toBool.if_else(if_true.eval, if_false)
 }.partial()(???)
 
 ###
@@ -113,7 +113,7 @@ condition = parser.parse_next
 if_true = parser.parse_next
 if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
 
-condition.eval.to_bool.if_else(if_true.eval, if_false)
+condition.eval.toBool.if_else(if_true.eval, if_false)
 
 ###
 
@@ -121,7 +121,7 @@ condition = [true]
 if_true = [{ 42 }] 
 if_false = ('' === 'else').if_else({ parser.parse_next.eval }, { {} })
 
-condition.eval.to_bool.if_else(if_true.eval, if_false)
+condition.eval.toBool.if_else(if_true.eval, if_false)
 
 ###
 
@@ -129,7 +129,7 @@ condition = [true]
 if_true = [{ 42 }] 
 if_false = false.if_else({ parser.parse_next.eval }, { {} })
 
-condition.eval.to_bool.if_else(if_true.eval, if_false)
+condition.eval.toBool.if_else(if_true.eval, if_false)
 
 ###
 

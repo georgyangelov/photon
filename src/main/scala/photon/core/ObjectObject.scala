@@ -28,11 +28,3 @@ private case class Getter(value: Value) extends NativeMethod {
   override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) =
     throw new NotImplementedError("Cannot partially call a getter")
 }
-
-//case class ObjectPropertyGetter(obj: BoundValue.Object, name: String) extends NativeMethod {
-//  override def traits = obj.values.get(name).map(_)
-//
-//  override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) = ???
-//
-//  override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = ???
-//}

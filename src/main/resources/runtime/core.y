@@ -1,7 +1,7 @@
-Core.define_macro 'if', (parser) {
+Core.defineMacro 'if', (parser) {
   condition = parser.parseNext
-  if_true = parser.parseNext
-  if_false = (parser.nextToken.string == "else").if_else({ parser.skipNextToken; parser.parseNext.eval }, { {} })
+  ifTrue = parser.parseNext
+  ifFalse = (parser.nextToken.string == "else").ifElse({ parser.skipNextToken; parser.parseNext.eval }, { {} })
 
-  condition.eval.to_bool.if_else(if_true.eval, if_false)
+  condition.eval.toBool.ifElse(ifTrue.eval, ifFalse)
 }

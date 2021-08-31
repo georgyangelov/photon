@@ -21,7 +21,6 @@ object Core {
   }
 
   def nativeValueFor(boundFn: BoundValue.Function): NativeValue = BoundFunctionObject(boundFn)
-//  def nativeValueFor(struct: Struct): NativeValue = StructObject(struct)
 
   private def error(l: Option[Location]): Nothing = {
     throw EvalError("Cannot call methods on this object (yet)", l)
@@ -41,22 +40,6 @@ object ObjectRoot extends NativeObject(Map(
       BoundValue.Object(arguments.named, context.callScope, location)
     }
   }
-
-//  "call" -> ScalaVarargMethod((context, args, location) => {
-//    if (args.positional.size != 1) {
-//      throw EvalError("Cannot pass positional arguments to Struct constructor", location)
-//    }
-//
-//    BoundValue.Object(args.named, context.callScope, location)
-//  })
-
-//  "call" -> ScalaVarargMethod((context, args, l) => {
-//    if (args.positional.size != 1) {
-//      throw EvalError("Cannot pass positional arguments to Struct constructor", l)
-//    }
-//
-//    Value.Struct(Struct(args.named), l)
-//  }, Set(FunctionTrait.Partial, FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure))
 ))
 
 object IntRootParams {
@@ -69,11 +52,6 @@ object IntRoot extends NativeObject(Map(
     override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
       PureValue.Int(42, location)
   }
-
-//  "assignableFrom" -> ScalaMethod(
-//    MethodOptions(Seq(IntRootParams.Self, IntRootParams.Other)),
-//    (_, args, l) => Value.Boolean(Core.isSameObject(args.get(IntRootParams.Self), args.get(IntRootParams.Other)), l)
-//  )
 ))
 
 object StringRootParams {
@@ -139,83 +117,31 @@ class Core extends NativeValue {
     }
   }
 
+  private val methods = Map(
+    "defineMacro" -> CoreDefineMacroMethod(this)
+  )
+
   override def method(
     name: String,
     location: Option[Location]
-  ): Option[NativeMethod] = {
-    name match {
-      // TODO: Extract this to not create method instances every time
-      case "define_macro" => Some(
-        ScalaMethod(
-          MethodOptions(Seq(CoreParams.Self, CoreParams.DefineMacroName, CoreParams.DefineMacroLambda)),
-          { (_, args, location) =>
-            defineMacro(
-              args.getString(CoreParams.DefineMacroName),
-              // TODO: Support more value types as macro handlers (e.g. Structs or Natives)
-              args.getFunction(CoreParams.DefineMacroLambda)
-            )
-
-            PureValue.Nothing(location)
-          }
-        )
-      )
-
-      // TODO: Extract this to not create method instances every time
-//      case "typeCheck" => Some(
-//        ScalaMethod(
-//          MethodOptions(Seq(CoreParams.Self, CoreParams.TypeCheckValue, CoreParams.TypeCheckType)),
-//          { (context, args, l) =>
-//            val value = args.get(CoreParams.TypeCheckValue)
-//            val expectedTypeValue = args.get(CoreParams.TypeCheckType)
-//
-//            val actualTypeValue = value.typeObject match {
-//              case Some(TypeObject.Native(native)) => Value.Native(native, value.location)
-//              case Some(TypeObject.Struct(struct)) => Value.Struct(struct, value.location)
-//              case None => throw EvalError("Bad state - typeCheck called on value but value does not have an inferred type", l)
-//            }
-//
-//            val areTypesCompatible = Core.nativeValueFor(actualTypeValue).callOrThrowError(
-//              context,
-//              "assignableFrom",
-//              Arguments(Seq(actualTypeValue, expectedTypeValue), Map.empty),
-//              l
-//            ).asBool
-//
-//            if (areTypesCompatible) {
-//              // TODO: New Value variant which changes the type?
-//              // value.withType(typeValue)
-//              value
-//            } else {
-//              // TODO: Type objects should contain name function
-//              throw EvalError(s"Incompatible types. $actualTypeValue is not assignable to $expectedTypeValue", l)
-//            }
-//          }
-//        )
-//      )
-
-      case _ => None
-    }
-  }
+  ): Option[NativeMethod] = methods.get(name)
 
   def defineMacro(name: String, handler: RealValue): Unit =
     macros.addOne(name, handler)
+}
 
-//  private def typeOf(value: Value): Option[TypeObject] = {
-//    value match {
-//      case Value.Unknown(_) => None
-//      case Value.Nothing(_) => None
-//
-//      // TODO
-//      case Value.Boolean(value, _) => None
-//      case Value.Int(value, _) => Some(TypeObject.Native(IntRoot))
-//      case Value.Float(value, _) => None
-//      case Value.String(value, _) => Some(TypeObject.Native(StringRoot))
-//      case Value.Native(native, _) => None
-//      case Value.Struct(value, _) => None
-//
-//      // TODO
-//      case Value.Operation(operation, _) => None
-//      case Value.Lambda(value, _) => None
-//    }
-//  }
+case class CoreDefineMacroMethod(private val core: Core) extends NativeMethod {
+  override val traits = Set(FunctionTrait.CompileTime)
+
+  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
+    core.defineMacro(
+      args.getString(CoreParams.DefineMacroName),
+      // TODO: Support more value types as macro handlers (e.g. Structs or Natives)
+      args.getFunction(CoreParams.DefineMacroLambda)
+    )
+
+    PureValue.Nothing(location)
+  }
+
+  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
 }

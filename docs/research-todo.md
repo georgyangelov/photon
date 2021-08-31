@@ -6,3 +6,4 @@
     - `sync` keyword - making sure there are no async operations inside the block
   
 - See https://github.com/apple/swift-evolution/blob/main/proposals/0304-structured-concurrency.md for async
+- Swift proposals - github.com/apple/swift-evolution/tree/main/proposals

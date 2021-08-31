@@ -70,7 +70,7 @@ condition = parser.parse_next
 if_true = parser.parse_next
 if_false = (parser.token.string == "else").if_else({ parser.parse_next.eval }, { {} })
 
-condition.eval.to_bool.if_else(if_true.eval, if_false)
+condition.eval.toBool.if_else(if_true.eval, if_false)
 ```
 
 Since `parser` is mutable, the same applies that all previous calls to this object must be done before the next one is

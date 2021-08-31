@@ -36,21 +36,21 @@ class InterpreterTest extends FunSuite {
 
   test("simple macros") {
     expectEvalCompileTime(
-      "Core.define_macro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
+      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
       "unknown = (){}.runTimeOnly; add_one unknown()",
 
       "unknown = (){}; unknown() + 1"
     )
 
     expectEvalCompileTime(
-      "Core.define_macro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
+      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
       "(a){ add_one(a + 2) }",
 
       "(a){ a + 2 + 1 }"
     )
 
     expectEvalCompileTime(
-      "Core.define_macro('add_one', (parser) { e = parser.parseNext(); 42 })",
+      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); 42 })",
       "(a){ add_one(a + 2) }",
 
       "(a){ 42 }"
@@ -91,6 +91,6 @@ class InterpreterTest extends FunSuite {
 //  }
 
   test("binding to variable names in functions") {
-    expectEvalCompileTime("factorial = (n) { (n == 1).if_else { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
+    expectEvalCompileTime("factorial = (n) { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 }

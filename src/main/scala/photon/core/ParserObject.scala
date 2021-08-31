@@ -1,49 +1,65 @@
 package photon.core
 
 import photon.frontend.{ASTValue, Parser, Token}
-import photon.{FunctionTrait, PureValue}
+import photon.{Arguments, FunctionTrait, Location, PureValue, RealValue, Value}
 
 case class MacroASTValue(ast: ASTValue) extends NativeObject(Map.empty) {
   override val isFullyEvaluated = false
 }
 
 case class MetaValueObject(ast: ASTValue) extends NativeObject(Map(
-  "#" -> ScalaMethod(
-    MethodOptions(Seq.empty),
-    { (c, args, l) => PureValue.Native(MacroASTValue(ast), l) }
-  ),
+  "#" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Native(MacroASTValue(ast), location)
+  },
 
-  "eval" -> ScalaMethod(
-    MethodOptions(Seq.empty),
-    { (c, args, l) => PureValue.Native(MacroASTValue(ast), l) }
-  )
+  "eval" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Native(MacroASTValue(ast), location)
+  }
 ))
 
 case class TokenObject(token: Token) extends NativeObject(Map(
-  "string" -> ScalaMethod(
-    MethodOptions(Seq.empty),
-    { (c, args, l) => PureValue.String(token.string, l) }
-  ),
+  "string" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.String(token.string, location)
+  },
 
-  "type" -> ScalaMethod(
-    MethodOptions(Seq.empty),
-    { (c, args, l) => PureValue.String(token.tokenType.name, l) }
-  )
+  "type" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.String(token.tokenType.name, location)
+  }
 ))
 
 case class ParserObject(parser: Parser) extends NativeObject(Map(
-  "parseNext" -> ScalaMethod(
-    MethodOptions(Seq.empty, traits = Set(FunctionTrait.CompileTime)),
-    { (c, args, l) => PureValue.Native(MetaValueObject(parser.parseNext()), l) }
-  ),
+  "parseNext" -> new {} with NativeMethod {
+    override val traits = Set(FunctionTrait.CompileTime)
 
-  "skipNextToken" -> ScalaMethod(
-    MethodOptions(Seq.empty, traits = Set(FunctionTrait.CompileTime)),
-    { (c, args, l) => parser.skipNextToken(); PureValue.Nothing(l) }
-  ),
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Native(MetaValueObject(parser.parseNext()), location)
 
-  "nextToken" -> ScalaMethod(
-    MethodOptions(Seq.empty, traits = Set(FunctionTrait.CompileTime)),
-    { (c, args, l) => PureValue.Native(TokenObject(parser.token), l) }
-  )
+    override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
+      throw new NotImplementedError("Cannot call parseNext partially")
+  },
+
+  "skipNextToken" -> new {} with NativeMethod {
+    override val traits = Set(FunctionTrait.CompileTime)
+
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
+      parser.skipNextToken()
+
+      PureValue.Nothing(location)
+    }
+
+    override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
+  },
+
+  "nextToken" -> new {} with NativeMethod {
+    override val traits = Set(FunctionTrait.CompileTime)
+
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Native(TokenObject(parser.token), location)
+
+    override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
+  }
 ))

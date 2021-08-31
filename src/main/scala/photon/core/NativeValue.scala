@@ -88,9 +88,6 @@ case class CallContext(
 )
 
 trait NativeValue {
-  // TODO: Implement
-  // def typeStruct: Either[NativeValue, Struct]
-
   val isFullyEvaluated: Boolean = true
 
   def method(
@@ -117,13 +114,13 @@ trait NativeMethod {
 
   def call(
     context: CallContext,
-    arguments: Arguments[RealValue],
+    args: Arguments[RealValue],
     location: Option[Location]
   ): Value
 
   def partialCall(
     context: CallContext,
-    arguments: Arguments[Value],
+    args: Arguments[Value],
     location: Option[Location]
   ): Value
 }
@@ -131,7 +128,7 @@ trait NativeMethod {
 trait PureMethod extends NativeMethod {
   override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 
-  override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) =
+  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
     throw new NotImplementedError("partialCall not implemented")
 }
 
@@ -141,29 +138,6 @@ trait PartialMethod extends NativeMethod {
 
 case class Parameter(index: Int, name: String)
 
-//object ParameterExtractors {
-//  implicit class Extractors.
-//}
-
-//case class AppliedParameters(parameters: Seq[Parameter], arguments: Arguments[Value]) {
-//  def getBool(parameter: Parameter): Boolean = get(parameter).asBool
-//  def getInt(parameter: Parameter): Int = get(parameter).asInt
-//  def getDouble(parameter: Parameter): Double = get(parameter).asDouble
-//  def getString(parameter: Parameter): String = get(parameter).asString
-//  def getFunction(parameter: Parameter): BoundValue.Function = get(parameter).asBoundFunction
-//
-//  def get(parameter: Parameter): Value = {
-//    if (parameter.index < arguments.positional.size) {
-//      arguments.positional(parameter.index)
-//    } else {
-//      arguments.named.get(parameter.name) match {
-//        case Some(value) => value
-//        case None => throw EvalError(s"Missing argument ${parameter.name} (at index ${parameter.index}", None)
-//      }
-//    }
-//  }
-//}
-
 case class LambdaMetadata(withSideEffects: Boolean = false)
 
 case class MethodOptions(
@@ -171,14 +145,13 @@ case class MethodOptions(
   traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 )
 
+@deprecated
 case class ScalaMethod(
   options: MethodOptions,
   callHandler: ScalaMethod#CallHandler,
-//  partialHandler: ScalaMethod#PartialHandler,
   override val methodId: ObjectId = ObjectId()
 ) extends NativeMethod {
   type CallHandler = (CallContext, Arguments[RealValue], Option[Location]) => Value
-//  type PartialHandler = (CallContext, Arguments[Value], Option[Location]) => Value
 
   override val traits: Set[FunctionTrait] = options.traits
 
@@ -187,30 +160,6 @@ case class ScalaMethod(
 
   override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = ???
 }
-
-case class ScalaVarargMethod(
-  handler: ScalaVarargMethod#MethodHandler,
-  traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure),
-  override val methodId: ObjectId = ObjectId()
-) extends NativeMethod {
-  type MethodHandler = (CallContext, Arguments[RealValue], Option[Location]) => Value
-
-  override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =
-    handler.apply(context, arguments, location)
-
-  override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = ???
-}
-
-//case class ScalaVarargPartialMethod(
-//  handler: ScalaVarargPartialMethod#MethodHandler,
-//  traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Partial, FunctionTrait.Pure),
-//  methodId: ObjectId = ObjectId()
-//) extends NativeMethod {
-//  type MethodHandler = (CallContext, Arguments[Value], Option[Location]) => Value
-//
-//  override def call(context: CallContext, arguments: Arguments[Value], location: Option[Location]) =
-//
-//}
 
 class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(

@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.PureValue
+import photon.{Arguments, Location, PureValue, RealValue}
 import photon.core.Conversions._
 
 object StringObjectParams {
@@ -11,8 +11,8 @@ object StringObjectParams {
 import StringObjectParams._
 
 object StringObject extends NativeObject(Map(
-  "==" -> ScalaMethod(
-    MethodOptions(Seq(EqualsLeft, EqualsRight)),
-    { (_, args, l) => PureValue.Boolean(args.getString(EqualsLeft) == args.getString(EqualsRight), l) }
-  )
+  "==" -> new {} with PureMethod {
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      PureValue.Boolean(args.getString(EqualsLeft) == args.getString(EqualsRight), location)
+  }
 ))
