@@ -91,6 +91,11 @@ class Core extends NativeValue {
   val staticRootScope = StaticScope.fromScope(rootScope)
   val unbinder = new Unbinder(this)
 
+  private val methods = Map(
+    "defineMacro" -> DefineMacroMethod(this),
+    "typeCheck" -> TypeCheckMethod(this)
+  )
+
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
     macros.get(name) match {
       case Some(handler) =>
@@ -116,10 +121,6 @@ class Core extends NativeValue {
     }
   }
 
-  private val methods = Map(
-    "defineMacro" -> CoreDefineMacroMethod(this)
-  )
-
   override def method(
     name: String,
     location: Option[Location]
@@ -129,7 +130,7 @@ class Core extends NativeValue {
     macros.addOne(name, handler)
 }
 
-case class CoreDefineMacroMethod(private val core: Core) extends NativeMethod {
+private case class DefineMacroMethod(private val core: Core) extends NativeMethod {
   override val traits = Set(FunctionTrait.CompileTime)
 
   override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
@@ -143,4 +144,14 @@ case class CoreDefineMacroMethod(private val core: Core) extends NativeMethod {
   }
 
   override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
+}
+
+private case class TypeCheckMethod(private val core: Core) extends NativeMethod {
+  override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Partial)
+
+  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+    partialCall(context, args.asInstanceOf[Arguments[Value]], location)
+
+  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
+
 }
