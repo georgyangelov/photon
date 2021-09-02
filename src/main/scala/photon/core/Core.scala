@@ -43,8 +43,8 @@ object ObjectRoot extends NativeObject(Map(
 ))
 
 object IntRootParams {
-  val Self: Parameter = Parameter(0, "self")
-  val Other: Parameter = Parameter(1, "other")
+  val Self = Parameter(0, "self")
+  val Other = Parameter(1, "other")
 }
 
 object IntRoot extends NativeObject(Map(
@@ -55,8 +55,8 @@ object IntRoot extends NativeObject(Map(
 ))
 
 object StringRootParams {
-  val Self: Parameter = Parameter(0, "self")
-  val Other: Parameter = Parameter(1, "other")
+  val Self = Parameter(0, "self")
+  val Other = Parameter(1, "other")
 }
 
 object StringRoot extends NativeObject(Map(
@@ -67,13 +67,13 @@ object StringRoot extends NativeObject(Map(
 ))
 
 object CoreParams {
-  val Self: Parameter = Parameter(0, "self")
+  val Self = Parameter(0, "self")
 
-  val DefineMacroName: Parameter = Parameter(1, "name")
-  val DefineMacroLambda: Parameter = Parameter(2, "lambda")
+  val DefineMacroName = Parameter(1, "name")
+  val DefineMacroLambda = Parameter(2, "lambda")
 
-  val TypeCheckValue: Parameter = Parameter(1, "value")
-  val TypeCheckType: Parameter = Parameter(2, "type")
+  val TypeCheckValue = Parameter(1, "value")
+  val TypeCheckType = Parameter(2, "type")
 }
 
 class Core extends NativeValue {
@@ -103,7 +103,7 @@ class Core extends NativeValue {
         val valueResult = Core.nativeValueFor(handler).callOrThrowError(
           context,
           "call",
-          Arguments(Seq(handler, parserValue), Map.empty),
+          Arguments(Seq(parserValue), Map.empty),
           handler.location
         )
 

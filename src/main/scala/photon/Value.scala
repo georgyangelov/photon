@@ -24,6 +24,8 @@ sealed trait Value {
 sealed trait RealValue extends Value {
   def isFullyKnown: scala.Boolean = isFullyKnown(Set.empty)
   def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = true
+
+  def callsShouldIncludeSelf: Boolean = true
 }
 
 sealed trait UnboundValue extends Value {
@@ -78,6 +80,7 @@ object BoundValue {
 
     override def unboundNames = fn.unboundNames
     override def realValue = Some(this)
+    override def callsShouldIncludeSelf = false
 
     override def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = {
       if (alreadyKnownBoundFunctions.contains(this)) {

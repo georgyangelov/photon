@@ -163,7 +163,10 @@ class Interpreter {
 
               val result = method.call(
                 callContext,
-                realArguments.withSelf(realTarget),
+                if (realTarget.callsShouldIncludeSelf)
+                  realArguments.withSelf(realTarget)
+                else
+                  realArguments,
                 location
               )
 

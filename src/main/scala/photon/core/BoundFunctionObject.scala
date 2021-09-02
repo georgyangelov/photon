@@ -5,24 +5,20 @@ import photon.interpreter.EvalError
 import photon.{Arguments, BoundValue, FunctionTrait, Location, PureValue, RealValue, Value, Variable}
 import photon.core.Conversions._
 
-object FunctionParams {
-  val Self: Parameter = Parameter(0, "self")
-}
-
 case class BoundFunctionObject(boundFn: BoundValue.Function) extends NativeObject(Map(
   "call" -> new {} with NativeMethod {
     override val traits = boundFn.traits
     override val methodId = boundFn.fn.objectId
 
     override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-      if (args.positional.size - 1 + args.named.size != boundFn.fn.params.size) {
-        throw EvalError("Wrong number of arguments for this lambda", location)
+      if (args.positional.size + args.named.size < boundFn.fn.params.size) {
+        throw EvalError("Not enough arguments passed for this lambda", location)
       }
 
       val lambdaParamNames = boundFn.fn.params.map(_.name)
 
-      val positionalParams = lambdaParamNames.zip(args.positional.drop(1))
-      val namesOfNamedParams = lambdaParamNames.drop(args.positional.size - 1).toSet
+      val positionalParams = lambdaParamNames.zip(args.positional)
+      val namesOfNamedParams = lambdaParamNames.drop(args.positional.size).toSet
 
       val namedParams = namesOfNamedParams.map { name =>
         // TODO: This should use the name of the actual parameter always, it should not try to rename it.

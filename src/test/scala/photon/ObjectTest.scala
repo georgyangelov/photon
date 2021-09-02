@@ -1,7 +1,7 @@
 package photon
 
 import org.scalatest.FunSuite
-import photon.TestHelpers.{expectEvalCompileTime, expectFailCompileTime}
+import photon.TestHelpers.{expectEval, expectEvalCompileTime, expectFailCompileTime}
 
 class ObjectTest extends FunSuite {
   test("simple objects") {
@@ -22,11 +22,11 @@ class ObjectTest extends FunSuite {
     expectEvalCompileTime(
       """
         Dog = Object(
-          call = (name, age) {
+          call = (_, name, age) {
             Object(name = name, age = age)
           },
 
-          humanAge = (self) self.age * 7
+          humanAge = (_, dog) dog.age * 7
         )
 
         ralph = Dog("Ralph", age = 2)
@@ -76,6 +76,30 @@ class ObjectTest extends FunSuite {
     expectEvalCompileTime(
       "{ unknown = () { 42 }.runTimeOnly; Object(method = unknown) }().method()",
       "(unknown = () { 42 }; Object(method = unknown)).method()"
+    )
+  }
+
+  test("objects support prototypes") {
+    expectEval(
+      """
+         Cat = Object(meow = () "Meow!")
+         kitten = Object($prototype = Cat)
+
+         kitten.meow
+      """,
+      "'Meow!'"
+    )
+  }
+
+  test("object functions support passing a self argument") {
+    expectEval(
+      """
+         Cat = Object(meow = (self) self.name)
+         kitten = Object($prototype = Cat, name = "Mittens")
+
+         kitten.meow
+      """,
+      "'Mittens'"
     )
   }
 }
