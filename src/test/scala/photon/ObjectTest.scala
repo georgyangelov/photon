@@ -22,11 +22,11 @@ class ObjectTest extends FunSuite {
     expectEvalCompileTime(
       """
         Dog = Object(
-          call = (_, name, age) {
+          call = (name, age) {
             Object(name = name, age = age)
           },
 
-          humanAge = (_, dog) dog.age * 7
+          humanAge = (dog) dog.age * 7
         )
 
         ralph = Dog("Ralph", age = 2)
@@ -94,7 +94,17 @@ class ObjectTest extends FunSuite {
   test("object functions support passing a self argument") {
     expectEval(
       """
-         Cat = Object(meow = (self) self.name)
+         Cat = Object(meow = () self.name)
+         kitten = Object($prototype = Cat, name = "Mittens")
+
+         kitten.meow
+      """,
+      "'Mittens'"
+    )
+
+    expectEval(
+      """
+         Cat = Object(meow = () name)
          kitten = Object($prototype = Cat, name = "Mittens")
 
          kitten.meow

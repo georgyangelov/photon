@@ -222,13 +222,6 @@ case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) 
 
 /* Functions */
 
-//case class BoundFunction(
-//  fn: Function,
-//  scope: Scope,
-//
-//  traits: Set[FunctionTrait]
-//)
-
 sealed abstract class FunctionTrait
 
 object FunctionTrait {
@@ -239,12 +232,13 @@ object FunctionTrait {
 }
 
 class Function(
+  val selfName: VariableName,
   val params: Seq[Parameter],
   val body: Operation.Block
 ) extends Equals {
   val objectId = ObjectId()
 
-  val unboundNames = body.unboundNames -- params.map(_.name)
+  val unboundNames = body.unboundNames -- params.map(_.name) - selfName
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
   override def equals(that: Any): Boolean = {
@@ -262,16 +256,21 @@ case class Parameter(name: VariableName, typeValue: Option[Value])
 
 /* Arguments */
 
-case class Arguments[T <: Value](positional: Seq[T], named: Map[String, T]) {
-  def withoutSelf = Arguments(positional.drop(1), named)
-  def withSelf(value: T) = Arguments(value +: positional, named)
+case class Arguments[T <: Value](
+  self: Option[T],
+  positional: Seq[T],
+  named: Map[String, T]
+) {
+  def withoutSelf = Arguments(None, positional, named)
+  def withSelf(value: T) = Arguments(Some(value), positional, named)
 
   def map[R <: Value](f: T => R) = Arguments(
+    self.map(f),
     positional.map(f),
     named.view.mapValues(f).toMap
   )
 
-  def forall(f: T => Boolean) = positional.forall(f) && named.view.values.forall(f)
+  def forall(f: T => Boolean) = self.forall(f) && positional.forall(f) && named.view.values.forall(f)
 
   override def toString = Unparser.unparse(
     ValueToAST.transformForInspection(
@@ -281,5 +280,5 @@ case class Arguments[T <: Value](positional: Seq[T], named: Map[String, T]) {
 }
 
 object Arguments {
-  val empty: Arguments[UnboundValue] = Arguments(Seq.empty, Map.empty)
+  val empty: Arguments[UnboundValue] = Arguments(None, Seq.empty, Map.empty)
 }

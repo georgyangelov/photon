@@ -11,7 +11,7 @@ case class BoundFunctionObject(boundFn: BoundValue.Function) extends NativeObjec
     override val methodId = boundFn.fn.objectId
 
     override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-      if (args.positional.size + args.named.size < boundFn.fn.params.size) {
+      if (args.positional.size + args.named.size != boundFn.fn.params.size) {
         throw EvalError("Not enough arguments passed for this lambda", location)
       }
 
@@ -32,10 +32,11 @@ case class BoundFunctionObject(boundFn: BoundValue.Function) extends NativeObjec
 
       val positionalVariables = positionalParams.map { case (name, value) => new Variable(name, Some(value)) }
       val namedVariables = namedParams.map { case (name, value) => new Variable(name, Some(value)) }
+      val selfVariable = args.self.map { self => new Variable(boundFn.fn.selfName, Some(self)) }
 
       Logger("LambdaObject").debug(s"Calling $boundFn with (${args.withoutSelf}) in ${boundFn.scope}")
 
-      val scope = boundFn.scope.newChild(positionalVariables ++ namedVariables)
+      val scope = boundFn.scope.newChild(positionalVariables ++ namedVariables ++ selfVariable.toSeq)
 
       val result = context.interpreter.evaluate(boundFn.fn.body, scope)
 

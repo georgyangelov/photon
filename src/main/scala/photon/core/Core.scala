@@ -33,7 +33,7 @@ object ObjectRoot extends NativeObject(Map(
       partialCall(context, arguments.asInstanceOf[Arguments[Value]], location)
 
     override def partialCall(context: CallContext, arguments: Arguments[Value], location: Option[Location]) = {
-      if (arguments.positional.size != 1) {
+      if (arguments.positional.nonEmpty) {
         throw EvalError("Cannot pass positional arguments to Object constructor", location)
       }
 
@@ -103,7 +103,7 @@ class Core extends NativeValue {
         val valueResult = Core.nativeValueFor(handler).callOrThrowError(
           context,
           "call",
-          Arguments(Seq(parserValue), Map.empty),
+          Arguments(None, Seq(parserValue), Map.empty),
           handler.location
         )
 

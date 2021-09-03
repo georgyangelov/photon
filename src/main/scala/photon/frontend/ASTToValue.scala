@@ -21,15 +21,17 @@ object ASTToValue {
           Parameter(new VariableName(name), typeValue.map(transform(_, scope)))
         }
 
-        val lambdaScope = scope.newChild(parameters.map(_.name))
+        val selfName = new VariableName("self")
+        val lambdaScope = scope.newChild(parameters.map(_.name) ++ Seq(selfName))
 
         val body = transformBlock(astBody, lambdaScope, location)
-        val fn = new Function(parameters, body)
+        val fn = new Function(selfName, parameters, body)
 
         Operation.Function(fn, None, location)
 
       case ASTValue.Call(target, name, astArguments, mayBeVarCall, location) =>
         val arguments = Arguments(
+          None,
           positional = astArguments.positional.map(transform(_, scope)),
           named = astArguments.named.map { case (name, astValue) => (name, transform(astValue, scope)) }
         )

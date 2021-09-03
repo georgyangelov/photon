@@ -148,6 +148,10 @@ class Interpreter {
 
           if (argumentsAreAllReal) {
             val realArguments = Arguments(
+              if (realTarget.callsShouldIncludeSelf)
+                Some(realTarget)
+              else
+                None,
               positional = realPositionalArguments.map(_.get),
               named = realNamedArguments.view.mapValues(_.get).toMap
             )
@@ -161,14 +165,7 @@ class Interpreter {
               // TODO: Correct these
               val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
 
-              val result = method.call(
-                callContext,
-                if (realTarget.callsShouldIncludeSelf)
-                  realArguments.withSelf(realTarget)
-                else
-                  realArguments,
-                location
-              )
+              val result = method.call(callContext, realArguments, location)
 
               logger.debug(s"[compile-time] [call] Evaluated $operation to $result")
 

@@ -51,7 +51,7 @@ object BoolObject extends NativeObject(Map(
       }
 
       Core.nativeValueFor(lambda)
-        .callOrThrowError(context, "call", Arguments(Seq.empty, Map.empty), location)
+        .callOrThrowError(context, "call", Arguments(None, Seq.empty, Map.empty), location)
     }
   }
 ))

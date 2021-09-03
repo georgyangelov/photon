@@ -43,6 +43,7 @@ class Unbinder(core: Core) {
         Operation.Reference(core.objectRoot.name, Some(core.objectRoot.value.get.asInstanceOf[PureValue]), location),
         "call",
         Arguments(
+          None,
           positional = Seq.empty,
           named = values.view.mapValues(unsafeUnbind).toMap
         ),
@@ -117,6 +118,7 @@ class Unbinder(core: Core) {
 
     case Operation.Function(fn, realValue, location) =>
       val fnWithRenames = new photon.Function(
+        fn.selfName,
         fn.params,
         Operation.Block(
           fn.body.values.map(renameReferences(_, renames)),
