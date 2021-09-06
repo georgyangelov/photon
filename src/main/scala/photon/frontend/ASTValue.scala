@@ -76,6 +76,8 @@ case class ASTParameter(name: String, typeValue: Option[ASTValue])
 case class ASTArguments(positional: Seq[ASTValue], named: Map[String, ASTValue])
 object ASTArguments {
   val empty: ASTArguments = ASTArguments(Seq.empty, Map.empty)
+
+  def positional(values: Seq[ASTValue]) = ASTArguments(values, named = Map.empty)
 }
 
 // TODO: Is this needed now that we have `ASTValue.Block`?

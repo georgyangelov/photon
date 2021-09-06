@@ -281,4 +281,10 @@ case class Arguments[T <: Value](
 
 object Arguments {
   val empty: Arguments[UnboundValue] = Arguments(None, Seq.empty, Map.empty)
+
+  def positional[T <: Value](values: Seq[T]) = Arguments[T](
+    self = None,
+    positional = values,
+    named = Map.empty
+  )
 }

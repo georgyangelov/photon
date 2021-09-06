@@ -3,6 +3,7 @@ package photon.frontend
 import photon.core.MacroASTValue
 import photon.interpreter.EvalError
 import photon.{Arguments, BoundValue, Function, Location, Operation, PureValue, UnboundValue, Value, VariableName}
+import photon.core.List
 
 object ValueToAST {
   def transformRenamingAll(value: UnboundValue, prefix: String): ASTValue =
@@ -40,7 +41,18 @@ object ValueToAST {
     case PureValue.Int(value, location) => ASTValue.Int(value, location)
     case PureValue.Float(value, location) => ASTValue.Float(value, location)
     case PureValue.String(value, location) => ASTValue.String(value, location)
+
     case PureValue.Native(MacroASTValue(ast), _) => ast
+
+    case PureValue.Native(List(values), location) => ASTValue.Call(
+      target = ASTValue.NameReference("List", location),
+      name = "of",
+      arguments = ASTArguments.positional(
+        values.map(transform(_, varNames, renameAllPrefix, forInspection))
+      ),
+      mayBeVarCall = false,
+      location
+    )
 
     case PureValue.Native(_, location) =>
       if (!forInspection) {

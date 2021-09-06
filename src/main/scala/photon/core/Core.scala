@@ -85,7 +85,8 @@ class Core extends NativeValue {
     new Variable(new VariableName("Core"),   Some(PureValue.Native(this,       None))),
     objectRoot,
     new Variable(new VariableName("Int"),    Some(PureValue.Native(IntRoot,    None))),
-    new Variable(new VariableName("String"), Some(PureValue.Native(StringRoot, None)))
+    new Variable(new VariableName("String"), Some(PureValue.Native(StringRoot, None))),
+    new Variable(new VariableName("List"),   Some(PureValue.Native(ListRoot,   None)))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)

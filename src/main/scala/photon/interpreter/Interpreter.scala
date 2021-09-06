@@ -1,8 +1,8 @@
 package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
-import photon.{Arguments, BoundValue, FunctionTrait, Location, Operation, PhotonError, PureValue, Scope, UnboundValue, Value, Variable}
-import photon.core.{CallContext, Core}
+import photon.{Arguments, BoundValue, FunctionTrait, Location, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
+import photon.core.{CallContext, Core, NativeMethod}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 
 case class EvalError(message: String, override val location: Option[Location])

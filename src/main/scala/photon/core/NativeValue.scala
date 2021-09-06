@@ -1,6 +1,7 @@
 package photon.core
 
 import photon.core.Conversions._
+import photon.frontend.ASTValue
 import photon.interpreter.{CallStackEntry, EvalError, Interpreter, RunMode}
 import photon.lib.ObjectId
 import photon.{Arguments, BoundValue, FunctionTrait, Location, PureValue, RealValue, Scope, Value}
