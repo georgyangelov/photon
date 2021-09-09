@@ -177,13 +177,15 @@ object ValueToAST {
       params = fn.params.map { param =>
         ASTParameter(
           // TODO: Support renames of function parameters
-          name = param.name.originalName,
+          param.name.originalName,
           // TODO: Is this correct that the rename prefix is empty?
-          typeValue = param.typeValue.map(transform(_, varNames, None, forInspection))
+          param.typeValue.map(transform(_, varNames, None, forInspection)),
+          location
         )
       },
       // TODO: Is this correct that the rename prefix is empty?
       body = transformBlock(fn.body, varNames, None, forInspection),
+      returnType = fn.returnType.map(transform(_, varNames, None, forInspection)),
       location
     )
 }

@@ -124,7 +124,8 @@ class Unbinder(core: Core) {
           fn.body.values.map(renameReferences(_, renames)),
           fn.body.realValue,
           fn.body.location
-        )
+        ),
+        fn.returnType.map(renameReferences(_, renames))
       )
 
       Operation.Function(fnWithRenames, realValue, location)

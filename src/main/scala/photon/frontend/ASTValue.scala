@@ -36,14 +36,16 @@ sealed abstract class ASTValue {
 
       case ASTValue.Let(name, value, block, _) => s"(let $name ${value.inspectAST} ${block.inspectAST})"
 
-      case ASTValue.Function(params, body, _) =>
+      case ASTValue.Function(params, body, returnType, _) =>
         val bodyAST = body.inspectAST
         val paramsAST = params.map {
-          case ASTParameter(name, Some(typeValue)) => s"(param $name ${typeValue.inspectAST})"
-          case ASTParameter(name, None) => s"(param $name)"
+          case ASTParameter(name, Some(typeValue), _) => s"(param $name ${typeValue.inspectAST})"
+          case ASTParameter(name, None, _) => s"(param $name)"
         }.mkString(" ")
 
-        s"(lambda [$paramsAST] $bodyAST)"
+        val returnTypeAST = returnType.map { t => s"$t " }.getOrElse("")
+
+        s"(lambda [$paramsAST] $returnTypeAST$bodyAST)"
 
       case ASTValue.Block(block, _) => block.inspectAST
     }
@@ -58,7 +60,12 @@ object ASTValue {
 
   case class Block(block: ASTBlock, location: Option[Location]) extends ASTValue
 
-  case class Function(params: Seq[ASTParameter], body: ASTBlock, location: Option[Location]) extends ASTValue
+  case class Function(
+    params: Seq[ASTParameter],
+    body: ASTBlock,
+    returnType: Option[ASTValue],
+    location: Option[Location]
+  ) extends ASTValue
 
   case class Call(
     target: ASTValue,
@@ -71,7 +78,7 @@ object ASTValue {
   case class Let(name: java.lang.String, value: ASTValue, block: ASTBlock, location: Option[Location]) extends ASTValue
 }
 
-case class ASTParameter(name: String, typeValue: Option[ASTValue])
+case class ASTParameter(name: String, typeValue: Option[ASTValue], location: Option[Location])
 
 case class ASTArguments(positional: Seq[ASTValue], named: Map[String, ASTValue])
 object ASTArguments {

@@ -16,16 +16,17 @@ object ASTToValue {
       case ASTValue.Block(block, location) =>
         Operation.Block(block.values.map(transform(_, scope)), None, location)
 
-      case ASTValue.Function(params, astBody, location) =>
-        val parameters = params.map { case ASTParameter(name, typeValue) =>
-          Parameter(new VariableName(name), typeValue.map(transform(_, scope)))
+      case ASTValue.Function(params, astBody, returnType, location) =>
+        val parameters = params.map { case ASTParameter(name, typeValue, location) =>
+          Parameter(new VariableName(name), typeValue.map(transform(_, scope)), location)
         }
 
         val selfName = new VariableName("self")
         val lambdaScope = scope.newChild(parameters.map(_.name) ++ Seq(selfName))
 
         val body = transformBlock(astBody, lambdaScope, location)
-        val fn = new Function(selfName, parameters, body)
+        val returns = returnType.map(transform(_, scope))
+        val fn = new Function(selfName, parameters, body, returns)
 
         Operation.Function(fn, None, location)
 

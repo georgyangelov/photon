@@ -261,6 +261,11 @@ class ParserTest extends FunSuite {
     assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] { 42 })")
   }
 
+  test("type annotations on function return type") {
+    assert(parse("(a: Int): Int { a + 1 }") == "(lambda [(param a Int)] Int { (+ a 1) })")
+    assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int { (+ a 1) })")
+  }
+
   test("parentheses for blocks") {
     assert(parse("(a; b)") == "{ a b }")
     assert(parse("(a; b) + 1") == "(+ { a b } 1)")

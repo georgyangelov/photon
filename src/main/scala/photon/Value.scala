@@ -7,8 +7,6 @@ import photon.lib.ObjectId
 
 import scala.collection.Map
 
-
-
 /* Values and operations */
 
 sealed trait Value {
@@ -234,7 +232,8 @@ object FunctionTrait {
 class Function(
   val selfName: VariableName,
   val params: Seq[Parameter],
-  val body: Operation.Block
+  val body: Operation.Block,
+  val returnType: Option[UnboundValue]
 ) extends Equals {
   val objectId = ObjectId()
 
@@ -250,7 +249,7 @@ class Function(
   override def hashCode(): Int = objectId.hashCode
 }
 
-case class Parameter(name: VariableName, typeValue: Option[Value])
+case class Parameter(name: VariableName, typeValue: Option[Value], location: Option[Location])
 
 
 
@@ -280,7 +279,7 @@ case class Arguments[T <: Value](
 }
 
 object Arguments {
-  val empty: Arguments[UnboundValue] = Arguments(None, Seq.empty, Map.empty)
+  def empty[T <: Value]: Arguments[T] = Arguments(None, Seq.empty, Map.empty)
 
   def positional[T <: Value](values: Seq[T]) = Arguments[T](
     self = None,

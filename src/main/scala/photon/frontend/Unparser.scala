@@ -10,8 +10,11 @@ object Unparser {
     case ASTValue.String(value, _) =>
       "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""
 
-    case ASTValue.Function(params, body, _) =>
-      s"(${params.map(unparse).mkString(", ")}) { ${unparse(body)} }"
+    case ASTValue.Function(params, body, returnType, _) =>
+      val arguments = params.map(unparse).mkString(", ")
+      val returns = returnType.map(unparse).map { t => s": $t" }.getOrElse("")
+
+      s"($arguments)$returns { ${unparse(body)} }"
 
     case ASTValue.Call(t, name, arguments, _, _) =>
       val target = unparse(t, expectSingleValue = true)
@@ -51,8 +54,8 @@ object Unparser {
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case ASTParameter(name, Some(typeValue)) => s"$name: ${unparse(typeValue, expectSingleValue = false)}"
-      case ASTParameter(name, None) => name
+      case ASTParameter(name, Some(typeValue), _) => s"$name: ${unparse(typeValue, expectSingleValue = false)}"
+      case ASTParameter(name, None, _) => name
     }
   }
 

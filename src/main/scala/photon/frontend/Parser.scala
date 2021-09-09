@@ -50,7 +50,7 @@ class Parser(
   def parseCompleteExpression(): ASTValue = {
     if (atStart) read()
 
-    val expression = parseExpression()
+    val expression = parseExpression(requireCallParens = false)
 
     if (token.tokenType != TokenType.EOF && !newline) {
       parseError("Expected newline or semicolon")
@@ -62,11 +62,11 @@ class Parser(
   def parseNext(): ASTValue = {
     if (atStart) read()
 
-    parseExpression()
+    parseExpression(requireCallParens = false)
   }
 
-  private def parseExpression(minPrecedence: Int = 0): ASTValue = {
-    var left = parsePrimary()
+  private def parseExpression(minPrecedence: Int = 0, requireCallParens: Boolean): ASTValue = {
+    var left = parsePrimary(requireCallParens)
 
     while (true) {
       if (newline) return left
@@ -81,7 +81,7 @@ class Parser(
       }
 
       val operator = read()
-      val right = parseExpression(precedence + 1)
+      val right = parseExpression(precedence + 1, requireCallParens)
       val location = left.location.get.extendWith(right.location.get)
 
       left = if (operator.string == "=") {
@@ -119,12 +119,12 @@ class Parser(
     throw new RuntimeException("This should not happen")
   }
 
-  private def parsePrimary(): ASTValue = {
+  private def parsePrimary(requireCallParens: Boolean): ASTValue = {
     if (token.tokenType == TokenType.BinaryOperator && token.string == "-") {
       val startLocation = token.location
       read() // -
 
-      val expression = parsePrimary()
+      val expression = parsePrimary(requireCallParens)
       val location = startLocation.extendWith(expression.location.get)
 
       return ASTValue.Call(
@@ -136,10 +136,10 @@ class Parser(
       )
     }
 
-    var target = parseCallTarget()
+    var target = parseCallTarget(requireCallParens)
 
     while (true) {
-      target = tryToParseCall(target)
+      target = tryToParseCall(target, requireCallParens)
 
       val isFollowedByMethodCall = token.tokenType == TokenType.Dot
       val isFollowedByAnotherArgumentList = !newline && !token.hadWhitespaceBefore && token.tokenType == TokenType.OpenParen
@@ -152,7 +152,7 @@ class Parser(
     target
   }
 
-  private def parseCallTarget(): ASTValue = {
+  private def parseCallTarget(requireCallParens: Boolean): ASTValue = {
     token.tokenType match {
       case TokenType.BoolLiteral => parseBool()
       case TokenType.NumberLiteral => parseNumber()
@@ -165,7 +165,7 @@ class Parser(
         }
 
       case TokenType.OpenBrace => parseLambda()
-      case TokenType.UnaryOperator => parseUnaryOperator()
+      case TokenType.UnaryOperator => parseUnaryOperator(requireCallParens)
       case TokenType.OpenParen =>
         if (isOpenParenForLambda) {
           parseLambda()
@@ -177,7 +177,7 @@ class Parser(
             val startLocation = lastLocation
 
             do {
-              valueBuilder.addOne(parseExpression())
+              valueBuilder.addOne(parseExpression(requireCallParens = false))
             } while (token.tokenType != TokenType.CloseParen && newline)
 
             if (token.tokenType != TokenType.CloseParen) {
@@ -192,7 +192,7 @@ class Parser(
               ASTValue.Block(ASTBlock(values), Some(startLocation.extendWith(token.location)))
             }
           } else {
-            parseExpression()
+            parseExpression(requireCallParens = false)
           }
 
           if (token.tokenType != TokenType.CloseParen) {
@@ -246,11 +246,10 @@ class Parser(
       case TokenType.Comma => false
       case TokenType.Dot => false
 
-      // TODO: Support return type for lambda
-      // Examples:
+      // This is for return type of lambdas. For example:
       // (1 + 2): Int
       // (a: Int): Int { a + 42 }
-      case TokenType.Colon => false
+      case TokenType.Colon => true
 
       case TokenType.Dollar => true
       case TokenType.BinaryOperator => false
@@ -266,7 +265,7 @@ class Parser(
     }
   }
 
-  private def tryToParseCall(target: ASTValue): ASTValue = {
+  private def tryToParseCall(target: ASTValue, requireCallParens: Boolean): ASTValue = {
     val startLocation = token.location
 
     // target.call
@@ -281,7 +280,7 @@ class Parser(
       if (!canBeAMethodName) parseError("Expected method name")
 
       val name = read()
-      val arguments = parseArguments()
+      val arguments = parseArguments(requireCallParens)
       val location = startLocation.extendWith(lastLocation)
 
       return ASTValue.Call(
@@ -297,8 +296,8 @@ class Parser(
     // name(a)
     target match {
       case ASTValue.NameReference(name, targetLocation) =>
-        if (!currentExpressionMayEnd) {
-          val arguments = parseArguments()
+        if (!requireCallParens && !currentExpressionMayEnd) {
+          val arguments = parseArguments(requireCallParens)
 
           return ASTValue.Call(
             target = ASTValue.NameReference("self", targetLocation),
@@ -314,7 +313,7 @@ class Parser(
 
     // expression( ... )
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
-      val arguments = parseArguments()
+      val arguments = parseArguments(requireCallParens)
 
       return ASTValue.Call(
         target = target,
@@ -328,7 +327,7 @@ class Parser(
     target
   }
 
-  private def parseArguments(): ASTArguments = {
+  private def parseArguments(requireParens: Boolean): ASTArguments = {
     var withParentheses = false
 
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
@@ -337,6 +336,10 @@ class Parser(
     }
 
     if (!withParentheses && currentExpressionMayEnd) {
+      return ASTArguments.empty
+    }
+
+    if (!withParentheses && requireParens) {
       return ASTArguments.empty
     }
 
@@ -386,7 +389,7 @@ class Parser(
       Some(name.string)
     } else { None }
 
-    val value = parseExpression()
+    val value = parseExpression(requireCallParens = false)
 
     (name, value)
   }
@@ -437,6 +440,15 @@ class Parser(
       Seq.empty
     }
 
+    val hasReturnType = token.tokenType == TokenType.Colon
+    val returnType = if (hasReturnType) {
+      read() // :
+
+      Some(parseExpression(requireCallParens = true))
+    } else {
+      None
+    }
+
     val hasBlock = token.tokenType == TokenType.OpenBrace
     val body = if (hasBlock) {
       read() // {
@@ -448,12 +460,13 @@ class Parser(
 
       block
     } else {
-      ASTBlock(Seq(parseExpression()))
+      ASTBlock(Seq(parseExpression(requireCallParens = false)))
     }
 
     ASTValue.Function(
       parameters,
       body,
+      returnType,
       Some(startLocation.extendWith(lastLocation))
     )
   }
@@ -471,15 +484,16 @@ class Parser(
           if (token.tokenType != TokenType.Name) parseError("Expected Name")
 
           val name = read().string
+          val startLocation = lastLocation
           val typeValue = if (token.tokenType == TokenType.Colon) {
             read() // :
 
-            Some(parseExpression())
+            Some(parseExpression(requireCallParens = false))
           } else {
             None
           }
 
-          parameters.addOne(ASTParameter(name, typeValue))
+          parameters.addOne(ASTParameter(name, typeValue, Some(lastLocation.extendWith(startLocation))))
 
           if (token.tokenType != TokenType.Comma) break
           read() // ,
@@ -497,7 +511,7 @@ class Parser(
     val values = Vector.newBuilder[ASTValue]
 
     while (token.tokenType != TokenType.CloseBrace) {
-      values += parseExpression()
+      values += parseExpression(requireCallParens = false)
     }
 
     ASTBlock(values.result)
@@ -507,15 +521,15 @@ class Parser(
     val values = Vector.newBuilder[ASTValue]
 
     while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.CloseParen && token.tokenType != TokenType.EOF) {
-      values += parseExpression()
+      values += parseExpression(requireCallParens = false)
     }
 
     ASTBlock(values.result)
   }
 
-  private def parseUnaryOperator(): ASTValue = {
+  private def parseUnaryOperator(requireCallParens: Boolean): ASTValue = {
     val operator = read()
-    val target = parsePrimary()
+    val target = parsePrimary(requireCallParens)
 
     ASTValue.Call(
       target,
