@@ -9,19 +9,19 @@ class TypeSystemTest extends FunSuite {
     expectFailCompileTime("42: String", "Incompatible types")
   }
 
-  test("typechecking custom types") {
-    val types = """
-    PositiveInt = Struct(
-      assignableFrom = (self, otherType) self == otherType,
-
-      # TODO: Check if number is positive
-      # TODO: Need `let` here...
-      call = (number) Struct($type = PositiveInt, number = number)
-    )
-  """
-
-    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
-    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
-    expectFailCompileTime(s"$types; 'test': PositiveInt", "Incompatible types")
-  }
+//  test("typechecking custom types") {
+//    val types = """
+//      PositiveInt = Struct(
+//        assignableFrom = (self, otherType) self == otherType,
+//
+//        # TODO: Check if number is positive
+//        # TODO: Need `let` here...
+//        call = (number) Struct($type = PositiveInt, number = number)
+//      )
+//    """
+//
+//    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
+//    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
+//    expectFailCompileTime(s"$types; 'test': PositiveInt", "Incompatible types")
+//  }
 }

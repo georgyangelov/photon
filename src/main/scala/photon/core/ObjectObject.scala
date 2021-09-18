@@ -1,7 +1,10 @@
 package photon.core
 import photon.{Arguments, BoundValue, FunctionTrait, Location, RealValue, Value}
+import photon.core.Conversions._
 
 case class ObjectObject(obj: BoundValue.Object) extends NativeValue {
+  override val typeValue = CoreTypes.Type
+
   override def method(name: String, location: Option[Location]): Option[NativeMethod] = {
     val value = obj.values.get(name)
 
@@ -12,14 +15,25 @@ case class ObjectObject(obj: BoundValue.Object) extends NativeValue {
         case Some(value) => Some(Getter(value))
         case None => None
       }
-      .orElse { prototype.flatMap { value => Core.nativeValueFor(value).method(name, location) } }
+      .orElse { instanceMethods.flatMap { value => Core.nativeValueFor(value).method(name, location) } }
       .orElse {
         if (value.isDefined) Some(CurrentlyUnknown)
         else None
       }
   }
 
-  private def prototype: Option[RealValue] = obj.values.get("$prototype").flatMap(_.realValue)
+  // TODO: This can be Native
+  private def typeObject: Option[BoundValue.Object] =
+    obj.typeValue //.values.get("$type")
+      .flatMap(_.realValue)
+      .map(_.asObject)
+
+  // TODO: This can be Native
+  private def instanceMethods: Option[BoundValue.Object] =
+    typeObject
+      .flatMap(_.values.get("$instanceMethods"))
+      .flatMap(_.realValue)
+      .map(_.asObject)
 }
 
 private object CurrentlyUnknown extends NativeMethod {

@@ -1,7 +1,7 @@
 package photon.interpreter
 
 import photon.core.Core
-import photon.{Arguments, BoundValue, Operation, PureValue, RealValue, Scope, UnboundValue, Value, Variable, VariableName}
+import photon.{Arguments, BoundValue, Operation, PureValue, Scope, UnboundValue, Value, Variable, VariableName}
 
 class Unbinder(core: Core) {
   def unbind(value: Value, toScope: Scope): UnboundValue = value match {
@@ -40,7 +40,7 @@ class Unbinder(core: Core) {
     case boundObject @ BoundValue.Object(values, _, location) =>
       Operation.Call(
         // TODO: I don't like this cast
-        Operation.Reference(core.objectRoot.name, Some(core.objectRoot.value.get.asInstanceOf[PureValue]), location),
+        Operation.Reference(core.objectRootVar.name, Some(core.objectRootVar.value.get.asInstanceOf[PureValue]), location),
         "call",
         Arguments(
           None,

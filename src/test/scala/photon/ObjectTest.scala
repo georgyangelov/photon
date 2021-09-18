@@ -79,13 +79,17 @@ class ObjectTest extends FunSuite {
     )
   }
 
-  test("objects support prototypes") {
+  test("objects can use instance methods from types") {
     expectEval(
       """
-         Cat = Object(meow = () "Meow!")
-         kitten = Object($prototype = Cat)
+        Cat = Object(
+          $instanceMethods = Object(
+            meow = () "Meow!"
+          )
+        )
+        kitten = Object($type = Cat)
 
-         kitten.meow
+        kitten.meow
       """,
       "'Meow!'"
     )
@@ -94,9 +98,7 @@ class ObjectTest extends FunSuite {
   test("object functions support passing a self argument") {
     expectEval(
       """
-         Cat = Object(meow = () self.name)
-         kitten = Object($prototype = Cat, name = "Mittens")
-
+         kitten = Object(meow = () self.name, name = "Mittens")
          kitten.meow
       """,
       "'Mittens'"
@@ -104,10 +106,24 @@ class ObjectTest extends FunSuite {
 
     expectEval(
       """
-         Cat = Object(meow = () name)
-         kitten = Object($prototype = Cat, name = "Mittens")
-
+         kitten = Object(meow = () name, name = "Mittens")
          kitten.meow
+      """,
+      "'Mittens'"
+    )
+  }
+
+  test("instance methods from types can use self") {
+    expectEval(
+      """
+        Cat = Object(
+          $instanceMethods = Object(
+            meow = () name
+          )
+        )
+        kitten = Object($type = Cat, name = "Mittens")
+
+        kitten.meow
       """,
       "'Mittens'"
     )

@@ -38,6 +38,11 @@ object Conversions {
       case obj: BoundValue.Object => obj
       case _ => throw EvalError(s"Invalid value type $value, expected Object", value.location)
     }
+
+//    def asNative[T <: NativeValue]: T = value match {
+//      case PureValue.Native(native: NativeValue, _) if native.isInstanceOf[T] => native.asInstanceOf[T]
+//      case _ => throw EvalError(s"Invalid value type $value, expected Native object", value.location)
+//    }
   }
 
   implicit class ArgumentsAssertReal(arguments: Arguments[RealValue]) {
@@ -92,6 +97,7 @@ case class CallContext(
 
 trait NativeValue {
   val isFullyEvaluated: Boolean = true
+  val typeValue: RealValue
 
   def method(
     name: String,
@@ -148,7 +154,7 @@ case class MethodOptions(
   traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 )
 
-class NativeObject(methods: Map[String, NativeMethod]) extends NativeValue {
+class NativeObject(val typeValue: RealValue, methods: Map[String, NativeMethod]) extends NativeValue {
   override def method(
     name: String,
     location: Option[Location]

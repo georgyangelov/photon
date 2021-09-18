@@ -2,7 +2,7 @@ package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
 import photon.{Arguments, BoundValue, FunctionTrait, Location, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
-import photon.core.{CallContext, Core, NativeMethod}
+import photon.core.{CallContext, Core, CoreTypes}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 
 case class EvalError(message: String, override val location: Option[Location])
@@ -53,7 +53,7 @@ class Interpreter {
 
   private def evaluateOperation(operation: Operation, scope: Scope): UnboundValue = {
     operation match {
-      case Operation.Block(values, _, location) =>
+      case Operation.Block(values, _, _, location) =>
         val lastValueIndex = values.length - 1
         val evaledValues = values.map(evaluateCompileTime(_, scope))
           .view
@@ -70,9 +70,11 @@ class Interpreter {
           else if (allValuesCanBeEvaluated) Some(realValues.last)
           else None
 
-        Operation.Block(evaledValues, realValue, location)
+//        val typeValue = realValue.flatMap(_.typeValue)
 
-      case Operation.Let(name, letValue, block, _, location) =>
+        Operation.Block(evaledValues, typeValue, realValue, location)
+
+      case Operation.Let(name, letValue, block, _, _, location) =>
         val variable = new Variable(name, None)
         val letScope = scope.newChild(Seq(variable))
 
@@ -102,24 +104,49 @@ class Interpreter {
           }
         }
 
-        Operation.Let(name, letResult, blockResult.asBlock, realValue, location)
+        Operation.Let(name, letResult, blockResult.asBlock, blockResult.typeValue, realValue, location)
 
-      case Operation.Reference(name, _, location) =>
+      case Operation.Reference(name, _, _, location) =>
         val realValue = scope.find(name) match {
           case Some(Variable(_, Some(value))) => value.realValue
           case Some(Variable(_, None)) => throw EvalError(s"Cannot use the name ${name.originalName} during declaration", location)
           case _ => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
         }
 
-        Operation.Reference(name, realValue, location)
+        Operation.Reference(name, realValue.flatMap(_.typeValue), realValue, location)
 
-      case Operation.Function(fn, _, location) =>
+      case Operation.Function(fn, _, _, location) =>
         val traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
-        val realValue = BoundValue.Function(fn, traits, scope, location)
 
-        Operation.Function(fn, Some(realValue), location)
+        val typeValue = if (fn.params.forall(_.typeValue.isDefined) && fn.returnType.isDefined) {
+          val argTypes = fn.params.map(_.typeValue.get)
 
-      case Operation.Call(target, name, arguments, _, location) =>
+          val fnType = CoreTypes.Function(
+            fn.params
+              .map(_.typeValue.get)
+              .map(evaluateCompileTime(_, scope).realValue.getOrElse {
+                throw EvalError(
+                  "Types of function params must be fully known at compile-time",
+                  location
+                )
+              }),
+
+            evaluateCompileTime(fn.returnType.get, scope).realValue.getOrElse {
+              throw EvalError(
+                "Return type of function must be fully known at compile-time",
+                location
+              )
+            }
+          )
+
+          Some(fnType)
+        } else None
+
+        val realValue = BoundValue.Function(fn, traits, scope, typeValue, location)
+
+        Operation.Function(fn, typeValue, Some(realValue), location)
+
+      case Operation.Call(target, name, arguments, _, _, location) =>
         val targetResult = evaluateCompileTime(target, scope)
         val argumentResults = arguments.map(evaluateCompileTime(_, scope))
 
@@ -129,7 +156,14 @@ class Interpreter {
 
         val realTarget = realTargetMaybe match {
           case Some(realValue) => realValue
-          case None => return Operation.Call(targetResult, name, argumentResults, None, location)
+          case None => return Operation.Call(
+            targetResult,
+            name,
+            argumentResults,
+            ,
+            None,
+            location
+          )
         }
 
         val targetIsFullyKnown = realTarget.isFullyKnown
@@ -188,7 +222,7 @@ class Interpreter {
           return core.unbinder.unbind(result, scope)
         }
 
-        Operation.Call(targetResult, name, argumentResults, None, location)
+        Operation.Call(targetResult, name, argumentResults, , None, location)
     }
   }
 }

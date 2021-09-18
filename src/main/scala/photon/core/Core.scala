@@ -76,17 +76,31 @@ object CoreParams {
   val TypeCheckType = Parameter(2, "type")
 }
 
+object CoreTypes {
+  val Type   = PureValue.Native(TypeRoot, None)
+  val Nothing = PureValue.Native(NothingRoot, None)
+  val Object = PureValue.Native(ObjectRoot, None)
+  val Int    = PureValue.Native(IntRoot, None)
+  val String = PureValue.Native(StringRoot, None)
+  val List   = PureValue.Native(ListRoot, None)
+
+  def Function(args: Seq[RealValue], returnType: RealValue) =
+    PureValue.Native(FunctionType(args, returnType), None)
+}
+
 class Core extends NativeValue {
   val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
 
-  val objectRoot = new Variable(new VariableName("Object"), Some(PureValue.Native(ObjectRoot, None)))
+  val objectRootVar = new Variable(new VariableName("Object"), Some(CoreTypes.Object))
 
   val rootScope: Scope = Scope.newRoot(Seq(
-    new Variable(new VariableName("Core"),   Some(PureValue.Native(this,       None))),
-    objectRoot,
-    new Variable(new VariableName("Int"),    Some(PureValue.Native(IntRoot,    None))),
-    new Variable(new VariableName("String"), Some(PureValue.Native(StringRoot, None))),
-    new Variable(new VariableName("List"),   Some(PureValue.Native(ListRoot,   None)))
+    // TODO: Core should have a type
+    new Variable(new VariableName("Core"),   Some(PureValue.Native(this, None))),
+    new Variable(new VariableName("Type"),   Some(CoreTypes.Type)),
+    objectRootVar,
+    new Variable(new VariableName("Int"),    Some(CoreTypes.Int)),
+    new Variable(new VariableName("String"), Some(CoreTypes.String)),
+    new Variable(new VariableName("List"),   Some(CoreTypes.List))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)
@@ -153,6 +167,11 @@ private case class TypeCheckMethod(private val core: Core) extends NativeMethod 
   override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
     partialCall(context, args.asInstanceOf[Arguments[Value]], location)
 
-  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = ???
-
+  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = {
+    ???
+//    val value = args.get(Parameter(1, "value"))
+//    val typeValue = args.get(Parameter(2, "type")).realValue
+//
+//    if (value.realValue)
+  }
 }
