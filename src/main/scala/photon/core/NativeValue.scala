@@ -160,3 +160,14 @@ class NativeObject(val typeValue: RealValue, methods: Map[String, NativeMethod])
     location: Option[Location]
   ): Option[NativeMethod] = methods.get(name)
 }
+
+case class GetterMethod(
+  private val value: RealValue,
+  traits: Set[FunctionTrait]
+) extends NativeMethod {
+  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+    value
+
+  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
+    value
+}

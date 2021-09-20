@@ -48,3 +48,17 @@ Core.typeCheck(42, Int)
 #=>
 Int.assignableFrom(42.$type)
 ```
+
+
+##
+
+Type
+
+```
+Type = Object(
+  $type = () Type,
+  $methodTypes = List(
+    FunctionType("$methods", List.empty, List(FunctionType))
+  )
+)
+```
