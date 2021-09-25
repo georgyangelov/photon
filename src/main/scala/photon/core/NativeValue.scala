@@ -1,10 +1,10 @@
 package photon.core
 
+import photon.New.TypeObject
 import photon.core.Conversions._
-import photon.frontend.ASTValue
 import photon.interpreter.{CallStackEntry, EvalError, Interpreter, RunMode}
 import photon.lib.ObjectId
-import photon.{Arguments, BoundValue, FunctionTrait, Location, PureValue, RealValue, Scope, Value}
+import photon.{Arguments, BoundValue, MethodType, FunctionTrait, Location, PureValue, RealValue, Scope, Value, New}
 
 object Conversions {
   implicit class ValueAssert(value: Value) {
@@ -18,7 +18,7 @@ object Conversions {
       case _ => throw EvalError(s"Invalid value type $value, expected Int", value.location)
     }
 
-    def asDouble: Double = value match {
+    def asFloat: Double = value match {
       case PureValue.Int(value, _) => value.toDouble
       case PureValue.Float(value, _) => value
       case _ => throw EvalError(s"Invalid value type $value, expected Int or Float", value.location)
@@ -39,7 +39,12 @@ object Conversions {
       case _ => throw EvalError(s"Invalid value type $value, expected Object", value.location)
     }
 
-//    def asNative[T <: NativeValue]: T = value match {
+    def asNative[T <: NativeValue] = value match {
+      case PureValue.Native(native, _) if native.isInstanceOf[T] => native.asInstanceOf[T]
+      case _ => throw EvalError(s"Invalid value type $value, expected some native", value.location)
+    }
+
+    //    def asNative[T <: NativeValue]: T = value match {
 //      case PureValue.Native(native: NativeValue, _) if native.isInstanceOf[T] => native.asInstanceOf[T]
 //      case _ => throw EvalError(s"Invalid value type $value, expected Native object", value.location)
 //    }
@@ -48,10 +53,12 @@ object Conversions {
   implicit class ArgumentsAssertReal(arguments: Arguments[RealValue]) {
     def getBool(parameter: Parameter): Boolean = get(parameter).asBool
     def getInt(parameter: Parameter): Int = get(parameter).asInt
-    def getDouble(parameter: Parameter): Double = get(parameter).asDouble
+    def getFloat(parameter: Parameter): Double = get(parameter).asFloat
     def getString(parameter: Parameter): String = get(parameter).asString
     def getFunction(parameter: Parameter): BoundValue.Function = get(parameter).asBoundFunction
     def getObject(parameter: Parameter): BoundValue.Object = get(parameter).asObject
+    def getNative[T <: NativeValue](parameter: Parameter): T = get(parameter).asNative[T]
+    def getNativeSelf[T <: NativeValue]: T = get(Parameter(0, "self")).asNative[T]
 
     def get(parameter: Parameter): Value = {
       if (parameter.index == 0) {
@@ -70,7 +77,7 @@ object Conversions {
   implicit class ArgumentsAssertValue(arguments: Arguments[Value]) {
     def getBool(parameter: Parameter): Boolean = get(parameter).asBool
     def getInt(parameter: Parameter): Int = get(parameter).asInt
-    def getDouble(parameter: Parameter): Double = get(parameter).asDouble
+    def getDouble(parameter: Parameter): Double = get(parameter).asFloat
     def getString(parameter: Parameter): String = get(parameter).asString
     def getFunction(parameter: Parameter): BoundValue.Function = get(parameter).asBoundFunction
     def getObject(parameter: Parameter): BoundValue.Object = get(parameter).asObject
@@ -97,29 +104,30 @@ case class CallContext(
 
 trait NativeValue {
   val isFullyEvaluated: Boolean = true
-  val typeValue: RealValue
+  val typeObject: TypeObject
 
-  def method(
-    name: String,
-    location: Option[Location]
-  ): Option[NativeMethod]
-
-  def callOrThrowError(
-    context: CallContext,
-    name: String,
-    args: Arguments[RealValue],
-    location: Option[Location]
-  ): Value = {
-    method(name, location) match {
-      case Some(value) => value.call(context, args, location)
-      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
-    }
-  }
+//  def method(
+//    name: String,
+//    location: Option[Location]
+//  ): Option[NativeMethod]
+//
+//  def callOrThrowError(
+//    context: CallContext,
+//    name: String,
+//    args: Arguments[RealValue],
+//    location: Option[Location]
+//  ): Value = {
+//    method(name, location) match {
+//      case Some(value) => value.call(context, args, location)
+//      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
+//    }
+//  }
 }
 
 trait NativeMethod {
   val methodId = ObjectId()
   val traits: Set[FunctionTrait]
+  val methodType: MethodType
 
   def call(
     context: CallContext,
@@ -134,40 +142,15 @@ trait NativeMethod {
   ): Value
 }
 
-trait PureMethod extends NativeMethod {
-  override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
-
-  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
-    throw new NotImplementedError("partialCall not implemented")
-}
-
-trait PartialMethod extends NativeMethod {
-  override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Partial, FunctionTrait.Pure)
-}
-
 case class Parameter(index: Int, name: String)
 
-case class LambdaMetadata(withSideEffects: Boolean = false)
-
-case class MethodOptions(
-  parameters: Seq[Parameter],
-  traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
-)
-
-class NativeObject(val typeValue: RealValue, methods: Map[String, NativeMethod]) extends NativeValue {
-  override def method(
-    name: String,
-    location: Option[Location]
-  ): Option[NativeMethod] = methods.get(name)
-}
-
-case class GetterMethod(
-  private val value: RealValue,
-  traits: Set[FunctionTrait]
-) extends NativeMethod {
-  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-    value
-
-  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
-    value
-}
+//case class GetterMethod(
+//  private val value: RealValue,
+//  traits: Set[FunctionTrait]
+//) extends NativeMethod {
+//  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+//    value
+//
+//  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
+//    value
+//}

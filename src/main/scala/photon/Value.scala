@@ -1,6 +1,6 @@
 package photon
 
-import photon.core.{NativeValue, CoreTypes}
+import photon.core.{BoolType, FloatType, IntType, NativeValue, NothingType, StringType}
 import photon.frontend.{Unparser, ValueToAST}
 import photon.interpreter.EvalError
 import photon.lib.ObjectId
@@ -15,14 +15,14 @@ sealed trait Value {
   def unboundNames: Set[VariableName]
   val location: Option[Location]
 
-  def typeValue: Option[RealValue]
+  def typeObject: Option[New.TypeObject]
   def realValue: Option[RealValue]
 }
 
 // Type groups
 sealed trait RealValue extends Value {
   // TODO: This should become Some at ... some ... point
-  def typeValue: Option[RealValue]
+  def typeObject: Option[New.TypeObject]
 
   def isFullyKnown: scala.Boolean = isFullyKnown(Set.empty)
   def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = true
@@ -35,7 +35,7 @@ sealed trait UnboundValue extends Value {
 
   def asBlock: Operation.Block = this match {
     case block: Operation.Block => block
-    case _ => Operation.Block(Seq(this), typeValue, realValue, location)
+    case _ => Operation.Block(Seq(this), typeObject, realValue, location)
   }
 }
 
@@ -64,33 +64,33 @@ sealed trait Operation extends UnboundValue {
 object PureValue {
   case class Nothing(location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue {
-    override def typeValue = Some(CoreTypes.Nothing)
+    override def typeObject = Some(NothingType)
   }
 
   case class Boolean(value: scala.Boolean, location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue {
-
+    override def typeObject = Some(BoolType)
   }
 
   case class Int(value: scala.Int, location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue {
-    override def typeValue = Some(CoreTypes.Int)
+    override def typeObject = Some(IntType)
   }
 
   case class Float(value: scala.Double, location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue {
-
+    override def typeObject = Some(FloatType)
   }
 
   case class String(value: java.lang.String, location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue {
-    override def typeValue = Some(CoreTypes.String)
+    override def typeObject = Some(StringType)
   }
 
   case class Native(native: NativeValue, location: Option[Location])
     extends Value with PureValue with RealValue with UnboundValue
   {
-    override def typeValue = Some(native.typeValue)
+    override def typeObject = Some(native.typeObject)
 
     override def isFullyKnown = native.isFullyEvaluated
 
@@ -102,10 +102,10 @@ object PureValue {
 object BoundValue {
   case class Function(
     fn: photon.Function,
-    // TODO: Integrate this in the typeValue
+    // TODO: Integrate this in the TypeObject
     traits: Set[FunctionTrait],
     scope: Scope,
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     location: Option[Location]
   ) extends Value with BoundValue with RealValue {
     override def unboundNames = fn.unboundNames
@@ -134,7 +134,7 @@ object BoundValue {
   case class Object(
     values: Map[String, Value],
     scope: Scope,
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     location: Option[Location]
   ) extends Value with BoundValue with RealValue {
     lazy override val unboundNames = values.view.values.flatMap(_.unboundNames).toSet
@@ -151,7 +151,7 @@ object BoundValue {
 object Operation {
   case class Block(
     values: Seq[UnboundValue],
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     realValue: Option[RealValue],
     location: Option[Location]
   ) extends Value with Operation with UnboundValue {
@@ -163,7 +163,7 @@ object Operation {
     name: VariableName,
     letValue: UnboundValue,
     block: Block,
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     realValue: Option[RealValue],
     location: Option[Location]
   ) extends Value with Operation with UnboundValue {
@@ -172,7 +172,7 @@ object Operation {
   }
   case class Reference(
     name: VariableName,
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     realValue: Option[RealValue],
     location: Option[Location]
   ) extends Value with Operation with UnboundValue {
@@ -183,7 +183,7 @@ object Operation {
 
   case class Function(
     fn: photon.Function,
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     realValue: Option[RealValue],
     location: Option[Location]
   ) extends Value with Operation with UnboundValue {
@@ -195,7 +195,7 @@ object Operation {
     target: UnboundValue,
     name: String,
     arguments: Arguments[UnboundValue],
-    typeValue: Option[RealValue],
+    typeObject: Option[New.TypeObject],
     realValue: Option[RealValue],
     location: Option[Location]
   ) extends Value with Operation with UnboundValue {

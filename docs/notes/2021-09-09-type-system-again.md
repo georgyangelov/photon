@@ -62,3 +62,27 @@ Type = Object(
   )
 )
 ```
+
+##
+
+```
+type Person {
+  val name: String
+  private val age: Int
+
+  # Auto-generated:
+  static def new(...args)
+    Object($type = Person, ...args)
+  end
+  
+  def asl
+    "$age, $name"
+  end
+}
+
+person = Person.new(name = 'John Doe', age = 24)
+
+person.name
+person.age #!=> error
+person.asl
+```

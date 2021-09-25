@@ -104,7 +104,7 @@ class Interpreter {
           }
         }
 
-        Operation.Let(name, letResult, blockResult.asBlock, blockResult.typeValue, realValue, location)
+        Operation.Let(name, letResult, blockResult.asBlock, blockResult.typeObject, realValue, location)
 
       case Operation.Reference(name, _, _, location) =>
         val realValue = scope.find(name) match {
@@ -113,7 +113,7 @@ class Interpreter {
           case _ => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
         }
 
-        Operation.Reference(name, realValue.flatMap(_.typeValue), realValue, location)
+        Operation.Reference(name, realValue.flatMap(_.typeObject), realValue, location)
 
       case Operation.Function(fn, _, _, location) =>
         val traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
