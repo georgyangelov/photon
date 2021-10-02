@@ -61,6 +61,10 @@ object New {
 //    def toTypeParam = TypeParam.TypeObject(this)
   }
 
+  abstract class InterfaceObject extends TypeObject {
+
+  }
+
   // TODO: Do I need this since the NativeValue doesn't have any more stuff?
   abstract class NativeObject(override val typeObject: TypeObject) extends NativeValue
 

@@ -289,7 +289,12 @@ class Function(
 ) extends Equals {
   val objectId = ObjectId()
 
-  val unboundNames = body.unboundNames -- params.map(_.name) - selfName
+  val unboundNames =
+    body.unboundNames ++
+      params.flatMap(_.typeValue).flatMap(_.unboundNames) ++
+      returnType.map(_.unboundNames) --
+      params.map(_.name) -
+      selfName
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
   override def equals(that: Any): Boolean = {

@@ -1,9 +1,10 @@
 package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
-import photon.{Arguments, BoundValue, FunctionTrait, Location, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
-import photon.core.{CallContext, Core, CoreTypes}
+import photon.{ArgumentType, Arguments, BoundValue, FunctionTrait, Location, New, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
+import photon.core.{CallContext, Core, FunctionType, NothingType}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
+import photon.core.Conversions._
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
@@ -70,9 +71,9 @@ class Interpreter {
           else if (allValuesCanBeEvaluated) Some(realValues.last)
           else None
 
-//        val typeValue = realValue.flatMap(_.typeValue)
+        val typeObject = if (evaledValues.nonEmpty) evaledValues.last.typeObject else Some(NothingType)
 
-        Operation.Block(evaledValues, typeValue, realValue, location)
+        Operation.Block(evaledValues, typeObject, realValue, location)
 
       case Operation.Let(name, letValue, block, _, _, location) =>
         val variable = new Variable(name, None)
@@ -107,44 +108,50 @@ class Interpreter {
         Operation.Let(name, letResult, blockResult.asBlock, blockResult.typeObject, realValue, location)
 
       case Operation.Reference(name, _, _, location) =>
-        val realValue = scope.find(name) match {
-          case Some(Variable(_, Some(value))) => value.realValue
+        val value = scope.find(name) match {
+          case Some(Variable(_, Some(value))) => value
           case Some(Variable(_, None)) => throw EvalError(s"Cannot use the name ${name.originalName} during declaration", location)
           case _ => throw EvalError(s"Cannot find name ${name.originalName} in scope $scope", location)
         }
 
-        Operation.Reference(name, realValue.flatMap(_.typeObject), realValue, location)
+        Operation.Reference(name, value.typeObject, value.realValue, location)
 
       case Operation.Function(fn, _, _, location) =>
         val traits: Set[FunctionTrait] = Set(FunctionTrait.CompileTime, FunctionTrait.Runtime, FunctionTrait.Pure)
 
-        val typeValue = if (fn.params.forall(_.typeValue.isDefined) && fn.returnType.isDefined) {
-          val argTypes = fn.params.map(_.typeValue.get)
-
-          val fnType = CoreTypes.Function(
-            fn.params
-              .map(_.typeValue.get)
-              .map(evaluateCompileTime(_, scope).realValue.getOrElse {
-                throw EvalError(
-                  "Types of function params must be fully known at compile-time",
-                  location
-                )
-              }),
-
-            evaluateCompileTime(fn.returnType.get, scope).realValue.getOrElse {
+        // TODO: Infer return type
+        val typeObject = if (fn.params.forall(_.typeValue.isDefined) && fn.returnType.isDefined) {
+          // TODO: Parameters should be able to reference previous ones
+          val argTypes = fn.params
+            .map(_.typeValue.get)
+            .map(evaluateCompileTime(_, scope))
+            .map(_.realValue.getOrElse {
               throw EvalError(
-                "Return type of function must be fully known at compile-time",
+                "Types of function params must be fully known at compile-time",
                 location
               )
-            }
-          )
+            })
+            .map(_.asNative[New.TypeObject])
 
-          Some(fnType)
+          // TODO: This should be able to reference parameters
+          val returnType = evaluateCompileTime(fn.returnType.get, scope).realValue.getOrElse {
+            throw EvalError(
+              "Return type of function must be fully known at compile-time",
+              location
+            )
+          }.asNative[New.TypeObject]
+
+          Some(FunctionType(
+            fn.params.zip(argTypes).map { case (parameter, typeObject) =>
+              ArgumentType(parameter.name.originalName, typeObject)
+            },
+            returnType
+          ))
         } else None
 
-        val realValue = BoundValue.Function(fn, traits, scope, typeValue, location)
+        val realValue = BoundValue.Function(fn, traits, scope, typeObject, location)
 
-        Operation.Function(fn, typeValue, Some(realValue), location)
+        Operation.Function(fn, typeObject, Some(realValue), location)
 
       case Operation.Call(target, name, arguments, _, _, location) =>
         val targetResult = evaluateCompileTime(target, scope)
