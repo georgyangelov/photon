@@ -1,7 +1,5 @@
 package photon.lib
 
-import photon.TypeParam.TypeVar
-
 trait CompareByObjectId extends Equals {
   private val objectId: Long = ObjectId().id
 

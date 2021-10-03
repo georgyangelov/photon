@@ -1,10 +1,12 @@
 package photon.core
-import photon.interpreter.EvalError
-import photon.{Arguments, Location, New, PureValue, RealValue, Value}
+import photon.interpreter.{CallContext, EvalError}
+import photon.{Arguments, Location, New, PureValue, RealValue, TypeType, Value}
 import photon.core.Conversions._
 
-object ListType extends New.TypeObject {
-  val methods = Map(
+object ListTypeType extends New.TypeObject {
+  override val typeObject = TypeType
+
+  override val instanceMethods = Map(
     "of" -> new New.StandardMethod {
       override val name = "of"
       // TODO: Varargs
@@ -29,6 +31,10 @@ object ListType extends New.TypeObject {
         PureValue.Native(List(Seq.empty), location)
     }
   )
+}
+
+object ListType extends New.TypeObject {
+  override val typeObject = ListTypeType
 
   val instanceMethods = Map(
     "size" -> new New.StandardMethod {

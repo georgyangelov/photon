@@ -26,6 +26,7 @@ class Unbinder(core: Core) {
         variable.name,
         renameReferences(unsafeUnbind(varValue), renames),
         value.asBlock,
+        value.typeObject,
         value.realValue,
         value.location
       )
@@ -34,19 +35,25 @@ class Unbinder(core: Core) {
 
   private def unsafeUnbind(value: Value): UnboundValue = value match {
     case unbound: UnboundValue => unbound
-    case boundFn @ BoundValue.Function(fn, traits, _, location) =>
+    case boundFn @ BoundValue.Function(fn, traits, _, typeObject, location) =>
       // TODO: Serialize traits correctly
-      Operation.Function(fn, Some(boundFn), location)
-    case boundObject @ BoundValue.Object(values, _, location) =>
+      Operation.Function(fn, typeObject, Some(boundFn), location)
+    case boundObject @ BoundValue.Object(values, _, typeObject, location) =>
       Operation.Call(
-        // TODO: I don't like this cast
-        Operation.Reference(core.objectRootVar.name, Some(core.objectRootVar.value.get.asInstanceOf[PureValue]), location),
+        Operation.Reference(
+          core.objectRootVar.name,
+          core.objectRootVar.value.get.typeObject,
+          // TODO: I don't like this cast
+          Some(core.objectRootVar.value.get.asInstanceOf[PureValue]),
+          location
+        ),
         "call",
         Arguments(
           None,
           positional = Seq.empty,
           named = values.view.mapValues(unsafeUnbind).toMap
         ),
+        typeObject,
         Some(boundObject),
         location
       )
@@ -89,52 +96,58 @@ class Unbinder(core: Core) {
   private def renameReferences(value: UnboundValue, renames: Map[VariableName, VariableName]): UnboundValue = value match {
     case pure: PureValue => pure
 
-    case Operation.Block(values, realValue, location) =>
+    case Operation.Block(values, typeObject, realValue, location) =>
       Operation.Block(
         values.map(renameReferences(_, renames)),
+        typeObject,
         realValue,
         location
       )
 
-    case Operation.Let(name, letValue, block, realValue, location) =>
+    case Operation.Let(name, letValue, block, typeObject, realValue, location) =>
       Operation.Let(
         name,
         renameReferences(letValue, renames),
         Operation.Block(
           block.values.map(renameReferences(_, renames)),
+          block.typeObject,
           block.realValue,
           block.location
         ),
+        typeObject,
         realValue,
         location
       )
 
-    case Operation.Reference(name, realValue, location) =>
+    case Operation.Reference(name, typeObject, realValue, location) =>
       Operation.Reference(
         renames.getOrElse(name, name),
+        typeObject,
         realValue,
         location
       )
 
-    case Operation.Function(fn, realValue, location) =>
+    case Operation.Function(fn, typeObject, realValue, location) =>
       val fnWithRenames = new photon.Function(
         fn.selfName,
         fn.params,
         Operation.Block(
           fn.body.values.map(renameReferences(_, renames)),
+          fn.body.typeObject,
           fn.body.realValue,
           fn.body.location
         ),
         fn.returnType.map(renameReferences(_, renames))
       )
 
-      Operation.Function(fnWithRenames, realValue, location)
+      Operation.Function(fnWithRenames, typeObject, realValue, location)
 
-    case Operation.Call(target, name, arguments, realValue, location) =>
+    case Operation.Call(target, name, arguments, typeObject, realValue, location) =>
       Operation.Call(
         renameReferences(target, renames),
         name,
         arguments.map(renameReferences(_, renames)),
+        typeObject,
         realValue,
         location
       )

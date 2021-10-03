@@ -292,7 +292,7 @@ class Function(
   val unboundNames =
     body.unboundNames ++
       params.flatMap(_.typeValue).flatMap(_.unboundNames) ++
-      returnType.map(_.unboundNames) --
+      returnType.toSet[UnboundValue].flatMap(_.unboundNames) --
       params.map(_.name) -
       selfName
 

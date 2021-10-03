@@ -6,9 +6,9 @@ import photon.TestHelpers._
 
 class CompileTimeEvaluationTest extends FunSuite {
   test("supports closures") {
-    expectEvalCompileTime("(a){ (b){ a + b } }(1)(41)", "42")
-    expectEvalCompileTime("a = 1; fn = (b) a + b; fn(41)", "42")
-    expectEvalCompileTime("a = 1; fn = (b) a + b; fn.call(41)", "42")
+    expectEvalCompileTime("(a: Int): Function(Int, Int){ (b:Int):Int{ a + b } }(1)(41)", "42")
+    expectEvalCompileTime("a = 1; fn = (b:Int):Int a + b; fn(41)", "42")
+    expectEvalCompileTime("a = 1; fn = (b:Int):Int a + b; fn.call(41)", "42")
   }
 
 //  TODO: Enable this to test
@@ -35,21 +35,21 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("can call compile-time functions") {
-    expectEvalCompileTime("add = (a, b) { a + b }; add(1, 41)", "42")
+    expectEvalCompileTime("add = (a:Int, b:Int):Int { a + b }; add(1, 41)", "42")
   }
 
   test("does not evaluate runtime-only functions during compile-time") {
     expectEvalCompileTime(
-      "add = (a, b) { a + b }.runTimeOnly; add(1, 41)",
-      "add = (a, b) { a + b }; add(1, 41)"
+      "add = (a:Int, b:Int):Int { a + b }.runTimeOnly; add(1, 41)",
+      "add = (a:Int, b:Int):Int { a + b }; add(1, 41)"
     )
   }
 
   test("does not try to compile-time evaluate functions with some unknown arguments") {
     expectEvalCompileTime(
       """
-          unknown = () { 42 }
-          add = (a, b) { a + b }
+          unknown = ():Int { 42 }
+          add = (a:Int, b:Int):Int { a + b }
           var1 = unknown()
           var2 = 11
 
@@ -60,16 +60,16 @@ class CompileTimeEvaluationTest extends FunSuite {
 
     expectEvalCompileTime(
       """
-          unknown = () { 42 }.runTimeOnly
-          add = (a, b) { a + b }
+          unknown = ():Int { 42 }.runTimeOnly
+          add = (a:Int, b:Int):Int { a + b }
           var1 = unknown()
           var2 = 11
 
           add(var1, var2)
       """,
       """
-          unknown = () { 42 }
-          add = (a, b) { a + b }
+          unknown = ():Int { 42 }
+          add = (a:Int, b:Int):Int { a + b }
           var1 = unknown()
           var2 = 11
 
@@ -81,16 +81,16 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("evaluates some functions and leaves others during compile-time") {
     expectEvalCompileTime(
       """
-          unknown = () { 42 }.runTimeOnly
-          add = (a, b) { a + b }
+          unknown = ():Int { 42 }.runTimeOnly
+          add = (a:Int, b:Int):Int { a + b }
           var1 = unknown()
           var2 = add(1, 10)
 
           add(var1, var2)
       """,
       """
-          unknown = () { 42 }
-          add = (a, b) { a + b }
+          unknown = ():Int { 42 }
+          add = (a:Int, b:Int):Int { a + b }
           var1 = unknown()
           var2 = 11
 
@@ -102,19 +102,19 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("removes unused let bindings, keeping expressions for side-effects") {
     expectEvalCompileTime("unused = 11; 42", "42")
     expectEvalCompileTime(
-      "unknown = (){}.runTimeOnly; something = unknown(); 42",
-      "unknown = (){}; unknown(); 42"
+      "unknown = ():Int{}.runTimeOnly; something = unknown(); 42",
+      "unknown = ():Int{}; unknown(); 42"
     )
     expectEvalCompileTime(
-      "usedOnce = (a) { 41 + a }; result = usedOnce(1); result",
+      "usedOnce = (a:Int):Int { 41 + a }; result = usedOnce(1); result",
       "42"
     )
   }
 
   test("does not eliminate lets used by inner lambdas in params") {
     expectEvalCompileTime(
-      "unknown = (){}.runTimeOnly; () { unknown() }",
-      "unknown = (){}; () { unknown() }"
+      "unknown = ():Int{}.runTimeOnly; ():Int { unknown() }",
+      "unknown = ():Int{}; ():Int { unknown() }"
     )
 
 //    TODO: This probably needs to happen at some point, but it's fine for now.
@@ -127,76 +127,76 @@ class CompileTimeEvaluationTest extends FunSuite {
 
   test("variables are kept if the value is unknown and uses them") {
     expectEvalCompileTime(
-      "a = 42; () { a }",
-      "a = 42; () { a }"
+      "a = 42; ():Int { a }",
+      "a = 42; ():Int { a }"
     )
 
     expectEvalCompileTime(
-      "a = 42; unknown = () { a }.runTimeOnly; unknown()",
-      "a = 42; unknown = () { a }; unknown()"
+      "a = 42; unknown = ():Int { a }.runTimeOnly; unknown()",
+      "a = 42; unknown = ():Int { a }; unknown()"
     )
 
     expectEvalCompileTime(
-      "() { a = 42; () { a } }()",
-      "a = 42; () { a }"
+      "():Int { a = 42; ():Int { a } }()",
+      "a = 42; ():Int { a }"
     )
   }
 
   test("variables do not escape the scope (without partial evaluation)") {
     expectEvalCompileTime(
-      "outer = (a) { () { a } }; outer(42)",
-      "a = 42; () { a }"
+      "outer = (a:Int):Int { ():Int { a } }; outer(42)",
+      "a = 42; ():Int { a }"
     )
 
     expectEvalCompileTime(
-      "a = 11; outer = (a) { () { a } }; outer(a + 31)",
-      "a = 42; () { a }"
+      "a = 11; outer = (a:Int):Int { ():Int { a } }; outer(a + 31)",
+      "a = 42; ():Int { a }"
     )
 
     expectEvalCompileTime(
-      "a = 11; outer = (a) { () { a } }; outer(42); a",
+      "a = 11; outer = (a:Int):Int { ():Int { a } }; outer(42); a",
 //      "a = 11; (a = 42; () { a }); a"
       "11"
     )
 
     expectEvalCompileTime(
-      "fn = (a) { () { a } }; something = (x) { x }.runTimeOnly; something(param = fn(42))",
-      "something = (x) { x }; something(param = (a = 42; () { a }))"
+      "fn = (a:Int):Int { ():Int { a } }; something = (x:Int):Int { x }.runTimeOnly; something(param = fn(42))",
+      "something = (x:Int):Int { x }; something(param = (a = 42; ():Int { a }))"
     )
 
     expectEvalCompileTime(
       """
-        scope1 = (a) {
-          unknown = () { 42 }.runTimeOnly
+        scope1 = (a:Int):Int {
+          unknown = ():Int { 42 }.runTimeOnly
 
-          () { a + unknown() }
+          ():Int { a + unknown() }
         }
 
         scope1(1)
       """,
       """
         a = 1
-        unknown = () 42
+        unknown = ():Int 42
 
-        () { a + unknown() }
+        ():Int { a + unknown() }
       """
     )
 
     expectEvalCompileTime(
       """
-        scope1 = (a) {
-          unknown = () { a + 42 }.runTimeOnly
+        scope1 = (a:Int):Int {
+          unknown = ():Int { a + 42 }.runTimeOnly
 
-          () { a + unknown() }
+          ():Int { a + unknown() }
         }
 
         scope1(1)
       """,
       """
         a = 1
-        unknown = () a + 42
+        unknown = ():Int a + 42
 
-        () { a + unknown() }
+        ():Int { a + unknown() }
       """
     )
   }
@@ -204,10 +204,10 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("scope escapes with inner lets") {
     expectEvalCompileTime(
       """
-        outer = (a) {
+        outer = (a:Int):Int {
           inner = (
             b = 11
-            inner2 = () { a + b }
+            inner2 = ():Int { a + b }
             inner2
           )
 
@@ -219,15 +219,15 @@ class CompileTimeEvaluationTest extends FunSuite {
       """
         a = 42
         b = 11
-        () { a + b }
+        ():Int { a + b }
       """
     )
   }
 
   test("variables do not escape the scope") {
     expectEvalCompileTime(
-      "outer = (a) { () { a } }; outer(42)",
-      "a = 42; () { a }"
+      "outer = (a:Int):Int { ():Int { a } }; outer(42)",
+      "a = 42; ():Int { a }"
     )
 
 //    TODO: This probably needs to happen at some point, but it's fine for now.
@@ -239,19 +239,19 @@ class CompileTimeEvaluationTest extends FunSuite {
 
     expectEvalCompileTime(
       """
-        scope1 = (a) {
-          unknown = () { 42 }.runTimeOnly
+        scope1 = (a:Int):Int {
+          unknown = ():Int { 42 }.runTimeOnly
 
-          () { a + unknown() }
+          ():Int { a + unknown() }
         }
 
         scope1(1)
       """,
       """
         a = 1
-        unknown = () 42
+        unknown = ():Int 42
 
-        () { a + unknown() }
+        ():Int { a + unknown() }
       """
     )
   }

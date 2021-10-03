@@ -5,9 +5,9 @@ import photon.TestHelpers.{expectEval, expectEvalCompileTime, expectFailCompileT
 
 class ObjectTest extends FunSuite {
   test("simple objects") {
-    expectEvalCompileTime("Object(a = 42).a", "42")
-    expectEvalCompileTime("o = Object(a = 42); o.a", "42")
-    expectFailCompileTime("o = Object(a = 42); o.b", "Cannot call method b on Object.call(a = 42)")
+    expectEvalCompileTime("Object.new($type = Object($type = TypeType, a = Int), a = 42).a", "42")
+    expectEvalCompileTime("o = Object.new(a = 42); o.a", "42")
+    expectFailCompileTime("o = Object.new(a = 42); o.b", "Cannot call method b on Object.call(a = 42)")
   }
 
   test("calling methods on objects") {

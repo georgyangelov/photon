@@ -1,8 +1,8 @@
 package photon.core
 
-import photon.New
+import photon.{New, TypeType}
 
 object NothingType extends New.TypeObject {
-  override val methods = Map.empty
+  override val typeObject = TypeType
   override val instanceMethods = Map.empty
 }

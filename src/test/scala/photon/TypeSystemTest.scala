@@ -4,10 +4,15 @@ import org.scalatest.FunSuite
 import photon.TestHelpers.{expectEvalCompileTime, expectFailCompileTime}
 
 class TypeSystemTest extends FunSuite {
-  test("typechecking primitive types") {
-    expectEvalCompileTime("42: Int", "42")
-    expectFailCompileTime("42: String", "Incompatible types")
+  test("calling functions with types") {
+    expectEvalCompileTime("fn = (a: Int): Int a + 41; fn(1)", "42")
+    expectEvalCompileTime("fn = (a: Int, b: Int): Int a + b; fn(1, 41)", "42")
   }
+
+//  test("typechecking primitive types") {
+//    expectEvalCompileTime("42: Int", "42")
+//    expectFailCompileTime("42: String", "Incompatible types")
+//  }
 
 //  test("typechecking custom types") {
 //    val types = """

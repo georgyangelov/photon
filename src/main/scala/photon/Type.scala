@@ -1,6 +1,7 @@
 package photon
 
-import photon.core.{CallContext, NativeMethod, NativeValue}
+import photon.core.{NativeMethod, NativeValue}
+import photon.interpreter.CallContext
 
 //case class FnType(argumentTypes: Seq[ArgumentType], returnType: New.TypeObject) extends New.TypeObject {
 //  // TODO: This is not true
@@ -26,17 +27,17 @@ case class MethodType(name: String, argumentTypes: Seq[ArgumentType], returnType
 //}
 
 object TypeType extends New.TypeObject {
-  override val methods = Map.empty
+  override lazy val typeObject = TypeType
   override val instanceMethods = Map.empty
 }
 
 object AnyType extends New.TypeObject {
-  override val methods = Map.empty
+  override val typeObject = TypeType
   override val instanceMethods = Map.empty
 }
 
 object UnknownType extends New.TypeObject {
-  override val methods = Map.empty
+  override val typeObject = TypeType
   override val instanceMethods = Map.empty
 }
 
@@ -48,21 +49,14 @@ object UnknownType extends New.TypeObject {
 
 object New {
   abstract class TypeObject extends NativeValue {
-    override val typeObject = TypeType
-
-    val methods: Map[String, NativeMethod]
     val instanceMethods: Map[String, NativeMethod]
-    val methodTypes: Seq[MethodType] = instanceMethods.values.map(_.methodType).toSeq
 
-    def method(name: String): Option[NativeMethod] = methods.get(name)
+    // TODO: Do we need this since we have `instanceMethods`?
+    lazy val methodTypes: Seq[MethodType] = instanceMethods.values.map(_.methodType).toSeq
+
     def instanceMethod(name: String): Option[NativeMethod] = instanceMethods.get(name)
 
     val toValue = PureValue.Native(this, None)
-//    def toTypeParam = TypeParam.TypeObject(this)
-  }
-
-  abstract class InterfaceObject extends TypeObject {
-
   }
 
   // TODO: Do I need this since the NativeValue doesn't have any more stuff?
@@ -78,7 +72,8 @@ object New {
 //    val returns: TypeParam
     val returns: New.TypeObject
 
-    val methodType = MethodType(name, arguments, returns)
+    // TODO: Make this non-lazy
+    lazy val methodType = MethodType(name, arguments, returns)
 //    def methodType(argTypes: Seq[ArgumentType]) = MethodType(name, arguments, returns)
   }
 
@@ -91,6 +86,7 @@ object New {
     val arguments: Seq[ArgumentType]
     val returns: New.TypeObject
 
-    val methodType = MethodType(name, arguments, returns)
+    // TODO: Make this non-lazy
+    lazy val methodType = MethodType(name, arguments, returns)
   }
 }

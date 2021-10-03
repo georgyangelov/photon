@@ -2,13 +2,13 @@ package photon.core
 
 import photon.New.CompileTimeOnlyMethod
 import photon.frontend.{ASTValue, Parser, Token}
-import photon.{Arguments, Location, New, PureValue, RealValue, UnknownType}
+import photon.{Arguments, Location, New, PureValue, RealValue, TypeType, UnknownType}
 import photon.core.Conversions._
+import photon.interpreter.CallContext
 
 case class ParserObject(parser: Parser) extends New.NativeObject(ParserType)
 object ParserType extends New.TypeObject {
-  override val methods = Map.empty
-
+  override val typeObject = TypeType
   override val instanceMethods = Map(
     "parseNext" -> new CompileTimeOnlyMethod {
       override val name = "parseNext"
@@ -52,8 +52,7 @@ object ParserType extends New.TypeObject {
 
 case class TokenObject(token: Token) extends New.NativeObject(TokenType)
 object TokenType extends New.TypeObject {
-  override val methods = Map.empty
-
+  override val typeObject = TypeType
   override val instanceMethods = Map(
     "string" -> new CompileTimeOnlyMethod {
       override val name = "string"
@@ -86,8 +85,7 @@ case class MacroASTValue(ast: ASTValue) extends New.NativeObject(UnknownType) {
   override val isFullyEvaluated = false
 }
 object ASTValueType extends New.TypeObject {
-  override val methods = Map.empty
-
+  override val typeObject = TypeType
   override val instanceMethods = Map(
     // TODO: These are no longer "pure" methods
     "#" -> new CompileTimeOnlyMethod {

@@ -14,7 +14,7 @@ object ASTToValue {
       case ASTValue.String(value, location) => PureValue.String(value, location)
 
       case ASTValue.Block(block, location) =>
-        Operation.Block(block.values.map(transform(_, scope)), None, location)
+        Operation.Block(block.values.map(transform(_, scope)), None, None, location)
 
       case ASTValue.Function(params, astBody, returnType, location) =>
         val parameters = params.map { case ASTParameter(name, typeValue, location) =>
@@ -28,7 +28,7 @@ object ASTToValue {
         val returns = returnType.map(transform(_, scope))
         val fn = new Function(selfName, parameters, body, returns)
 
-        Operation.Function(fn, None, location)
+        Operation.Function(fn, None, None, location)
 
       case ASTValue.Call(target, name, astArguments, mayBeVarCall, location) =>
         val arguments = Arguments(
@@ -41,9 +41,10 @@ object ASTToValue {
           scope.find(name) match {
             case Some(value) =>
               return Operation.Call(
-                target = Operation.Reference(value, None, location),
+                target = Operation.Reference(value, None, None, location),
                 name = "call",
                 arguments = arguments,
+                None,
                 None,
                 location
               )
@@ -52,20 +53,21 @@ object ASTToValue {
           }
         }
 
-        Operation.Call(transform(target, scope), name, arguments, None, location)
+        Operation.Call(transform(target, scope), name, arguments, None, None, location)
 
       case ASTValue.NameReference(name, location) =>
         scope.find(name) match {
           case Some(variable) =>
-            Operation.Reference(variable, None, location)
+            Operation.Reference(variable, None, None, location)
 
           case None =>
             val self = scope.find("self").getOrElse { throw EvalError("Cannot find 'self' in scope", location) }
 
             Operation.Call(
-              target = Operation.Reference(self, None, location),
+              target = Operation.Reference(self, None, None, location),
               name = name,
               arguments = Arguments.empty,
+              None,
               None,
               location
             )
@@ -77,13 +79,14 @@ object ASTToValue {
         val expression = transform(value, innerScope)
         val body = transformBlock(block, innerScope, location)
 
-        Operation.Let(variable, expression, body, None, location)
+        Operation.Let(variable, expression, body, None, None, location)
     }
   }
 
   def transformBlock(block: ASTBlock, scope: StaticScope, location: Option[Location]): Operation.Block = {
     Operation.Block(
       block.values.map(transform(_, scope)),
+      None,
       None,
       location
     )

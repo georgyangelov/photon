@@ -1,7 +1,8 @@
 package photon.core
 
-import photon.{AnyType, ArgumentType, Arguments, Location, New, PureValue, RealValue}
+import photon.{AnyType, ArgumentType, Arguments, Location, New, PureValue, RealValue, TypeType}
 import photon.core.Conversions._
+import photon.interpreter.{CallContext, EvalError}
 
 private object BoolObjectArgs {
   val Self = Parameter(0, "self")
@@ -19,8 +20,13 @@ import BoolObjectArgs._
 //  val IfFalse = new TypeParam.TypeVar
 //}
 
+object BoolTypeType extends New.TypeObject {
+  override val typeObject = TypeType
+  override val instanceMethods = Map.empty
+}
+
 object BoolType extends New.TypeObject {
-  override val methods = Map.empty
+  override val typeObject = BoolTypeType
 
   override val instanceMethods = Map(
     "!" -> new New.StandardMethod {
@@ -64,7 +70,12 @@ object BoolType extends New.TypeObject {
           args.getFunction(IfFalseBranch)
         }
 
-        Core.callOrThrowError(lambda, context, "call", Arguments(None, Seq.empty, Map.empty), location)
+        // TODO: Make this easier to do
+        lambda.typeObject.getOrElse {
+          throw EvalError("Could not call lambda which does not have a type", location)
+        }.instanceMethod("call").getOrElse {
+          throw EvalError("Lambda does not have a call method", location)
+        }.call(context, Arguments(None, Seq.empty, Map.empty), location)
       }
     }
   )

@@ -1,7 +1,8 @@
 package photon.core
 
-import photon.{ArgumentType, Arguments, Location, New, PureValue, RealValue}
+import photon.{ArgumentType, Arguments, Location, New, PureValue, RealValue, TypeType}
 import photon.core.Conversions._
+import photon.interpreter.CallContext
 
 object StringObjectParams {
   val Self = Parameter(0, "self")
@@ -10,8 +11,10 @@ object StringObjectParams {
 
 import StringObjectParams._
 
-object StringType extends New.TypeObject {
-  override val methods = Map(
+object StringTypeType extends New.TypeObject {
+  override val typeObject = TypeType
+
+  override val instanceMethods = Map(
     "empty" -> new New.StandardMethod {
       override val name = "empty"
       override val arguments = Seq.empty
@@ -21,6 +24,10 @@ object StringType extends New.TypeObject {
         PureValue.String("", location)
     }
   )
+}
+
+object StringType extends New.TypeObject {
+  override val typeObject = StringTypeType
 
   override val instanceMethods = Map(
     "==" -> new New.StandardMethod {

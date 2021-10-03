@@ -2,9 +2,11 @@ package photon.core
 
 import photon.New.TypeObject
 import photon.core.Conversions._
-import photon.interpreter.{CallStackEntry, EvalError, Interpreter, RunMode}
+import photon.interpreter.{CallContext, EvalError}
 import photon.lib.ObjectId
-import photon.{Arguments, BoundValue, MethodType, FunctionTrait, Location, PureValue, RealValue, Scope, Value, New}
+import photon.{Arguments, BoundValue, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Scope, Value}
+
+import scala.reflect.ClassTag
 
 object Conversions {
   implicit class ValueAssert(value: Value) {
@@ -39,8 +41,8 @@ object Conversions {
       case _ => throw EvalError(s"Invalid value type $value, expected Object", value.location)
     }
 
-    def asNative[T <: NativeValue] = value match {
-      case PureValue.Native(native, _) if native.isInstanceOf[T] => native.asInstanceOf[T]
+    def asNative[T <: NativeValue](implicit tag: ClassTag[T]) = value match {
+      case PureValue.Native(native: T, _) => native
       case _ => throw EvalError(s"Invalid value type $value, expected some native", value.location)
     }
 
@@ -57,10 +59,10 @@ object Conversions {
     def getString(parameter: Parameter): String = get(parameter).asString
     def getFunction(parameter: Parameter): BoundValue.Function = get(parameter).asBoundFunction
     def getObject(parameter: Parameter): BoundValue.Object = get(parameter).asObject
-    def getNative[T <: NativeValue](parameter: Parameter): T = get(parameter).asNative[T]
-    def getNativeSelf[T <: NativeValue]: T = get(Parameter(0, "self")).asNative[T]
+    def getNative[T <: NativeValue](parameter: Parameter)(implicit tag: ClassTag[T]): T = get(parameter).asNative[T]
+    def getNativeSelf[T <: NativeValue](implicit tag: ClassTag[T]): T = get(Parameter(0, "self")).asNative[T]
 
-    def get(parameter: Parameter): Value = {
+    def get(parameter: Parameter): RealValue = {
       if (parameter.index == 0) {
         arguments.self.getOrElse { throw EvalError(s"Missing self argument", None) }
       } else if (parameter.index - 1 < arguments.positional.size) {
@@ -94,13 +96,6 @@ object Conversions {
     }
   }
 }
-
-case class CallContext(
-  interpreter: Interpreter,
-  runMode: RunMode,
-  callStack: Seq[CallStackEntry],
-  callScope: Scope
-)
 
 trait NativeValue {
   val isFullyEvaluated: Boolean = true

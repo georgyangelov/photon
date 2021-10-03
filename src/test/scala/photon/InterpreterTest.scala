@@ -15,10 +15,10 @@ class InterpreterTest extends FunSuite {
   }
 
   test("can call lambdas") {
-    expectEvalCompileTime("{ 42 }()", "42")
-    expectEvalCompileTime("{ 42 }.call", "42")
-    expectEvalCompileTime("(a){ a + 41 }(1)", "42")
-    expectEvalCompileTime("(a){ a + 41 }.call 1", "42")
+    expectEvalCompileTime("():Int{ 42 }()", "42")
+    expectEvalCompileTime("():Int{ 42 }.call", "42")
+    expectEvalCompileTime("(a:Int):Int{ a + 41 }(1)", "42")
+    expectEvalCompileTime("(a:Int):Int{ a + 41 }.call 1", "42")
   }
 
   test("assignment") {
@@ -26,50 +26,50 @@ class InterpreterTest extends FunSuite {
   }
 
   test("closures") {
-    expectEvalCompileTime("(a){ (b){ a + b } }(1)(41)", "42")
+    expectEvalCompileTime("(a:Int):Int{ (b:Int):Int{ a + b } }(1)(41)", "42")
   }
 
   test("higher-order functions") {
-    expectEvalCompileTime("(fn){ fn(1) }((a){ a + 41 })", "42")
-    expectEvalCompileTime("(fn){ fn(1) }((a){ b = a; b + 41 })", "42")
+    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
+    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ b = a; b + 41 })", "42")
   }
 
   test("simple macros") {
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
-      "unknown = (){}.runTimeOnly; add_one unknown()",
+      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); #e + 1 })",
+      "unknown = ():Int{}.runTimeOnly; add_one unknown()",
 
-      "unknown = (){}; unknown() + 1"
+      "unknown = ():Int{}; unknown() + 1"
     )
 
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); #e + 1 })",
-      "(a){ add_one(a + 2) }",
+      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); #e + 1 })",
+      "(a:Int):Int{ add_one(a + 2) }",
 
-      "(a){ a + 2 + 1 }"
+      "(a:Int):Int{ a + 2 + 1 }"
     )
 
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser) { e = parser.parseNext(); 42 })",
-      "(a){ add_one(a + 2) }",
+      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); 42 })",
+      "(a:Int):Int{ add_one(a + 2) }",
 
-      "(a){ 42 }"
+      "(a:Int):Int{ 42 }"
     )
   }
 
   test("named arguments") {
-    expectEvalCompileTime("(a) { 41 + a }(a = 1)", "42")
-    expectEvalCompileTime("(a, b) { 41 - a + b }(1, b = 2)", "42")
-    expectEvalCompileTime("(a, b, c) { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
+    expectEvalCompileTime("(a:Int):Int { 41 + a }(a = 1)", "42")
+    expectEvalCompileTime("(a:Int, b:Int):Int { 41 - a + b }(1, b = 2)", "42")
+    expectEvalCompileTime("(a:Int, b:Int, c:Int):Int { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
   }
 
   test("runtime-only functions") {
-    expectPhases("runtime = () { 42 }; runtime()", "42", "42")
-    expectPhases("runtime = () { 42 }.runTimeOnly; runtime()", "runtime = () { 42 }; runtime()", "42")
+    expectPhases("runtime = ():Int { 42 }; runtime()", "42", "42")
+    expectPhases("runtime = ():Int { 42 }.runTimeOnly; runtime()", "runtime = ():Int { 42 }; runtime()", "42")
   }
 
   test("compile-time-only functions") {
-    expectPhases("fn = () { 42 }.compileTimeOnly; fn()", "42", "42")
+    expectPhases("fn = ():Int { 42 }.compileTimeOnly; fn()", "42", "42")
   }
 
 // TODO: Make sure this is checked at some point with the type system
@@ -91,6 +91,6 @@ class InterpreterTest extends FunSuite {
 //  }
 
   test("binding to variable names in functions") {
-    expectEvalCompileTime("factorial = (n) { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
+    expectEvalCompileTime("factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 }

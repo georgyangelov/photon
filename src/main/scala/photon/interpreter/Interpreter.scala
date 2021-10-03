@@ -1,8 +1,9 @@
 package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
+import photon.New.TypeObject
 import photon.{ArgumentType, Arguments, BoundValue, FunctionTrait, Location, New, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
-import photon.core.{CallContext, Core, FunctionType, NothingType}
+import photon.core.{Core, FunctionType, NothingType}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 import photon.core.Conversions._
 
@@ -17,6 +18,23 @@ object RunMode {
 }
 
 case class CallStackEntry()
+
+case class CallContext(
+  interpreter: Interpreter,
+  runMode: RunMode,
+  callStack: Seq[CallStackEntry],
+  callScope: Scope
+) {
+  def callOrThrowError(target: RealValue, name: String, args: Arguments[RealValue], location: Option[Location]) = {
+    val typeObject = target.typeObject.getOrElse {
+      throw EvalError(s"Could not call $target as it does not have a type", location)
+    }
+
+    typeObject.instanceMethod(name).getOrElse {
+      throw EvalError(s"There is no method $name on $typeObject", location)
+    }.call(this, Arguments(None, Seq.empty, Map.empty), location)
+  }
+}
 
 class Interpreter {
   private val logger = Logger[Interpreter]
@@ -98,7 +116,7 @@ class Interpreter {
           // TODO: Smarter check with traits?
           if (letResult.mayHaveSideEffects) {
             // We should keep the operation as it may have side-effects
-            return Operation.Block(Seq(letResult, blockResult), realValue, location)
+            return Operation.Block(Seq(letResult, blockResult), blockResult.typeObject, realValue, location)
           } else {
             // We can remove the value - it shouldn't have any side-effects
             return blockResult
@@ -142,6 +160,8 @@ class Interpreter {
           }.asNative[New.TypeObject]
 
           Some(FunctionType(
+            // TODO
+            Set(FunctionTrait.CompileTime, FunctionTrait.Runtime),
             fn.params.zip(argTypes).map { case (parameter, typeObject) =>
               ArgumentType(parameter.name.originalName, typeObject)
             },
@@ -157,79 +177,180 @@ class Interpreter {
         val targetResult = evaluateCompileTime(target, scope)
         val argumentResults = arguments.map(evaluateCompileTime(_, scope))
 
-        val realTargetMaybe = targetResult.realValue
+        val targetType = targetResult.typeObject.getOrElse {
+          throw EvalError(s"Method target ($targetResult) must have a type", location)
+        }
+
+        val methodType = targetType.methodTypes.find(_.name == name).getOrElse {
+          throw EvalError(s"Method $name does not have a type on $targetResult's type", location)
+        }
+
+        // TODO: Typecheck arguments
+
+        val method = targetType.instanceMethod(name).getOrElse {
+          throw EvalError(
+            s"Method $name was present in the types but is not actually present in the instance methods",
+            location
+          )
+        }
+
         val realPositionalArguments = argumentResults.positional.map(_.realValue)
         val realNamedArguments = argumentResults.named.view.mapValues(_.realValue).toMap
 
-        val realTarget = realTargetMaybe match {
-          case Some(realValue) => realValue
-          case None => return Operation.Call(
-            targetResult,
-            name,
-            argumentResults,
-            ,
-            None,
-            location
+        val targetIsFullyKnown = targetResult.realValue.forall(_.isFullyKnown)
+        val argumentsAreFullyKnown =
+          realPositionalArguments.forall(_.exists(_.isFullyKnown)) &&
+            realNamedArguments.forall(_._2.exists(_.isFullyKnown))
+
+        if (method.traits.contains(FunctionTrait.CompileTime) && targetIsFullyKnown && argumentsAreFullyKnown) {
+          // TODO: Correct these
+          val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
+          val arguments = Arguments[RealValue](
+            self = targetResult.realValue,
+            positional = realPositionalArguments.map(_.get),
+            named = realNamedArguments.view.mapValues(_.get).toMap
           )
+
+          val result = method.call(callContext, arguments, location)
+          val resultWithCorrectType = changeType(result, Some(methodType.returnType))
+
+          logger.debug(s"[compile-time] [call] Evaluated $operation to $resultWithCorrectType")
+
+          return core.unbinder.unbind(resultWithCorrectType, scope)
         }
 
-        val targetIsFullyKnown = realTarget.isFullyKnown
-
-        val nativeValueForTarget = Core.nativeValueFor(realTarget)
-        val methodMaybe = nativeValueForTarget.method(name, location)
-
-        if (targetIsFullyKnown) {
-          val method = methodMaybe match {
-            case Some(value) => value
-            case None => throw EvalError(s"Cannot call method $name on $realTarget", location)
-          }
-
-          val argumentsAreAllReal =
-            realPositionalArguments.forall(_.isDefined) && realNamedArguments.forall(_._2.isDefined)
-
-          if (argumentsAreAllReal) {
-            val realArguments = Arguments(
-              if (realTarget.callsShouldIncludeSelf)
-                Some(realTarget)
-              else
-                None,
-              positional = realPositionalArguments.map(_.get),
-              named = realNamedArguments.view.mapValues(_.get).toMap
-            )
-            val argumentsAreFullyKnown = realArguments.forall(_.isFullyKnown)
-
-            val hasCompileTimeRunMode = method.traits.contains(FunctionTrait.CompileTime)
-
-            val canCallCompileTime = hasCompileTimeRunMode && argumentsAreFullyKnown
-
-            if (canCallCompileTime) {
-              // TODO: Correct these
-              val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
-
-              val result = method.call(callContext, realArguments, location)
-
-              logger.debug(s"[compile-time] [call] Evaluated $operation to $result")
-
-              return core.unbinder.unbind(result, scope)
-            }
-          }
-        }
-
-        if (methodMaybe.exists(_.traits.contains(FunctionTrait.Partial))) {
+        if (method.traits.contains(FunctionTrait.Partial)) {
+          // TODO: Correct these
           val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
 
-          val result = methodMaybe.get.partialCall(
-            callContext,
-            argumentResults.asInstanceOf[Arguments[Value]].withSelf(realTarget),
-            location
-          )
+          // TODO: Use real values if possible
+          val arguments = argumentResults
+            .asInstanceOf[Arguments[Value]]
+            .withSelf(targetResult.realValue.getOrElse(targetResult))
 
-          logger.debug(s"[partial] [call] Evaluated $operation to $result")
+          val result = method.partialCall(callContext, arguments, location)
+          val resultWithCorrectType = changeType(result, Some(methodType.returnType))
 
-          return core.unbinder.unbind(result, scope)
+          logger.debug(s"[partial] [call] Evaluated $operation to $resultWithCorrectType")
+
+          return core.unbinder.unbind(resultWithCorrectType, scope)
         }
 
-        Operation.Call(targetResult, name, argumentResults, , None, location)
+        Operation.Call(
+          targetResult,
+          name,
+          argumentResults,
+          Some(methodType.returnType),
+          None,
+          location
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+//        val realTarget = realTargetMaybe match {
+//          case Some(realValue) => realValue
+//          case None => return Operation.Call(
+//            targetResult,
+//            name,
+//            argumentResults,
+//            Some(methodType.returnType),
+//            None,
+//            location
+//          )
+//        }
+//
+//        val targetIsFullyKnown = realTarget.isFullyKnown
+//
+//        val nativeValueForTarget = Core.nativeValueFor(realTarget)
+//        val methodMaybe = nativeValueForTarget.method(name, location)
+//
+//        if (targetIsFullyKnown) {
+//          val method = methodMaybe match {
+//            case Some(value) => value
+//            case None => throw EvalError(s"Cannot call method $name on $realTarget", location)
+//          }
+//
+//          val argumentsAreAllReal =
+//            realPositionalArguments.forall(_.isDefined) && realNamedArguments.forall(_._2.isDefined)
+//
+//          if (argumentsAreAllReal) {
+//            val realArguments = Arguments(
+//              if (realTarget.callsShouldIncludeSelf)
+//                Some(realTarget)
+//              else
+//                None,
+//              positional = realPositionalArguments.map(_.get),
+//              named = realNamedArguments.view.mapValues(_.get).toMap
+//            )
+//            val argumentsAreFullyKnown = realArguments.forall(_.isFullyKnown)
+//
+//            val hasCompileTimeRunMode = method.traits.contains(FunctionTrait.CompileTime)
+//
+//            val canCallCompileTime = hasCompileTimeRunMode && argumentsAreFullyKnown
+//
+//            if (canCallCompileTime) {
+//              // TODO: Correct these
+//              val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
+//
+//              val result = method.call(callContext, realArguments, location)
+//
+//              logger.debug(s"[compile-time] [call] Evaluated $operation to $result")
+//
+//              return core.unbinder.unbind(result, scope)
+//            }
+//          }
+//        }
+//
+//        if (methodMaybe.exists(_.traits.contains(FunctionTrait.Partial))) {
+//          val callContext = CallContext(this, RunMode.CompileTime, callStack = Seq.empty, callScope = scope)
+//
+//          val result = methodMaybe.get.partialCall(
+//            callContext,
+//            argumentResults.asInstanceOf[Arguments[Value]].withSelf(realTarget),
+//            location
+//          )
+//
+//          logger.debug(s"[partial] [call] Evaluated $operation to $result")
+//
+//          return core.unbinder.unbind(result, scope)
+//        }
+//
+//        Operation.Call(targetResult, name, argumentResults, , None, location)
     }
+  }
+
+  private def changeType(value: Value, typeObject: Option[TypeObject]): Value = value match {
+    case pure: PureValue => pure
+
+    case BoundValue.Function(fn, traits, scope, _, location) =>
+      BoundValue.Function(fn, traits, scope, typeObject, location)
+
+    case BoundValue.Object(values, scope, _, location) =>
+      BoundValue.Object(values, scope, typeObject, location)
+
+    case Operation.Block(values, _, realValue, location) =>
+      Operation.Block(values, typeObject, realValue, location)
+
+    case Operation.Let(name, letValue, block, _, realValue, location) =>
+      Operation.Let(name, letValue, block, typeObject, realValue, location)
+
+    case Operation.Reference(name, _, realValue, location) =>
+      Operation.Reference(name, typeObject, realValue, location)
+
+    case Operation.Function(fn, _, realValue, location) =>
+      Operation.Function(fn, typeObject, realValue, location)
+
+    case Operation.Call(target, name, arguments, _, realValue, location) =>
+      Operation.Call(target, name, arguments, typeObject, realValue, location)
   }
 }

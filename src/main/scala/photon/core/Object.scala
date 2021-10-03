@@ -1,10 +1,12 @@
 package photon.core
 import photon.{AnyType, ArgumentType, Arguments, BoundValue, FunctionTrait, Location, MethodType, New, RealValue, TypeType, Value}
 import photon.core.Conversions._
-import photon.interpreter.EvalError
+import photon.interpreter.{CallContext, EvalError}
 
-object ObjectType extends New.TypeObject {
-  override val methods = Map(
+object ObjectTypeType extends New.TypeObject {
+  override val typeObject = TypeType
+
+  override val instanceMethods = Map(
     "new" -> new NativeMethod {
       final override val traits = Set(
         FunctionTrait.CompileTime,
@@ -35,6 +37,11 @@ object ObjectType extends New.TypeObject {
       }
     }
   )
+}
+
+// TODO: Rename to Struct or Dynamic?
+object ObjectType extends New.TypeObject {
+  override val typeObject = ObjectTypeType
 
   override val instanceMethods = Map.empty
 }

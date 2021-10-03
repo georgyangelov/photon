@@ -14,7 +14,9 @@ object ValueToAST {
 
   def transformAsBlock(value: UnboundValue): ASTBlock = {
     value match {
-      case Operation.Block(values, _, _) => ASTBlock(values.map(transform(_, Map.empty, None, forInspection = false)))
+      case Operation.Block(values, _, _, _) => ASTBlock(
+        values.map(transform(_, Map.empty, None, forInspection = false))
+      )
       case _ => ASTBlock(Seq(transform(value, Map.empty, None, forInspection = false)))
     }
   }
@@ -61,14 +63,14 @@ object ValueToAST {
 
       ASTValue.NameReference("<native>", location)
 
-    case BoundValue.Function(fn, _, _, location) =>
+    case BoundValue.Function(fn, _, _, _, location) =>
       if (!forInspection) {
         throw EvalError("Cannot convert BoundValue.Function to ASTValue", location)
       }
 
       transformFn(fn, varNames, location, forInspection)
 
-    case BoundValue.Object(values, _, location) =>
+    case BoundValue.Object(values, _, _, location) =>
       if (!forInspection) {
         throw EvalError("Cannot convert BoundValue.Object to ASTValue", location)
       }
@@ -84,13 +86,13 @@ object ValueToAST {
         location
       )
 
-    case Operation.Block(values, _, location) =>
+    case Operation.Block(values, _, _, location) =>
       ASTValue.Block(
         ASTBlock(values.map(transform(_, varNames, renameAllPrefix, forInspection))),
         location
       )
 
-    case Operation.Let(variable, letValue, block, _, location) =>
+    case Operation.Let(variable, letValue, block, _, _, location) =>
       val name = renameAllPrefix match {
         case Some(prefix) => s"${prefix}$$${variable.originalName}"
         case None =>
@@ -109,16 +111,16 @@ object ValueToAST {
         location
       )
 
-    case Operation.Reference(name, _, location) =>
+    case Operation.Reference(name, _, _, location) =>
       ASTValue.NameReference(
         varNames.getOrElse(name, name.originalName),
         location
       )
 
-    case Operation.Function(fn, _, location) =>
+    case Operation.Function(fn, _, _, location) =>
       transformFn(fn, varNames, location, forInspection)
 
-    case Operation.Call(target, name, arguments, _, location) =>
+    case Operation.Call(target, name, arguments, _, _, location) =>
       val astTarget = transform(target, varNames, renameAllPrefix, forInspection)
       val astArguments = ASTArguments(
         positional = arguments.positional.map(transform(_, varNames, renameAllPrefix, forInspection)),

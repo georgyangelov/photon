@@ -2,9 +2,8 @@ package photon.core
 
 import photon.New.TypeObject
 import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
-import photon.{AnyType, ArgumentType, Arguments, Location, New, PureValue, RealValue, Scope, TypeType,
-  Value, Variable, VariableName}
-import photon.interpreter.{EvalError, Unbinder}
+import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, New, PureValue, RealValue, Scope, TypeType, Value, Variable, VariableName}
+import photon.interpreter.{CallContext, EvalError, Unbinder}
 
 import scala.collection.mutable
 import photon.core.Conversions._
@@ -29,38 +28,40 @@ object Core {
 //  }
 
   // TODO: Find a better place for this
-  def callOrThrowError(
-    value: RealValue,
-    context: CallContext,
-    name: String,
-    args: Arguments[RealValue],
-    location: Option[Location]
-  ): Value = {
-    value.typeObject.getOrElse {
-      throw EvalError(s"Cannot call method $name on ${value.toString} because it has an unknown type", location)
-    }.instanceMethod(name) match {
-      case Some(method) => method.call(context, args.withSelf(value), location)
-      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
-    }
-  }
+//  def callOrThrowError(
+//    value: RealValue,
+//    context: CallContext,
+//    name: String,
+//    args: Arguments[RealValue],
+//    location: Option[Location]
+//  ): Value = {
+//    val typeObject = value.typeObject.getOrElse {
+//      throw EvalError(s"Cannot call method $name on ${value.toString} because it has an unknown type", location)
+//    }
+//
+//    typeObject match {
+//      case classObject: New.ClassObject =>
+//        classObject.instanceMethod(name) match {
+//          case Some(method) => method.call(context, args.withSelf(value), location)
+//          case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
+//        }
+//
+//      case _ => // TODO: Need to call args.self dynamically
+//    }
+//  }
 
-  def callOrThrowError(
-    typeObject: TypeObject,
-    context: CallContext,
-    name: String,
-    args: Arguments[RealValue],
-    location: Option[Location]
-  ): Value = {
-    typeObject.method(name) match {
-      case Some(method) => method.call(context, args.withSelf(typeObject.toValue), location)
-      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
-    }
-  }
-}
-
-object StringRootParams {
-  val Self = Parameter(0, "self")
-  val Other = Parameter(1, "other")
+//  def callOrThrowError(
+//    typeObject: TypeObject,
+//    context: CallContext,
+//    name: String,
+//    args: Arguments[RealValue],
+//    location: Option[Location]
+//  ): Value = {
+//    typeObject.method(name) match {
+//      case Some(method) => method.call(context, args.withSelf(typeObject.toValue), location)
+//      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
+//    }
+//  }
 }
 
 object CoreParams {
@@ -73,36 +74,26 @@ object CoreParams {
   val TypeCheckType = Parameter(2, "type")
 }
 
-class Core extends New.TypeObject {
-  val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
+object CoreType extends New.TypeObject {
+  override val typeObject = TypeType
 
-  val objectRootVar = new Variable(new VariableName("Object"), Some(ObjectType.toValue))
-
-  val rootScope: Scope = Scope.newRoot(Seq(
-    // TODO: Core should have a type
-    new Variable(new VariableName("Core"),   Some(this.toValue)),
-    new Variable(new VariableName("Type"),   Some(TypeType.toValue)),
-    objectRootVar,
-    new Variable(new VariableName("Int"),    Some(IntType.toValue)),
-    new Variable(new VariableName("Float"),  Some(FloatType.toValue)),
-    new Variable(new VariableName("String"), Some(StringType.toValue)),
-    new Variable(new VariableName("List"),   Some(ListType.toValue))
-  ))
-
-  val staticRootScope = StaticScope.fromScope(rootScope)
-  val unbinder = new Unbinder(this)
-
-  override val methods = Map(
+  override val instanceMethods = Map(
     "defineMacro" -> new New.CompileTimeOnlyMethod {
       override val name = "defineMacro"
       override val arguments = Seq(
         ArgumentType("name", StringType),
-        ArgumentType("handler", FunctionType(Seq(ArgumentType("parser", ParserType)), AnyType)),
+        ArgumentType("handler", FunctionType(
+          Set(FunctionTrait.Partial),
+          Seq(ArgumentType("parser", ParserType)),
+          AnyType
+        )),
       )
       override val returns = NothingType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        defineMacro(
+        val self = args.getNativeSelf[Core]
+
+        self.defineMacro(
           args.getString(CoreParams.DefineMacroName),
           // TODO: Support more value types as macro handlers (e.g. Structs or Natives)
           args.getFunction(CoreParams.DefineMacroLambda)
@@ -112,19 +103,43 @@ class Core extends New.TypeObject {
       }
     },
 
-//    "typeCheck" -> TypeCheckMethod(this)
+    //    "typeCheck" -> TypeCheckMethod(this)
   )
-  override val instanceMethods = Map.empty
+}
+
+class Core extends {
+  override val typeObject = CoreType
+  override val instanceMethods: Map[String, NativeMethod] = Map.empty
+} with New.TypeObject {
+  val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
+
+  val objectRootVar = new Variable(new VariableName("Object"), Some(ObjectType.toValue))
+
+  val rootScope: Scope = Scope.newRoot(Seq(
+    // TODO: Core should have a type
+    new Variable(new VariableName("Core"),     Some(this.toValue)),
+    new Variable(new VariableName("Type"),     Some(TypeType.toValue)),
+    objectRootVar,
+    new Variable(new VariableName("Int"),      Some(IntType.toValue)),
+    new Variable(new VariableName("Float"),    Some(FloatType.toValue)),
+    new Variable(new VariableName("String"),   Some(StringType.toValue)),
+    new Variable(new VariableName("List"),     Some(ListType.toValue)),
+    new Variable(new VariableName("Function"), Some(FunctionTypeType.toValue))
+  ))
+
+  val staticRootScope = StaticScope.fromScope(rootScope)
+  val unbinder = new Unbinder(this)
 
   def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
     macros.get(name) match {
       case Some(handler) =>
         val parserValue = PureValue.Native(ParserObject(parser), None)
-        val valueResult = Core.callOrThrowError(
-          handler.typeObject.get,
-          context,
+
+        val valueResult = context.callOrThrowError(
+          handler,
           "call",
           Arguments(Some(handler), Seq(parserValue), Map.empty),
+          // TODO: better location here
           handler.location
         )
 
