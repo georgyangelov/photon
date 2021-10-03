@@ -2,7 +2,7 @@ package photon.core
 
 import photon.New.CompileTimeOnlyMethod
 import photon.frontend.{ASTValue, Parser, Token}
-import photon.{Arguments, Location, New, PureValue, RealValue, TypeType, UnknownType}
+import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType, UnknownType}
 import photon.core.Conversions._
 import photon.interpreter.CallContext
 
@@ -11,9 +11,11 @@ object ParserType extends New.TypeObject {
   override val typeObject = TypeType
   override val instanceMethods = Map(
     "parseNext" -> new CompileTimeOnlyMethod {
-      override val name = "parseNext"
-      override val arguments = Seq.empty
-      override val returns = ASTValueType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "parseNext",
+        arguments = Seq.empty,
+        returns = ASTValueType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val ParserObject(parser) = args.getNativeSelf[ParserObject]
@@ -23,9 +25,11 @@ object ParserType extends New.TypeObject {
     },
 
     "nextToken" -> new CompileTimeOnlyMethod {
-      override val name = "nextToken"
-      override val arguments = Seq.empty
-      override val returns = TokenType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "nextToken",
+        arguments = Seq.empty,
+        returns = TokenType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val ParserObject(parser) = args.getNativeSelf[ParserObject]
@@ -35,9 +39,11 @@ object ParserType extends New.TypeObject {
     },
 
     "skipNextToken" -> new CompileTimeOnlyMethod {
-      override val name = "skipNextToken"
-      override val arguments = Seq.empty
-      override val returns = NothingType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "skipNextToken",
+        arguments = Seq.empty,
+        returns = NothingType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val ParserObject(parser) = args.getNativeSelf[ParserObject]
@@ -55,9 +61,11 @@ object TokenType extends New.TypeObject {
   override val typeObject = TypeType
   override val instanceMethods = Map(
     "string" -> new CompileTimeOnlyMethod {
-      override val name = "string"
-      override val arguments = Seq.empty
-      override val returns = StringType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "string",
+        arguments = Seq.empty,
+        returns = StringType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val TokenObject(token) = args.getNativeSelf[TokenObject]
@@ -67,9 +75,11 @@ object TokenType extends New.TypeObject {
     },
 
     "type" -> new CompileTimeOnlyMethod {
-      override val name = "type"
-      override val arguments = Seq.empty
-      override val returns = StringType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "type",
+        arguments = Seq.empty,
+        returns = StringType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val TokenObject(token) = args.getNativeSelf[TokenObject]
@@ -89,9 +99,11 @@ object ASTValueType extends New.TypeObject {
   override val instanceMethods = Map(
     // TODO: These are no longer "pure" methods
     "#" -> new CompileTimeOnlyMethod {
-      override val name = "#"
-      override val arguments = Seq.empty
-      override val returns = UnknownType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "#",
+        arguments = Seq.empty,
+        returns = UnknownType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val ASTValueObject(ast) = args.getNativeSelf[ASTValueObject]
@@ -101,9 +113,11 @@ object ASTValueType extends New.TypeObject {
     },
 
     "eval" -> new CompileTimeOnlyMethod {
-      override val name = "eval"
-      override val arguments = Seq.empty
-      override val returns = UnknownType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "eval",
+        arguments = Seq.empty,
+        returns = UnknownType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val ASTValueObject(ast) = args.getNativeSelf[ASTValueObject]

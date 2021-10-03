@@ -1,68 +1,11 @@
 package photon.core
 
-import photon.New.TypeObject
 import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
-import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, New, PureValue, RealValue, Scope, TypeType, Value, Variable, VariableName}
-import photon.interpreter.{CallContext, EvalError, Unbinder}
+import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Scope, TypeType, Variable, VariableName}
+import photon.interpreter.{CallContext, Unbinder}
 
 import scala.collection.mutable
 import photon.core.Conversions._
-
-object Core {
-//  def nativeValueFor(realValue: RealValue): NativeValue = realValue match {
-//    case PureValue.Nothing(location) => error(location)
-//    case PureValue.Boolean(_, _) => BoolObject
-//    case PureValue.Int(_, _) => IntObject
-//    case PureValue.Float(_, location) => error(location)
-//    case PureValue.String(_, _) => StringObject
-//    case PureValue.Native(native, _) => native
-//
-//    case fn: BoundValue.Function => nativeValueFor(fn)
-//    case obj: BoundValue.Object => ObjectObject(obj)
-//  }
-//
-//  def nativeValueFor(boundFn: BoundValue.Function): NativeValue = BoundFunctionObject(boundFn)
-//
-//  private def error(l: Option[Location]): Nothing = {
-//    throw EvalError("Cannot call methods on this object (yet)", l)
-//  }
-
-  // TODO: Find a better place for this
-//  def callOrThrowError(
-//    value: RealValue,
-//    context: CallContext,
-//    name: String,
-//    args: Arguments[RealValue],
-//    location: Option[Location]
-//  ): Value = {
-//    val typeObject = value.typeObject.getOrElse {
-//      throw EvalError(s"Cannot call method $name on ${value.toString} because it has an unknown type", location)
-//    }
-//
-//    typeObject match {
-//      case classObject: New.ClassObject =>
-//        classObject.instanceMethod(name) match {
-//          case Some(method) => method.call(context, args.withSelf(value), location)
-//          case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
-//        }
-//
-//      case _ => // TODO: Need to call args.self dynamically
-//    }
-//  }
-
-//  def callOrThrowError(
-//    typeObject: TypeObject,
-//    context: CallContext,
-//    name: String,
-//    args: Arguments[RealValue],
-//    location: Option[Location]
-//  ): Value = {
-//    typeObject.method(name) match {
-//      case Some(method) => method.call(context, args.withSelf(typeObject.toValue), location)
-//      case None => throw EvalError(s"Cannot call method $name on ${this.toString}", location)
-//    }
-//  }
-}
 
 object CoreParams {
   val Self = Parameter(0, "self")
@@ -79,16 +22,19 @@ object CoreType extends New.TypeObject {
 
   override val instanceMethods = Map(
     "defineMacro" -> new New.CompileTimeOnlyMethod {
-      override val name = "defineMacro"
-      override val arguments = Seq(
-        ArgumentType("name", StringType),
-        ArgumentType("handler", FunctionType(
-          Set(FunctionTrait.Partial),
-          Seq(ArgumentType("parser", ParserType)),
-          AnyType
-        )),
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "defineMacro",
+        arguments = Seq(
+          ArgumentType("name", StringType),
+          ArgumentType("handler", FunctionType(
+            Set(FunctionTrait.Partial),
+            Seq(ArgumentType("parser", ParserType)),
+            AnyType
+          )),
+        ),
+        // TODO
+        returns = AnyType
       )
-      override val returns = NothingType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val self = args.getNativeSelf[Core]

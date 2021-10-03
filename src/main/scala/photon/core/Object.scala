@@ -15,14 +15,14 @@ object ObjectTypeType extends New.TypeObject {
         FunctionTrait.Pure
       )
 
-      override val methodType = MethodType(
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
         name = "new",
-        argumentTypes = Seq(
+        arguments = Seq(
           // TODO: Make this optional
           ArgumentType("type", TypeType)
         ),
         // TODO: Make this not be any
-        returnType = AnyType
+        returns = AnyType
       )
 
       override def call(context: CallContext, arguments: Arguments[RealValue], location: Option[Location]) =

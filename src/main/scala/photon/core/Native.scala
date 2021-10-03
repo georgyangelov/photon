@@ -4,7 +4,7 @@ import photon.New.TypeObject
 import photon.core.Conversions._
 import photon.interpreter.{CallContext, EvalError}
 import photon.lib.ObjectId
-import photon.{Arguments, BoundValue, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Scope, Value}
+import photon.{ArgumentType, Arguments, BoundValue, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Value}
 
 import scala.reflect.ClassTag
 
@@ -122,7 +122,8 @@ trait NativeValue {
 trait NativeMethod {
   val methodId = ObjectId()
   val traits: Set[FunctionTrait]
-  val methodType: MethodType
+
+  def methodType(argTypes: Arguments[New.TypeObject]): MethodType
 
   def call(
     context: CallContext,

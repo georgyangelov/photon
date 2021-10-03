@@ -181,11 +181,9 @@ class Interpreter {
           throw EvalError(s"Method target ($targetResult) must have a type", location)
         }
 
-        val methodType = targetType.methodTypes.find(_.name == name).getOrElse {
-          throw EvalError(s"Method $name does not have a type on $targetResult's type", location)
-        }
-
-        // TODO: Typecheck arguments
+//        val methodType = targetType.methodTypes.find(_.name == name).getOrElse {
+//          throw EvalError(s"Method $name does not have a type on $targetResult's type", location)
+//        }
 
         val method = targetType.instanceMethod(name).getOrElse {
           throw EvalError(
@@ -193,6 +191,12 @@ class Interpreter {
             location
           )
         }
+
+        val methodType = method.methodType(
+          argumentResults.map(_.typeObject.get)
+        )
+
+        // TODO: Typecheck arguments
 
         val realPositionalArguments = argumentResults.positional.map(_.realValue)
         val realNamedArguments = argumentResults.named.view.mapValues(_.realValue).toMap
@@ -212,7 +216,7 @@ class Interpreter {
           )
 
           val result = method.call(callContext, arguments, location)
-          val resultWithCorrectType = changeType(result, Some(methodType.returnType))
+          val resultWithCorrectType = changeType(result, Some(methodType.returns))
 
           logger.debug(s"[compile-time] [call] Evaluated $operation to $resultWithCorrectType")
 
@@ -229,7 +233,7 @@ class Interpreter {
             .withSelf(targetResult.realValue.getOrElse(targetResult))
 
           val result = method.partialCall(callContext, arguments, location)
-          val resultWithCorrectType = changeType(result, Some(methodType.returnType))
+          val resultWithCorrectType = changeType(result, Some(methodType.returns))
 
           logger.debug(s"[partial] [call] Evaluated $operation to $resultWithCorrectType")
 
@@ -240,7 +244,7 @@ class Interpreter {
           targetResult,
           name,
           argumentResults,
-          Some(methodType.returnType),
+          Some(methodType.returns),
           None,
           location
         )

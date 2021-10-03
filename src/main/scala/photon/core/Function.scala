@@ -2,7 +2,7 @@ package photon.core
 
 import com.typesafe.scalalogging.Logger
 import photon.interpreter.{CallContext, EvalError}
-import photon.{ArgumentType, Arguments, FunctionTrait, Location, MethodType, New, PureValue, RealValue, TypeType, Value, Variable}
+import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, MethodType, New, PureValue, RealValue, TypeType, Value, Variable}
 import photon.core.Conversions._
 
 object FunctionTypeTypeType extends New.TypeObject {
@@ -10,10 +10,12 @@ object FunctionTypeTypeType extends New.TypeObject {
 
   override val instanceMethods = Map(
     "call" -> new {} with New.CompileTimeOnlyMethod {
-      override val name = "call"
-      // TODO: Varargs
-      override val arguments = Seq.empty
-      override lazy val returns = FunctionTypeType
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "call",
+        // TODO: Varargs
+        arguments = Seq.empty,
+        returns = FunctionTypeType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val argTypes = args.positional.drop(1).map(_.asNative[New.TypeObject])
@@ -47,10 +49,14 @@ case class FunctionType(
   override val instanceMethods = Map(
     "runTimeOnly" -> new {} with NativeMethod {
       override val traits = Set(FunctionTrait.Partial)
-      override lazy val methodType = MethodType(
-        "runTimeOnly",
-        Seq.empty,
-        FunctionType(Set(FunctionTrait.Runtime), argumentTypes, returnType)
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "runTimeOnly",
+        arguments = Seq.empty,
+        returns = FunctionType(
+          Set(FunctionTrait.Runtime),
+          argumentTypes,
+          returnType
+        )
       )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = ???
@@ -63,7 +69,11 @@ case class FunctionType(
       // TODO: Make traits be part of the type
       override val traits = fnTraits
 
-      override val methodType = MethodType("call", argumentTypes, returnType)
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "call",
+        arguments = argumentTypes,
+        returns = returnType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val boundFn = args.getFunction(Parameter(0, "self"))

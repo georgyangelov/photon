@@ -1,6 +1,6 @@
 package photon.core
 import photon.interpreter.{CallContext, EvalError}
-import photon.{Arguments, Location, New, PureValue, RealValue, TypeType, Value}
+import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType, Value}
 import photon.core.Conversions._
 
 object ListTypeType extends New.TypeObject {
@@ -8,10 +8,12 @@ object ListTypeType extends New.TypeObject {
 
   override val instanceMethods = Map(
     "of" -> new New.StandardMethod {
-      override val name = "of"
-      // TODO: Varargs
-      override val arguments = Seq.empty
-      override val returns = ListType
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "of",
+        // TODO: Varargs
+        arguments = Seq.empty,
+        returns = ListType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         if (args.named.nonEmpty) {
@@ -23,9 +25,11 @@ object ListTypeType extends New.TypeObject {
     },
 
     "empty" -> new New.StandardMethod {
-      override val name = "empty"
-      override val arguments = Seq.empty
-      override val returns = ListType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "empty",
+        arguments = Seq.empty,
+        returns = ListType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Native(List(Seq.empty), location)
@@ -38,9 +42,11 @@ object ListType extends New.TypeObject {
 
   val instanceMethods = Map(
     "size" -> new New.StandardMethod {
-      override val name = "size"
-      override val arguments = Seq.empty
-      override val returns = IntType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "size",
+        arguments = Seq.empty,
+        returns = IntType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Int(args.getNativeSelf[List].values.length, location)

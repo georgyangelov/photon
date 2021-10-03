@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{AnyType, ArgumentType, Arguments, Location, New, PureValue, RealValue, TypeType}
+import photon.{AnyType, ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
 import photon.core.Conversions._
 import photon.interpreter.{CallContext, EvalError}
 
@@ -30,18 +30,22 @@ object BoolType extends New.TypeObject {
 
   override val instanceMethods = Map(
     "!" -> new New.StandardMethod {
-      override val name = "!"
-      override val arguments = Seq.empty
-      override val returns = BoolType
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "!",
+        arguments = Seq.empty,
+        returns = BoolType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Boolean(!args.getBool(Self), location)
     },
 
     "toBool" -> new New.StandardMethod {
-      override val name = "toBool"
-      override val arguments = Seq.empty
-      override val returns = BoolType
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "toBool",
+        arguments = Seq.empty,
+        returns = BoolType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Boolean(args.getBool(Self), location)
@@ -51,12 +55,15 @@ object BoolType extends New.TypeObject {
      * def ifElse(ifTrue: Fn(let T1), ifFalse: Fn(let T2)): Union(T1, T2)
      */
     "ifElse" -> new New.StandardMethod {
-      override val name = "ifElse"
-      override val arguments = Seq(
-        ArgumentType("ifTrue", AnyType),
-        ArgumentType("ifFalse", AnyType)
+      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "ifElse",
+        arguments = Seq(
+          ArgumentType("ifTrue", AnyType),
+          ArgumentType("ifFalse", AnyType)
+        ),
+        returns = AnyType
       )
-      override val returns = AnyType
+
 //      override val arguments = Seq(
 //        ArgumentType("ifTrue", FnType(Seq.empty, T.IfTrue).toTypeParam),
 //        ArgumentType("ifFalse", FnType(Seq.empty, T.IfFalse).toTypeParam)

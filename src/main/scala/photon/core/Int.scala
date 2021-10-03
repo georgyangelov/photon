@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{ArgumentType, Arguments, Location, New, PureValue, RealValue, TypeType}
+import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
 import photon.core.Conversions._
 import photon.interpreter.CallContext
 
@@ -15,9 +15,11 @@ object IntTypeType extends New.TypeObject {
   override val typeObject = TypeType
   override val instanceMethods = Map(
     "answer" -> new New.StandardMethod {
-      override val name = "answer"
-      override val arguments = Seq.empty
-      override val returns = IntType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "answer",
+        arguments = Seq.empty,
+        returns = IntType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Int(42, location)
@@ -30,11 +32,13 @@ object IntType extends New.TypeObject {
 
   override val instanceMethods = Map(
     "+" -> new New.StandardMethod {
-      override val name = "+"
-      override val arguments = Seq(
-        ArgumentType("other", IntType)
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "+",
+        arguments = Seq(
+          ArgumentType("other", IntType)
+        ),
+        returns = IntType
       )
-      override val returns = IntType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val a = args.getInt(FirstParam)
@@ -45,11 +49,13 @@ object IntType extends New.TypeObject {
     },
 
     "-" -> new New.StandardMethod {
-      override val name = "-"
-      override val arguments = Seq(
-        ArgumentType("other", IntType)
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "-",
+        arguments = Seq(
+          ArgumentType("other", IntType)
+        ),
+        returns = IntType
       )
-      override val returns = IntType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val a = args.getInt(FirstParam)
@@ -60,11 +66,13 @@ object IntType extends New.TypeObject {
     },
 
     "*" -> new New.StandardMethod {
-      override val name = "*"
-      override val arguments = Seq(
-        ArgumentType("other", IntType)
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "*",
+        arguments = Seq(
+          ArgumentType("other", IntType)
+        ),
+        returns = IntType
       )
-      override val returns = IntType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val a = args.getInt(FirstParam)
@@ -90,11 +98,13 @@ object IntType extends New.TypeObject {
 //    },
 
     "==" -> new New.StandardMethod {
-      override val name = "=="
-      override val arguments = Seq(
-        ArgumentType("other", IntType)
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "==",
+        arguments = Seq(
+          ArgumentType("other", IntType)
+        ),
+        returns = BoolType
       )
-      override val returns = BoolType
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
         val a = args.getInt(FirstParam)
@@ -105,9 +115,11 @@ object IntType extends New.TypeObject {
     },
 
     "toBool" -> new New.StandardMethod {
-      override val name = "toBool"
-      override val arguments = Seq.empty
-      override val returns = BoolType
+      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
+        name = "toBool",
+        arguments = Seq.empty,
+        returns = BoolType
+      )
 
       override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
         PureValue.Boolean(value = true, location)

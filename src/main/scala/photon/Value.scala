@@ -312,7 +312,7 @@ case class Parameter(name: VariableName, typeValue: Option[UnboundValue], locati
 
 /* Arguments */
 
-case class Arguments[T <: Value](
+case class Arguments[T](
   self: Option[T],
   positional: Seq[T],
   named: Map[String, T]
@@ -320,7 +320,7 @@ case class Arguments[T <: Value](
   def withoutSelf = Arguments(None, positional, named)
   def withSelf(value: T) = Arguments(Some(value), positional, named)
 
-  def map[R <: Value](f: T => R) = Arguments(
+  def map[R](f: T => R) = Arguments(
     self.map(f),
     positional.map(f),
     named.view.mapValues(f).toMap
