@@ -2,7 +2,7 @@ package photon.interpreter
 
 import com.typesafe.scalalogging.Logger
 import photon.New.TypeObject
-import photon.{ArgumentType, Arguments, BoundValue, FunctionTrait, Location, New, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
+import photon.{AnyType, ArgumentType, Arguments, BoundValue, FunctionTrait, Location, New, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
 import photon.core.{Core, FunctionType, NothingType}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
 import photon.core.Conversions._
@@ -216,7 +216,14 @@ class Interpreter {
           )
 
           val result = method.call(callContext, arguments, location)
-          val resultWithCorrectType = changeType(result, Some(methodType.returns))
+          val resultWithCorrectType =
+            // TODO: This is an edge case I'm not sure should be here.
+            //       It's currently done to support the dynamic type of Class.new
+            if (!result.typeObject.contains(AnyType)) {
+              result
+            } else {
+              changeType(result, Some(methodType.returns))
+            }
 
           logger.debug(s"[compile-time] [call] Evaluated $operation to $resultWithCorrectType")
 

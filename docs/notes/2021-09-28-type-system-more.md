@@ -48,3 +48,31 @@ Given a call to `target.methodName`
 
 1. If typeof(target).$type == Class, then use typeof(target).$instanceMethods["methodName"]
 2. else wait until target is known and do dynamic dispatch: target["methodName"]
+
+## Objects describing the types
+
+class Person
+  def name: String
+  def age: Int
+
+  def asl
+    "$name, $age"
+  end
+end
+
+->
+
+Person = Class.new(
+  fields = List.of(
+    Class.field("name", String),
+    Class.field("age", Int)
+  ),
+
+  instanceMethods = List.of(
+    Class.method("asl", (): String "$name, $age")
+  )
+)
+
+person = Person.new(name = "Ivan", age = 42)
+
+person.asl #=> Ivan, 42
