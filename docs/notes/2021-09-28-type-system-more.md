@@ -69,10 +69,64 @@ Person = Class.new(
   ),
 
   instanceMethods = List.of(
-    Class.method("asl", (): String "$name, $age")
+    Class.method("asl", (self: Person): String "$name, $age")
   )
 )
 
 person = Person.new(name = "Ivan", age = 42)
 
 person.asl #=> Ivan, 42
+
+aslMethod = person.method("asl")
+aslMethod.call #=> Ivan, 42
+
+typeOf((self: Person): String "$name, $age") #=> Function(String)
+
+(): String "$name, $age"
+(self: Person): String "$name, $age"
+
+
+
+
+
+
+
+
+
+class Person
+  def name: String
+  def age: Int
+
+  def asl
+    "$name, $age"
+  end
+end
+
+->
+
+builder = ClassBuilder.new('Person')
+
+builder.property('name', String)
+builder.property('age', Int)
+
+builder.instanceMethod('asl', (Self: Type) (self: Self) "$name, $age")
+
+Person = builder.build
+
+
+
+
+class Person
+  def parent: Optional(Person)
+  def age: Int
+
+  def asl
+    "$name, $age"
+  end
+end
+
+->
+
+Person = Class.new('Person')
+Person.addProperty('parent', Optional(Person))
+Person.add

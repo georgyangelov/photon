@@ -219,6 +219,9 @@ class Interpreter {
           val resultWithCorrectType =
             // TODO: This is an edge case I'm not sure should be here.
             //       It's currently done to support the dynamic type of Class.new
+            //       Maybe the correct thing would be to just use the type. As we're evaluating
+            //       the function compile-time, we know what the actual type is and it can be
+            //       more specific.
             if (!result.typeObject.contains(AnyType)) {
               result
             } else {

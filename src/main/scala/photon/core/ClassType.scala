@@ -2,7 +2,7 @@ package photon.core
 
 import photon.New.TypeObject
 import photon.interpreter.{CallContext, EvalError}
-import photon.{AnyType, ArgumentType, Arguments, BoundValue, Location, MethodType, New, PureValue, RealValue, TypeType}
+import photon.{AnyType, ArgumentType, Arguments, BoundValue, Location, MethodType, New, PureValue, RealValue, TypeType, Value}
 import photon.core.Conversions._
 
 // Class.type
@@ -119,7 +119,15 @@ case class ClassType(
 
       self.values.getOrElse(field.name, throw EvalError(s"Object $self needs to contain a field '${field.name}'", location))
     }
-  }).toMap ++ _instanceMethods
+  }).toMap ++ _instanceMethods.map { case (name -> method) => name -> new NativeMethod {
+    override val traits = method.traits
+
+    override def methodType(argTypes: Arguments[TypeObject]) = method.methodType(argTypes)
+    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      method.call(context, args, location)
+    override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) =
+      method.partialCall(context, args, location)
+  }}.toMap
 }
 
 object FieldType extends New.TypeObject {
