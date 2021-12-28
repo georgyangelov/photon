@@ -45,4 +45,44 @@ class ClassTest extends FunSuite {
       "43"
     )
   }
+
+  test("can create classes with properties referencing the class") {
+    expectEvalCompileTime(
+      """
+      Person = Class.new(
+        fields = List.of(
+          Class.field("name", String),
+          Class.field("parent", (): Type { Optional(Person) })
+        ),
+        instanceMethods = List.of()
+      )
+
+      person = Person.new(name = "Ivan", parent = Optional(Person).none)
+      person.parent
+      """,
+      "None"
+    )
+  }
+
+  test("can create mutually-recursive classes") {
+    expectEvalCompileTime(
+      """
+      recursive {
+        OptionalPerson = Optional(Person),
+
+        Person = Class.new(
+          fields = List.of(
+            Class.field("name", String),
+            Class.field("parent", (): Type { OptionalPerson })
+          ),
+          instanceMethods = List.of()
+        )
+      }
+
+      person = Person.new(name = "Ivan", parent = OptionalPerson.none)
+      person.parent
+      """,
+      "None"
+    )
+  }
 }

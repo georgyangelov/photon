@@ -4,6 +4,7 @@ import photon.New.TypeObject
 import photon.interpreter.{CallContext, EvalError}
 import photon.{AnyType, ArgumentType, Arguments, BoundValue, Location, MethodType, New, PureValue, RealValue, TypeType, Value}
 import photon.core.Conversions._
+import photon.lib.{Eager, Lazy}
 
 // Class.type
 object ClassTypeTypeType extends New.TypeObject {
@@ -40,7 +41,7 @@ object ClassTypeTypeType extends New.TypeObject {
       }
     },
 
-    "field" -> new New.CompileTimeOnlyMethod {
+    "field" -> new New.PartialMethod {
       override def methodType(argTypes: Arguments[TypeObject]) = MethodType(
         name = "field",
         arguments = Seq(
@@ -50,15 +51,23 @@ object ClassTypeTypeType extends New.TypeObject {
         returns = FieldType
       )
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val name = args.getString(Parameter(1, "name"))
-        val typeObject = args.getNative[New.TypeObject](Parameter(2, "type"))
+      override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = {
+        val name = args.get(Parameter(1, "name")).realValue.get.asString
+        val typeArg = args.get(Parameter(2, "type")).realValue.get
+
+        val typeObject =
+          if (typeArg.isInstanceOf[BoundValue.Function])
+            Lazy.of(() => context
+              .callOrThrowError(typeArg.asBoundFunction, "call", Arguments.empty, location)
+              .asNative[New.TypeObject])
+          else
+            Eager(typeArg.asNative[New.TypeObject])
 
         PureValue.Native(FieldObject(name, typeObject), location)
       }
     },
 
-    "method" -> new New.CompileTimeOnlyMethod {
+    "method" -> new New.PartialMethod {
       override def methodType(argTypes: Arguments[TypeObject]) = MethodType(
         name = "method",
         arguments = Seq(
@@ -68,9 +77,9 @@ object ClassTypeTypeType extends New.TypeObject {
         returns = MethodObjectType
       )
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val name = args.getString(Parameter(1, "name"))
-        val function = args.getFunction(Parameter(2, "function"))
+      override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = {
+        val name = args.get(Parameter(1, "name")).realValue.get.asString
+        val function = args.get(Parameter(2, "function")).realValue.get.asBoundFunction
 
         PureValue.Native(MethodObject(name, function), location)
       }
@@ -111,7 +120,7 @@ case class ClassType(
     override def methodType(argTypes: Arguments[TypeObject]) = MethodType(
       name = field.name,
       arguments = Seq.empty,
-      returns = field.fieldType
+      returns = field.fieldType.resolve
     )
 
     override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
@@ -134,7 +143,7 @@ object FieldType extends New.TypeObject {
   override val typeObject = TypeType
   override val instanceMethods = Map.empty
 }
-case class FieldObject(name: String, fieldType: TypeObject) extends New.NativeObject(FieldType)
+case class FieldObject(name: String, fieldType: Lazy[TypeObject]) extends New.NativeObject(FieldType)
 
 object MethodObjectType extends New.TypeObject {
   override val typeObject = TypeType

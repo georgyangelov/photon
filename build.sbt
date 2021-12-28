@@ -1,4 +1,4 @@
-name := "photon-scala"
+name := "photon"
 
 version := "0.1"
 

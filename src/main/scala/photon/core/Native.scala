@@ -85,8 +85,10 @@ object Conversions {
     def getObject(parameter: Parameter): BoundValue.Object = get(parameter).asObject
 
     def get(parameter: Parameter): Value = {
-      if (parameter.index < arguments.positional.size) {
-        arguments.positional(parameter.index)
+      if (parameter.index == 0) {
+        arguments.self.getOrElse { throw EvalError(s"Missing self argument", None) }
+      } else if (parameter.index - 1 < arguments.positional.size) {
+        arguments.positional(parameter.index - 1)
       } else {
         arguments.named.get(parameter.name) match {
           case Some(value) => value

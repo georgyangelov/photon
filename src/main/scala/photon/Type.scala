@@ -49,4 +49,12 @@ object New {
 
     def methodType(argTypes: Arguments[New.TypeObject]): MethodType
   }
+
+  abstract class PartialMethod extends NativeMethod {
+    final override val traits = Set(FunctionTrait.Partial)
+    final override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
+      throw new NotImplementedError("call invoked on a partial method")
+
+    def methodType(argTypes: Arguments[New.TypeObject]): MethodType
+  }
 }

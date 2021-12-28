@@ -71,7 +71,8 @@ class Core extends {
     new Variable(new VariableName("String"),   Some(StringType.toValue)),
     new Variable(new VariableName("List"),     Some(ListType.toValue)),
     new Variable(new VariableName("Function"), Some(FunctionTypeType.toValue)),
-    new Variable(new VariableName("Class"),    Some(PureValue.Native(ClassObject, None)))
+    new Variable(new VariableName("Class"),    Some(PureValue.Native(ClassObject, None))),
+    new Variable(new VariableName("Optional"), Some(PureValue.Native(OptionalObject, None)))
   ))
 
   val staticRootScope = StaticScope.fromScope(rootScope)
