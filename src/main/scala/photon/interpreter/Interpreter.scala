@@ -5,7 +5,6 @@ import photon.New.TypeObject
 import photon.{AnyType, ArgumentType, Arguments, BoundValue, FunctionTrait, Location, New, Operation, PhotonError, PureValue, RealValue, Scope, UnboundValue, Value, Variable}
 import photon.core.{Core, FunctionType, NothingType}
 import photon.frontend.{ASTBlock, ASTToValue, ASTValue, Parser}
-import photon.core.Conversions._
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
