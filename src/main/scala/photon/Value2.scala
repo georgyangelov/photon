@@ -2,10 +2,9 @@ package photon
 
 import photon.interpreter.EvalError
 import photon.core2.Type
+import photon.lib.{Lazy, ObjectId}
 
 import scala.reflect.ClassTag
-
-sealed trait Value {}
 
 sealed trait UValue {
   val location: Option[Location]
@@ -50,14 +49,67 @@ object UOperation {
 }
 
 trait EValue {
-  val typ: Type
+  def typ: Type
   val location: Option[Location]
+
+  def mayHaveSideEffects: Boolean
 
   def assert[T <: EValue](implicit tag: ClassTag[T]) =
     this match {
       case value: T => value
       case _ => throw EvalError(s"Invalid value type $this, expected a native value", this.location)
     }
+}
+
+
+
+class VariableName(val originalName: String) extends Equals {
+  private val objectId: Long = ObjectId().id
+
+  def uniqueId = objectId
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VariableName]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: VariableName => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
+}
+
+case class Variable(name: VariableName, value: EValue)
+
+object Scope {
+  def newRoot(variables: Seq[Variable]): Scope = {
+    Scope(
+      None,
+      variables.map { variable => variable.name -> variable }.toMap
+    )
+  }
+}
+
+case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) {
+  def newChild(variables: Seq[Variable]): Scope = {
+    Scope(
+      Some(this),
+      variables.map { variable => variable.name -> variable }.toMap
+    )
+  }
+
+  override def toString: String = {
+    val values = variables.map { case name -> variable => name.originalName -> variable.value.toString }
+
+    if (parent.isDefined) {
+      s"$values -> ${parent.get.toString}"
+    } else {
+      values.toString
+    }
+  }
+
+  def find(name: VariableName): Option[Variable] = {
+    variables.get(name) orElse { parent.flatMap(_.find(name)) }
+  }
 }
 
 
@@ -98,11 +150,33 @@ case class Arguments[+T](
 }
 
 object Arguments {
-  def empty[T <: Value](self: T): Arguments[T] = Arguments(self, Seq.empty, Map.empty)
+  def empty[T](self: T): Arguments[T] = Arguments(self, Seq.empty, Map.empty)
 
-  def positional[T <: Value](self: T, values: Seq[T]) = Arguments[T](
+  def positional[T](self: T, values: Seq[T]) = Arguments[T](
     self = self,
     positional = values,
     named = Map.empty
   )
 }
+
+
+
+class Function(
+  val selfName: VariableName,
+  val params: Seq[Parameter],
+  val body: UOperation.Block,
+  val returnType: EValue
+) extends Equals {
+  val objectId = ObjectId()
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: Function => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
+}
+
+case class Parameter(name: VariableName, typeValue: EValue, location: Option[Location])

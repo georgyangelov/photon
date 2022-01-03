@@ -52,7 +52,7 @@ class ClassTest extends FunSuite {
       Person = Class.new(
         fields = List.of(
           Class.field("name", String),
-          Class.field("parent", (): Type { Optional(Person) })
+          Class.field("parent", lazy Optional(Person))
         ),
         instanceMethods = List.of()
       )
