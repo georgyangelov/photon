@@ -175,7 +175,7 @@ object ValueToAST {
       params = fn.params.map { param =>
         ASTParameter(
           // TODO: Support renames of function parameters
-          param.name.originalName,
+          param.name,
           // TODO: Is this correct that the rename prefix is empty?
           Some(param.typ).map(transform(_, varNames, None, forInspection)),
           location

@@ -61,7 +61,7 @@ object UOperation {
     fn: photon.UFunction,
     location: Option[Location]
   ) extends UValue {
-    override val unboundNames = fn.body.unboundNames -- fn.params.map(_.name)
+    override val unboundNames = fn.body.unboundNames -- fn.nameMap.values
   }
 
   case class Call(
@@ -200,6 +200,7 @@ object Arguments {
 
 class UFunction(
   val params: Seq[UParameter],
+  val nameMap: Map[String, VariableName],
   val body: UValue,
   val returnType: Option[UValue]
 ) extends Equals {
@@ -216,4 +217,4 @@ class UFunction(
 }
 
 // TODO: Type here should be optional as it may rely on the usage
-case class UParameter(name: VariableName, typ: UValue, location: Option[Location])
+case class UParameter(name: String, typ: UValue, location: Option[Location])

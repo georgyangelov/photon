@@ -49,6 +49,34 @@ object Int extends StandardType {
 
         IntValue(self.value - other.value, location)
       }
+    },
+
+    "*" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[IntValue]
+        val other = args.get(1, "other").assert[IntValue]
+
+        IntValue(self.value * other.value, location)
+      }
+    },
+
+    "==" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[IntValue]
+        val other = args.get(1, "other").assert[IntValue]
+
+        BoolValue(self.value == other.value, location)
+      }
     }
   )
 }

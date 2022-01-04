@@ -34,6 +34,18 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("(a:Int){ (b:Int){ a + b } }(1)(41)", "42")
   }
 
+  test("higher-order function types") {
+    expectEvalCompileTime(
+      """
+        IntFn = Function(a = Int, returns = Int)
+
+        callWithOne = (fn: IntFn) { fn(1) }
+        callWithOne (a: Int) { 41 + a }
+      """,
+      "42"
+    )
+  }
+
   test("higher-order functions") {
     expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
     expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ b = a; b + 41 })", "42")

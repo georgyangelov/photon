@@ -20,14 +20,15 @@ object ASTToValue {
             throw EvalError("Function parameter types have to be defined explicitly for now", location)
           }
 
-          UParameter(new VariableName(name), utype, location)
+          UParameter(name, utype, location)
         }
+        val nameMap = parameters.map { param => param.name -> new VariableName(param.name) }.toMap
 
-        val lambdaScope = scope.newChild(parameters.map(_.name))
+        val lambdaScope = scope.newChild(nameMap.values)
 
         val body = transform(astBody, lambdaScope)
         val returns = returnType.map(transform(_, scope))
-        val fn = new UFunction(parameters, body, returns)
+        val fn = new UFunction(parameters, nameMap, body, returns)
 
         UOperation.Function(fn, location)
 
@@ -111,7 +112,7 @@ object StaticScope {
 }
 
 case class StaticScope(parent: Option[StaticScope], variables: Map[String, VariableName]) {
-  def newChild(variables: Seq[VariableName]): StaticScope = {
+  def newChild(variables: Iterable[VariableName]): StaticScope = {
     StaticScope(
       Some(this),
       variables.map { variable => (variable.originalName, variable) }.toMap

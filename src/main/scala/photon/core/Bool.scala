@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location, ULiteral}
 
 object BoolType extends StandardType {
@@ -43,6 +44,30 @@ object Bool extends StandardType {
         val other = args.get(1, "other").assert[BoolValue]
 
         BoolValue(self.value || other.value, location)
+      }
+    },
+
+    "ifElse" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+
+      // TODO: Extract a common type, or check to see if the two types are equal
+      override def typeCheck(argumentTypes: Arguments[Type]) = argumentTypes.positional.head
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val condition = args.self.assert[BoolValue].value
+
+        val fnToCall = if (condition) {
+          args.positional.head
+        } else {
+          args.positional(1)
+        }
+
+//        CallValue("call", Arguments.empty(fnToCall), location)
+
+        fnToCall.typ
+          .method("call")
+          .getOrElse { throw EvalError("Functions given to ifElse must be callable", location) }
+          .call(Arguments.empty(fnToCall), location)
       }
     }
   )

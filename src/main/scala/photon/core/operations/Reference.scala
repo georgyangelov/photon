@@ -15,5 +15,5 @@ case class ReferenceValue(variable: Variable, location: Option[Location]) extend
   override def evalMayHaveSideEffects = false
   override def evalType = Some(variable.value.evalType.getOrElse(variable.value.typ))
   override def toUValue(core: Core) = UOperation.Reference(variable.name, location)
-  override protected def evaluate: EValue = variable.value
+  override protected def evaluate: EValue = variable.value.evaluated
 }
