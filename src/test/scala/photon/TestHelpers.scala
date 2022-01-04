@@ -3,45 +3,49 @@ package photon
 import com.typesafe.scalalogging.Logger
 import org.scalatest.Matchers.intercept
 import org.scalatest.Assertions._
-import photon.frontend.{ASTBlock, Lexer, Parser, Unparser, ValueToAST}
+import photon.frontend.{ASTValue, Lexer, Parser, Unparser, ValueToAST}
 import photon.interpreter.{EvalError, Interpreter}
 
 object TestHelpers {
-  def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTBlock = {
+  def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTValue = {
     val parser = new Parser(new Lexer("<testing>", code), macroHandler)
     val values = parser.parseAll()
 
-    ASTBlock(values)
-  }
-
-  def evalCompileTime(prelude: Option[String], code: String): UnboundValue = {
-    val interpreter = new Interpreter(/* RunMode.CompileTime */)
-
-    prelude match {
-      case Some(prelude) =>
-        val preludeAST = parseCode(prelude, interpreter.macroHandler)
-
-        interpreter.evaluate(preludeAST)
-      case None =>
+    if (values.size == 1) {
+      values.head
+    } else {
+      ASTValue.Block(values, None)
     }
-
-    val value = parseCode(code, interpreter.macroHandler)
-
-    interpreter.evaluate(value)
   }
 
-  def evalRunTime(code: String): Value = {
+  def evalCompileTime(prelude: Option[String], code: String): UValue = {
+    val interpreter = new Interpreter()
+
+//    prelude match {
+//      case Some(prelude) =>
+//        val preludeAST = parseCode(prelude, interpreter.macroHandler)
+//
+//        interpreter.evaluate(preludeAST)
+//      case None =>
+//    }
+
+    val value = parseCode(code/*, interpreter.macroHandler*/)
+
+    interpreter.evaluateToUValue(value)
+  }
+
+  def evalRunTime(code: String): EValue = {
     val interpreter = new Interpreter(/* RunMode.Runtime */)
     val value = parseCode(code, Parser.BlankMacroHandler)
 
     interpreter.evaluate(value)
   }
 
-  def eval(prelude: String, code: String): Value = {
+  def eval(prelude: String, code: String): EValue = {
     val logger = Logger("TestHelpers")
 
     val compiledValue = evalCompileTime(Some(prelude), code)
-    val compileTimeCode = Unparser.unparse(ValueToAST.transformAsBlock(compiledValue))
+    val compileTimeCode = Unparser.unparse(ValueToAST.transform(compiledValue))
 
     logger.debug(s"Compile-time evaluated to $compileTimeCode")
 
@@ -81,23 +85,25 @@ object TestHelpers {
   }
 
   def expectPhases(actualCode: String, expectedCompileTimeCode: String, expectedResult: String): Unit = {
-    val compiledValue = evalCompileTime(None, actualCode)
-
-    assert(compiledValue.toString == parseCode(expectedCompileTimeCode).toString)
-
-    val result = evalRunTime(Unparser.unparse(ValueToAST.transformAsBlock(compiledValue)))
-
-    assert(result.toString == parseCode(expectedResult).toString)
+    ???
+//    val compiledValue = evalCompileTime(None, actualCode)
+//
+//    assert(compiledValue.toString == parseCode(expectedCompileTimeCode).toString)
+//
+//    val result = evalRunTime(Unparser.unparse(ValueToAST.transformAsBlock(compiledValue)))
+//
+//    assert(result.toString == parseCode(expectedResult).toString)
   }
 
   def expectRuntimeFail(actualCode: String, message: String): Unit = {
-    val compiledValue = evalCompileTime(None, actualCode)
-    val runtimeCode = Unparser.unparse(ValueToAST.transformAsBlock(compiledValue))
-
-    Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
-
-    val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
-
-    assert(evalError.message.contains(message))
+    ???
+//    val compiledValue = evalCompileTime(None, actualCode)
+//    val runtimeCode = Unparser.unparse(ValueToAST.transformAsBlock(compiledValue))
+//
+//    Logger("InterpreterTest").debug(s"Compiled code result: $runtimeCode")
+//
+//    val evalError = intercept[EvalError] { evalRunTime(runtimeCode) }
+//
+//    assert(evalError.message.contains(message))
   }
 }

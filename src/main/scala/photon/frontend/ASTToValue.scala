@@ -1,51 +1,50 @@
 package photon.frontend
 
 import photon.interpreter.EvalError
-import photon.{Arguments, Function, Location, Operation, Parameter, PureValue, Scope, UnboundValue, VariableName}
-
-import scala.collection.Map
+import photon.{Arguments, Location, Scope, UFunction, ULiteral, UOperation, UParameter, UValue, VariableName}
 
 object ASTToValue {
-  def transform(ast: ASTValue, scope: StaticScope): UnboundValue = {
+  def transform(ast: ASTValue, scope: StaticScope): UValue = {
     ast match {
-      case ASTValue.Boolean(value, location) => PureValue.Boolean(value, location)
-      case ASTValue.Int(value, location) => PureValue.Int(value, location)
-      case ASTValue.Float(value, location) => PureValue.Float(value, location)
-      case ASTValue.String(value, location) => PureValue.String(value, location)
+      case ASTValue.Boolean(value, location) => ULiteral.Boolean(value, location)
+      case ASTValue.Int(value, location) => ULiteral.Int(value, location)
+      case ASTValue.Float(value, location) => ULiteral.Float(value, location)
+      case ASTValue.String(value, location) => ULiteral.String(value, location)
 
-      case ASTValue.Block(block, location) =>
-        Operation.Block(block.values.map(transform(_, scope)), None, None, location)
+      case ASTValue.Block(values, location) =>
+        UOperation.Block(values.map(transform(_, scope)), location)
 
       case ASTValue.Function(params, astBody, returnType, location) =>
         val parameters = params.map { case ASTParameter(name, typeValue, location) =>
-          Parameter(new VariableName(name), typeValue.map(transform(_, scope)), location)
+          val utype = typeValue.map(transform(_, scope)).getOrElse {
+            throw EvalError("Function parameter types have to be defined explicitly for now", location)
+          }
+
+          UParameter(new VariableName(name), utype, location)
         }
 
-        val selfName = new VariableName("self")
-        val lambdaScope = scope.newChild(parameters.map(_.name) ++ Seq(selfName))
+        val lambdaScope = scope.newChild(parameters.map(_.name))
 
-        val body = transformBlock(astBody, lambdaScope, location)
-        val returns = returnType.map(transform(_, scope))
-        val fn = new Function(selfName, parameters, body, returns)
+        val body = transform(astBody, lambdaScope)
+        val returns = returnType.map(transform(_, scope)).getOrElse {
+          throw EvalError("Function return type has to be defined explicitly for now", location)
+        }
+        val fn = new UFunction(parameters, body, returns)
 
-        Operation.Function(fn, None, None, location)
+        UOperation.Function(fn, location)
 
       case ASTValue.Call(target, name, astArguments, mayBeVarCall, location) =>
-        val arguments = Arguments(
-          None,
-          positional = astArguments.positional.map(transform(_, scope)),
-          named = astArguments.named.map { case (name, astValue) => (name, transform(astValue, scope)) }
-        )
+        val positionalArgs = astArguments.positional.map(transform(_, scope))
+        val namedArgs = astArguments.named.map { case (name, astValue) => (name, transform(astValue, scope)) }
 
         if (mayBeVarCall) {
           scope.find(name) match {
             case Some(value) =>
-              return Operation.Call(
-                target = Operation.Reference(value, None, None, location),
-                name = "call",
-                arguments = arguments,
-                None,
-                None,
+              val target = UOperation.Reference(value, location)
+
+              return UOperation.Call(
+                "call",
+                Arguments(target, positionalArgs, namedArgs),
                 location
               )
 
@@ -53,22 +52,26 @@ object ASTToValue {
           }
         }
 
-        Operation.Call(transform(target, scope), name, arguments, None, None, location)
+        val utarget = transform(target, scope)
+
+        UOperation.Call(
+          name,
+          Arguments(utarget, positionalArgs, namedArgs),
+          location
+        )
 
       case ASTValue.NameReference(name, location) =>
         scope.find(name) match {
           case Some(variable) =>
-            Operation.Reference(variable, None, None, location)
+            UOperation.Reference(variable, location)
 
           case None =>
             val self = scope.find("self").getOrElse { throw EvalError("Cannot find 'self' in scope", location) }
+            val referenceToSelf = UOperation.Reference(self, location)
 
-            Operation.Call(
-              target = Operation.Reference(self, None, None, location),
+            UOperation.Call(
               name = name,
-              arguments = Arguments.empty,
-              None,
-              None,
+              arguments = Arguments.empty(referenceToSelf),
               location
             )
         }
@@ -77,20 +80,18 @@ object ASTToValue {
         val variable = new VariableName(name)
         val innerScope = scope.newChild(Seq(variable))
         val expression = transform(value, innerScope)
-        val body = transformBlock(block, innerScope, location)
+        val body = transform(block, innerScope)
 
-        Operation.Let(variable, expression, body, None, None, location)
+        UOperation.Let(variable, expression, body, location)
     }
   }
 
-  def transformBlock(block: ASTBlock, scope: StaticScope, location: Option[Location]): Operation.Block = {
-    Operation.Block(
-      block.values.map(transform(_, scope)),
-      None,
-      None,
-      location
-    )
-  }
+//  def transformBlock(block: ASTBlock, scope: StaticScope, location: Option[Location]): UOperation.Block = {
+//    UOperation.Block(
+//      block.values.map(transform(_, scope)),
+//      location
+//    )
+//  }
 }
 
 object StaticScope {

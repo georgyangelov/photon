@@ -189,7 +189,7 @@ class Parser(
             if (values.size == 1) {
               values.head
             } else {
-              ASTValue.Block(ASTBlock(values), Some(startLocation.extendWith(token.location)))
+              ASTValue.Block(values, Some(startLocation.extendWith(token.location)))
             }
           } else {
             parseExpression(requireCallParens = false)
@@ -460,7 +460,7 @@ class Parser(
 
       block
     } else {
-      ASTBlock(Seq(parseExpression(requireCallParens = false)))
+      parseExpression(requireCallParens = false)
     }
 
     ASTValue.Function(
@@ -507,24 +507,26 @@ class Parser(
     parameters.result
   }
 
-  private def parseBlock(): ASTBlock = {
+  private def parseBlock(): ASTValue.Block = {
     val values = Vector.newBuilder[ASTValue]
+    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace) {
       values += parseExpression(requireCallParens = false)
     }
 
-    ASTBlock(values.result)
+    ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
   }
 
-  private def parseRestOfBlock(): ASTBlock = {
+  private def parseRestOfBlock() = {
     val values = Vector.newBuilder[ASTValue]
+    val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.CloseParen && token.tokenType != TokenType.EOF) {
       values += parseExpression(requireCallParens = false)
     }
 
-    ASTBlock(values.result)
+    ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
   }
 
   private def parseUnaryOperator(requireCallParens: Boolean): ASTValue = {

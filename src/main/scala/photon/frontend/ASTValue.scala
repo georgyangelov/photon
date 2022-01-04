@@ -2,8 +2,6 @@ package photon.frontend
 
 import photon.Location
 
-import scala.collection.Map
-
 sealed abstract class ASTValue {
   def location: Option[Location]
 
@@ -47,7 +45,10 @@ sealed abstract class ASTValue {
 
         s"(lambda [$paramsAST] $returnTypeAST$bodyAST)"
 
-      case ASTValue.Block(block, _) => block.inspectAST
+      case ASTValue.Block(values, _) =>
+        if (values.nonEmpty) {
+          s"{ ${values.map(_.inspectAST).mkString(" ")} }"
+        } else { "{}" }
     }
   }
 }
@@ -58,11 +59,11 @@ object ASTValue {
   case class Float(value: scala.Double, location: Option[Location]) extends ASTValue
   case class String(value: java.lang.String, location: Option[Location]) extends ASTValue
 
-  case class Block(block: ASTBlock, location: Option[Location]) extends ASTValue
+  case class Block(values: Seq[ASTValue], location: Option[Location]) extends ASTValue
 
   case class Function(
     params: Seq[ASTParameter],
-    body: ASTBlock,
+    body: ASTValue,
     returnType: Option[ASTValue],
     location: Option[Location]
   ) extends ASTValue
@@ -75,7 +76,7 @@ object ASTValue {
     location: Option[Location]
   ) extends ASTValue
   case class NameReference(name: java.lang.String, location: Option[Location]) extends ASTValue
-  case class Let(name: java.lang.String, value: ASTValue, block: ASTBlock, location: Option[Location]) extends ASTValue
+  case class Let(name: java.lang.String, value: ASTValue, block: ASTValue, location: Option[Location]) extends ASTValue
 }
 
 case class ASTParameter(name: String, typeValue: Option[ASTValue], location: Option[Location])
@@ -88,12 +89,12 @@ object ASTArguments {
 }
 
 // TODO: Is this needed now that we have `ASTValue.Block`?
-case class ASTBlock(values: Seq[ASTValue]) {
-  override def toString: String = Unparser.unparse(this)
-
-  def inspectAST = {
-    if (values.nonEmpty) {
-      s"{ ${values.map(_.inspectAST).mkString(" ")} }"
-    } else { "{}" }
-  }
-}
+//case class ASTBlock(values: Seq[ASTValue]) {
+//  override def toString: String = Unparser.unparse(this)
+//
+//  def inspectAST = {
+//    if (values.nonEmpty) {
+//      s"{ ${values.map(_.inspectAST).mkString(" ")} }"
+//    } else { "{}" }
+//  }
+//}

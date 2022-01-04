@@ -1,131 +1,57 @@
 package photon.core
 
-import photon.{AnyType, ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
-import photon.core.Conversions._
-import photon.interpreter.{CallContext, EvalError}
+import photon.{Arguments, EValue, Location, ULiteral}
 
-private object BoolObjectArgs {
-  val Self = Parameter(0, "self")
-  val Other = Parameter(1, "other")
+object BoolType extends StandardType {
+  override val typ = TypeRoot
+  override val location = None
+  override val methods = Map.empty
 
-  val IfCondition = Parameter(0, "condition")
-  val IfTrueBranch = Parameter(1, "ifTrue")
-  val IfFalseBranch = Parameter(2, "ifFalse")
+  override def toUValue(core: Core) = inconvertible
 }
 
-import BoolObjectArgs._
+object Bool extends StandardType {
+  override val typ = BoolType
+  override val location = None
 
-//object T {
-//  val IfTrue = new TypeParam.TypeVar
-//  val IfFalse = new TypeParam.TypeVar
-//}
+  override def toUValue(core: Core) = core.referenceTo(Bool, location)
 
-object BoolTypeType extends New.TypeObject {
-  override val typeObject = TypeType
-  override val instanceMethods = Map.empty
-}
+  override val methods = Map(
+    // TODO: Short-circuiting
+    "and" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-object BoolType extends New.TypeObject {
-  override val typeObject = BoolTypeType
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
 
-  override val instanceMethods = Map(
-    "!" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "!",
-        arguments = Seq.empty,
-        returns = BoolType
-      )
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[BoolValue]
+        val other = args.get(1, "other").assert[BoolValue]
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Boolean(!args.getBool(Self), location)
+        BoolValue(self.value && other.value, location)
+      }
     },
 
-    "toBool" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "toBool",
-        arguments = Seq.empty,
-        returns = BoolType
-      )
+    "or" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Boolean(args.getBool(Self), location)
-    },
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
 
-    /**
-     * def ifElse(ifTrue: Fn(let T1), ifFalse: Fn(let T2)): Union(T1, T2)
-     */
-    "ifElse" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "ifElse",
-        arguments = Seq(
-          ArgumentType("ifTrue", AnyType),
-          ArgumentType("ifFalse", AnyType)
-        ),
-        returns = AnyType
-      )
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[BoolValue]
+        val other = args.get(1, "other").assert[BoolValue]
 
-//      override val arguments = Seq(
-//        ArgumentType("ifTrue", FnType(Seq.empty, T.IfTrue).toTypeParam),
-//        ArgumentType("ifFalse", FnType(Seq.empty, T.IfFalse).toTypeParam)
-//      )
-//      override val returns = TypeParam.Union(Seq(T.IfTrue, T.IfFalse))
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val lambda = if (args.getBool(IfCondition)) {
-          args.getFunction(IfTrueBranch)
-        } else {
-          args.getFunction(IfFalseBranch)
-        }
-
-        // TODO: Make this easier to do
-        lambda.typeObject.getOrElse {
-          throw EvalError("Could not call lambda which does not have a type", location)
-        }.instanceMethod("call").getOrElse {
-          throw EvalError("Lambda does not have a call method", location)
-        }.call(context, Arguments(None, Seq.empty, Map.empty), location)
+        BoolValue(self.value || other.value, location)
       }
     }
   )
 }
 
-//object BoolObject extends NativeObject(Map(
-//  "!" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Boolean(!args.getBool(FirstParam), location)
-//  },
-//
-//  "not" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Boolean(!args.getBool(FirstParam), location)
-//  },
-//
-//  // TODO: Short-circuiting
-//  "and" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Boolean(args.getBool(FirstParam) && args.getBool(SecondParam), location)
-//  },
-//
-//  // TODO: Short-circuiting
-//  "or" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Boolean(args.getBool(FirstParam) || args.getBool(SecondParam), location)
-//  },
-//
-//  "toBool" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Boolean(args.getBool(FirstParam), location)
-//  },
-//
-//  "ifElse" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//      val lambda = if (args.getBool(IfCondition)) {
-//        args.getFunction(IfTrueBranch)
-//      } else {
-//        args.getFunction(IfFalseBranch)
-//      }
-//
-//      Core.nativeValueFor(lambda)
-//        .callOrThrowError(context, "call", Arguments(None, Seq.empty, Map.empty), location)
-//    }
-//  }
-//))
+case class BoolValue(value: scala.Boolean, location: Option[Location]) extends EValue {
+  override val typ = Bool
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override def evaluate = this
+  override def toUValue(core: Core) = ULiteral.Boolean(value, location)
+}

@@ -32,8 +32,11 @@ object Unparser {
         letString
       }
 
-    case ASTValue.Block(block, _) =>
-      val blockString = unparse(block)
+    case ASTValue.Block(values, _) =>
+      val lastIndex = values.size - 1
+      val blockString = values.zipWithIndex.map { case (value, index) =>
+        unparse(value, expectSingleValue = index != lastIndex)
+      }.mkString("; ")
 
       if (expectSingleValue) {
         s"($blockString)"
@@ -44,13 +47,13 @@ object Unparser {
     case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
   }
 
-  def unparse(block: ASTBlock): String = {
-    val lastIndex = block.values.size - 1
-
-    block.values.zipWithIndex.map { case (value, index) =>
-      unparse(value, expectSingleValue = index != lastIndex)
-    }.mkString("; ")
-  }
+//  def unparse(block: ASTBlock): String = {
+//    val lastIndex = block.values.size - 1
+//
+//    block.values.zipWithIndex.map { case (value, index) =>
+//      unparse(value, expectSingleValue = index != lastIndex)
+//    }.mkString("; ")
+//  }
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {

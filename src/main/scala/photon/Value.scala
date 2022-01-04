@@ -1,346 +1,221 @@
-//package photon
-//
-//import photon.core.{BoolType, FloatType, IntType, NativeValue, NothingType, StringType}
-//import photon.frontend.{Unparser, ValueToAST}
-//import photon.interpreter.EvalError
-//import photon.lib.ObjectId
-//
-//import scala.collection.Map
-//
-///* Values and operations */
-//
-//sealed trait Value {
-//  override def toString = ValueToAST.transformForInspection(this).toString
-//
-//  def unboundNames: Set[VariableName]
-//  val location: Option[Location]
-//
-//  def typeObject: Option[New.TypeObject]
-//  def realValue: Option[RealValue]
-//}
-//
-//// Type groups
-//sealed trait RealValue extends Value {
-//  // TODO: This should become Some at ... some ... point
-//  def typeObject: Option[New.TypeObject]
-//
-//  def isFullyKnown: scala.Boolean = isFullyKnown(Set.empty)
-//  def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = true
-//
-//  def callsShouldIncludeSelf: Boolean = true
-//}
-//
-//sealed trait UnboundValue extends Value {
-//  def mayHaveSideEffects: Boolean
-//
-//  def asBlock: Operation.Block = this match {
-//    case block: Operation.Block => block
-//    case _ => Operation.Block(Seq(this), typeObject, realValue, location)
-//  }
-//}
-//
-//// Specific types
-//sealed trait PureValue extends RealValue with UnboundValue {
-//  override def isFullyKnown = true
-//  override def isFullyKnown(_alreadyKnownBoundFunctions: Set[BoundValue.Function]) = true
-//
-//  def realValue: Some[RealValue] = Some(this)
-//  override def mayHaveSideEffects = false
-//
-//  override def unboundNames = Set.empty
-//}
-//
-//sealed trait BoundValue extends RealValue {
-//  val scope: Scope
-//}
-//
-//sealed trait Operation extends UnboundValue {
-//  val realValue: Option[RealValue]
-//  val unboundNames: Set[VariableName]
-//
-//  override def mayHaveSideEffects = true
-//}
-//
-//object PureValue {
-//  case class Nothing(location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue {
-//    override def typeObject = Some(NothingType)
-//  }
-//
-//  case class Boolean(value: scala.Boolean, location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue {
-//    override def typeObject = Some(BoolType)
-//  }
-//
-//  case class Int(value: scala.Int, location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue {
-//    override def typeObject = Some(IntType)
-//  }
-//
-//  case class Float(value: scala.Double, location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue {
-//    override def typeObject = Some(FloatType)
-//  }
-//
-//  case class String(value: java.lang.String, location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue {
-//    override def typeObject = Some(StringType)
-//  }
-//
-//  case class Native(native: NativeValue, location: Option[Location])
-//    extends Value with PureValue with RealValue with UnboundValue
-//  {
-//    override def typeObject = Some(native.typeObject)
-//
-//    override def isFullyKnown = native.isFullyEvaluated
-//
-//    // TODO: Not sure about this. Maybe the `Native` values should be their own category (outside of PureValue)
-//    override def mayHaveSideEffects = false
-//  }
-//}
-//
-//object BoundValue {
-//  case class Function(
-//    fn: photon.Function,
-//    // TODO: Integrate this in the TypeObject
-//    traits: Set[FunctionTrait],
-//    scope: Scope,
-//    typeObject: Option[New.TypeObject],
-//    location: Option[Location]
-//  ) extends Value with BoundValue with RealValue {
-//    override def unboundNames = fn.unboundNames
-//    override def realValue = Some(this)
-//    override def callsShouldIncludeSelf = false
-//
-//    override def isFullyKnown(alreadyKnownBoundFunctions: Set[BoundValue.Function]): scala.Boolean = {
-//      if (alreadyKnownBoundFunctions.contains(this)) {
-//        return true
-//      }
-//
-//      if (!traits.contains(FunctionTrait.CompileTime)) {
-//        return false
-//      }
-//
-//      fn.unboundNames.forall { name =>
-//        scope.find(name) match {
-//          case Some(Variable(_, value)) => value.flatMap(_.realValue).exists(_.isFullyKnown(alreadyKnownBoundFunctions + this))
-//          // TODO: Specify location
-//          case None => throw EvalError(s"Cannot find name $name during isFullyKnown check", None)
-//        }
-//      }
-//    }
-//  }
-//
-//  case class Object(
-//    values: Map[String, Value],
-//    scope: Scope,
-//    typeObject: Option[New.TypeObject],
-//    location: Option[Location]
-//  ) extends Value with BoundValue with RealValue {
-//    lazy override val unboundNames = values.view.values.flatMap(_.unboundNames).toSet
-//    override def realValue = Some(this)
-//
-//    override def isFullyKnown(alreadyKnownBoundFunctions: Set[Function]) =
-//      values.view.values.map(_.realValue).forall {
-//        case Some(value: RealValue) => value.isFullyKnown(alreadyKnownBoundFunctions)
-//        case _ => false
-//      }
-//  }
-//}
-//
-//object Operation {
-//  case class Block(
-//    values: Seq[UnboundValue],
-//    typeObject: Option[New.TypeObject],
-//    realValue: Option[RealValue],
-//    location: Option[Location]
-//  ) extends Value with Operation with UnboundValue {
-//
-//    lazy override val unboundNames = values.view.flatMap(_.unboundNames).toSet
-//  }
-//
-//  case class Let(
-//    name: VariableName,
-//    letValue: UnboundValue,
-//    block: Block,
-//    typeObject: Option[New.TypeObject],
-//    realValue: Option[RealValue],
-//    location: Option[Location]
-//  ) extends Value with Operation with UnboundValue {
-//
-//    lazy override val unboundNames = (letValue.unboundNames ++ block.unboundNames) - name
-//  }
-//  case class Reference(
-//    name: VariableName,
-//    typeObject: Option[New.TypeObject],
-//    realValue: Option[RealValue],
-//    location: Option[Location]
-//  ) extends Value with Operation with UnboundValue {
-//
-//    override val unboundNames = Set(name)
-//    override def mayHaveSideEffects = false
-//  }
-//
-//  case class Function(
-//    fn: photon.Function,
-//    typeObject: Option[New.TypeObject],
-//    realValue: Option[RealValue],
-//    location: Option[Location]
-//  ) extends Value with Operation with UnboundValue {
-//
-//    override val unboundNames = fn.unboundNames
-//    override def mayHaveSideEffects = false
-//  }
-//  case class Call(
-//    target: UnboundValue,
-//    name: String,
-//    arguments: Arguments[UnboundValue],
-//    typeObject: Option[New.TypeObject],
-//    realValue: Option[RealValue],
-//    location: Option[Location]
-//  ) extends Value with Operation with UnboundValue {
-//
-//    lazy override val unboundNames =
-//      target.unboundNames ++
-//        arguments.positional.view.flatMap(_.unboundNames).toSet ++
-//        arguments.named.view.values.flatMap(_.unboundNames).toSet
-//  }
-//}
-//
-//
-//
-///* Variables and scopes */
-//
-//class VariableName(val originalName: String) extends Equals {
-//  private val objectId: Long = ObjectId().id
-//
-//  def uniqueId = objectId
-//
-//  override def canEqual(that: Any): Boolean = that.isInstanceOf[VariableName]
-//  override def equals(that: Any): Boolean = {
-//    that match {
-//      case other: VariableName => this.objectId == other.objectId
-//      case _ => false
-//    }
-//  }
-//  override def hashCode(): Int = objectId.hashCode
-//}
-//
-//class Variable(val name: VariableName, private var _value: Option[Value]) {
-//  def value: Option[Value] = _value
-//
-//  def dangerouslySetValue(newValue: Value): Unit = _value = Some(newValue)
-//}
-//
-//object Variable {
-//  def unapply(variable: Variable) = Some(variable.name, variable.value)
-//}
-//
-//object Scope {
-//  def newRoot(variables: Seq[Variable]): Scope = {
-//    Scope(
-//      None,
-//      variables.map { variable => variable.name -> variable }.toMap
-//    )
-//  }
-//}
-//
-//case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) {
-//  def newChild(variables: Seq[Variable]): Scope = {
-//    Scope(
-//      Some(this),
-//      variables.map { variable => variable.name -> variable }.toMap
-//    )
-//  }
-//
-//  override def toString: String = {
-//    val values = variables.map { case name -> variable => name.originalName -> variable.value.toString }
-//
-//    if (parent.isDefined) {
-//      s"$values -> ${parent.get.toString}"
-//    } else {
-//      values.toString
-//    }
-//  }
-//
-//  def find(name: VariableName): Option[Variable] = {
-//    variables.get(name) orElse { parent.flatMap(_.find(name)) }
-//  }
-//}
-//
-//
-//
-///* Functions */
-//
-//sealed abstract class FunctionTrait
-//
-//object FunctionTrait {
-//  case object Partial extends FunctionTrait
-//  case object CompileTime extends FunctionTrait
-//  case object Runtime extends FunctionTrait
-//  case object Pure extends FunctionTrait
-//}
-//
-//class Function(
-//  val selfName: VariableName,
-//  val params: Seq[Parameter],
-//  val body: Operation.Block,
-//  val returnType: Option[UnboundValue]
-//) extends Equals {
-//  val objectId = ObjectId()
-//
-//  val unboundNames =
-//    body.unboundNames ++
-//      params.flatMap(_.typeValue).flatMap(_.unboundNames) ++
-//      returnType.toSet[UnboundValue].flatMap(_.unboundNames) --
-//      params.map(_.name) -
-//      selfName
-//
-//  override def canEqual(that: Any): Boolean = that.isInstanceOf[Function]
-//  override def equals(that: Any): Boolean = {
-//    that match {
-//      case other: Function => this.objectId == other.objectId
-//      case _ => false
-//    }
-//  }
-//  override def hashCode(): Int = objectId.hashCode
-//}
-//
-//case class Parameter(name: VariableName, typeValue: Option[UnboundValue], location: Option[Location])
-//
-//
-//
-///* Arguments */
-//
-//case class Arguments[T](
-//  self: Option[T],
-//  positional: Seq[T],
-//  named: Map[String, T]
-//) {
-//  def withoutSelf = Arguments(None, positional, named)
-//  def withSelf(value: T) = Arguments(Some(value), positional, named)
-//
-//  def map[R](f: T => R) = Arguments(
-//    self.map(f),
-//    positional.map(f),
-//    named.view.mapValues(f).toMap
-//  )
-//
-//  def forall(f: T => Boolean) = self.forall(f) && positional.forall(f) && named.view.values.forall(f)
-//
+package photon
+
+import photon.interpreter.EvalError
+import photon.core.{Core, Type}
+import photon.frontend.{Unparser, ValueToAST}
+import photon.lib.ObjectId
+import photon.lib.ScalaExtensions._
+
+import scala.reflect.ClassTag
+
+sealed trait UValue {
+  val location: Option[Location]
+  val unboundNames: Set[VariableName]
+
+  override def toString = Unparser.unparse(ValueToAST.transform(this))
+}
+
+object ULiteral {
+  case class Nothing(location: Option[Location]) extends UValue {
+    override val unboundNames = Set.empty
+  }
+  case class Boolean(value: scala.Boolean, location: Option[Location]) extends UValue {
+    override val unboundNames = Set.empty
+  }
+  case class Int(value: scala.Int, location: Option[Location]) extends UValue {
+    override val unboundNames = Set.empty
+  }
+  case class Float(value: scala.Double, location: Option[Location]) extends UValue {
+    override val unboundNames = Set.empty
+  }
+  case class String(value: java.lang.String, location: Option[Location]) extends UValue {
+    override val unboundNames = Set.empty
+  }
+}
+
+object UOperation {
+  case class Block(
+    values: Seq[UValue],
+    location: Option[Location]
+  ) extends UValue {
+    override lazy val unboundNames = values.map(_.unboundNames).unionSets
+  }
+
+  case class Let(
+    name: VariableName,
+    value: UValue,
+    block: UValue,
+    location: Option[Location]
+  ) extends UValue {
+    override val unboundNames = (value.unboundNames ++ block.unboundNames) - name
+  }
+
+  case class Reference(
+    name: VariableName,
+    location: Option[Location]
+  ) extends UValue {
+    override val unboundNames = Set(name)
+  }
+
+  case class Function(
+    fn: photon.UFunction,
+    location: Option[Location]
+  ) extends UValue {
+    override val unboundNames = fn.body.unboundNames -- fn.params.map(_.name)
+  }
+
+  case class Call(
+    name: String,
+    arguments: Arguments[UValue],
+    location: Option[Location]
+  ) extends UValue {
+    override val unboundNames =
+      arguments.self.unboundNames ++
+      arguments.positional.map(_.unboundNames).unionSets ++
+      arguments.named.values.map(_.unboundNames).unionSets
+  }
+}
+
+trait EValue {
+  def typ: Type
+  val location: Option[Location]
+
+  lazy val evaluated: EValue = evaluate
+
+  def evalType: Option[Type]
+  def evalMayHaveSideEffects: Boolean
+
+  def toUValue(core: Core): UValue
+  protected def inconvertible =
+    throw EvalError(s"Cannot convert value of class ${this.getClass.getName} to UValue", location)
+
+  protected def evaluate: EValue
+
+  def assert[T <: EValue](implicit tag: ClassTag[T]) =
+    this match {
+      case value: T => value
+      case _ => throw EvalError(s"Invalid value type $this, expected a native value", location)
+    }
+}
+
+
+
+class VariableName(val originalName: String) extends Equals {
+  private val objectId: Long = ObjectId().id
+
+  def uniqueId = objectId
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VariableName]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: VariableName => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
+}
+
+case class Variable(name: VariableName, value: EValue)
+
+object Scope {
+  def newRoot(variables: Seq[Variable]): Scope = {
+    Scope(
+      None,
+      variables.map { variable => variable.name -> variable }.toMap
+    )
+  }
+}
+
+case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) {
+  def newChild(variables: Seq[Variable]): Scope = {
+    Scope(
+      Some(this),
+      variables.map { variable => variable.name -> variable }.toMap
+    )
+  }
+
+  override def toString: String = {
+    val values = variables.map { case name -> variable => name.originalName -> variable.value.toString }
+
+    if (parent.isDefined) {
+      s"$values -> ${parent.get.toString}"
+    } else {
+      values.toString
+    }
+  }
+
+  def find(name: VariableName): Option[Variable] = {
+    variables.get(name) orElse { parent.flatMap(_.find(name)) }
+  }
+}
+
+
+
+case class Arguments[+T](
+  self: T,
+  positional: Seq[T],
+  named: Map[String, T]
+) {
+  def changeSelf[R >: T](value: R) = Arguments[R](value, positional, named)
+
+  def map[R](f: T => R) = Arguments(
+    f(self),
+    positional.map(f),
+    named.view.mapValues(f).toMap
+  )
+
+  def forall(f: T => Boolean) = f(self) && positional.forall(f) && named.view.values.forall(f)
+
+  def get(index: Int, name: String): T = {
+    if (index == 0) {
+      self
+    } else if (index - 1 < positional.size) {
+      positional(index - 1)
+    } else {
+      named.get(name) match {
+        case Some(value) => value
+        case None => throw EvalError(s"Missing argument $name (at index $index)", None)
+      }
+    }
+  }
+
 //  override def toString = Unparser.unparse(
 //    ValueToAST.transformForInspection(
 //      this.asInstanceOf[Arguments[Value]]
 //    )
 //  )
-//}
-//
-//object Arguments {
-//  def empty[T <: Value]: Arguments[T] = Arguments(None, Seq.empty, Map.empty)
-//
-//  def positional[T <: Value](values: Seq[T]) = Arguments[T](
-//    self = None,
-//    positional = values,
-//    named = Map.empty
-//  )
-//}
+}
+
+object Arguments {
+  def empty[T](self: T): Arguments[T] = Arguments(self, Seq.empty, Map.empty)
+
+  def positional[T](self: T, values: Seq[T]) = Arguments[T](
+    self = self,
+    positional = values,
+    named = Map.empty
+  )
+}
+
+
+
+class UFunction(
+  val params: Seq[UParameter],
+  val body: UValue,
+
+  // TODO: Type inference
+  val returnType: UValue
+) extends Equals {
+  val objectId = ObjectId()
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[UFunction]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: UFunction => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
+}
+
+// TODO: Type here should be optional as it may rely on the usage
+case class UParameter(name: VariableName, typ: UValue, location: Option[Location])

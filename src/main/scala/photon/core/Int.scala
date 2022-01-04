@@ -1,128 +1,62 @@
 package photon.core
 
-import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
-import photon.core.Conversions._
-import photon.interpreter.CallContext
+import photon.{Arguments, EValue, Location, ULiteral}
 
-object IntParams {
-  val FirstParam: Parameter = Parameter(0, "first")
-  val SecondParam: Parameter = Parameter(1, "second")
-}
+object IntType extends StandardType {
+  override val typ = TypeRoot
+  override val location = None
+  override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+    "answer" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-import IntParams._
+      override def typeCheck(argumentTypes: Arguments[Type]) = Int
 
-object IntTypeType extends New.TypeObject {
-  override val typeObject = TypeType
-  override val instanceMethods = Map(
-    "answer" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "answer",
-        arguments = Seq.empty,
-        returns = IntType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Int(42, location)
+      override def call(args: Arguments[EValue], location: Option[Location]) =
+        IntValue(42, location)
     }
   )
 }
 
-object IntType extends New.TypeObject {
-  override val typeObject = IntTypeType
+object Int extends StandardType {
+  override val typ = IntType
+  override val location = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+  override val methods = Map(
+    "+" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-  override val instanceMethods = Map(
-    "+" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "+",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Int
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[IntValue]
+        val other = args.get(1, "other").assert[IntValue]
 
-        PureValue.Int(a + b, location)
+        IntValue(self.value + other.value, location)
       }
     },
 
-    "-" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "-",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
+    "-" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
+      // TODO: Actually type check arguments
+      override def typeCheck(argumentTypes: Arguments[Type]) = Int
 
-        PureValue.Int(a - b, location)
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.assert[IntValue]
+        val other = args.get(1, "other").assert[IntValue]
+
+        IntValue(self.value - other.value, location)
       }
-    },
-
-    "*" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "*",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
-
-        PureValue.Int(a * b, location)
-      }
-    },
-
-//    "/" -> new New.StandardMethod {
-//      override val name = "/"
-//      override val arguments = Seq(
-//        ArgumentType("other", FloatType)
-//      )
-//      override val returns = FloatType
-//
-//      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//        val a = args.getInt(FirstParam)
-//        val b = args.getFloat(SecondParam)
-//
-//        PureValue.Float(a / b, location)
-//      }
-//    },
-
-    "==" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "==",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = BoolType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getFloat(SecondParam)
-
-        PureValue.Boolean(a == b, location)
-      }
-    },
-
-    "toBool" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "toBool",
-        arguments = Seq.empty,
-        returns = BoolType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Boolean(value = true, location)
     }
   )
+}
+
+case class IntValue(value: scala.Int, location: Option[Location]) extends EValue {
+  override val typ = Int
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override def toUValue(core: Core) = ULiteral.Int(value, location)
+  override def evaluate = this
 }

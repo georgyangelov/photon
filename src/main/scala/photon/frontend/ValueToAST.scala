@@ -1,100 +1,96 @@
 package photon.frontend
 
-import photon.core.MacroASTValue
-import photon.interpreter.EvalError
-import photon.{Arguments, BoundValue, Function, Location, Operation, PureValue, UnboundValue, Value, VariableName}
-import photon.core.List
+import photon.{Arguments, Location, UFunction, ULiteral, UOperation, UValue, VariableName}
 
 object ValueToAST {
-  def transformRenamingAll(value: UnboundValue, prefix: String): ASTValue =
+  def transformRenamingAll(value: UValue, prefix: String): ASTValue =
     transform(value, Map.empty, renameAllPrefix = Some(prefix), forInspection = false)
 
-  def transform(value: UnboundValue): ASTValue =
+  def transform(value: UValue): ASTValue =
     transform(value, Map.empty, renameAllPrefix = None, forInspection = false)
 
-  def transformAsBlock(value: UnboundValue): ASTBlock = {
-    value match {
-      case Operation.Block(values, _, _, _) => ASTBlock(
-        values.map(transform(_, Map.empty, None, forInspection = false))
-      )
-      case _ => ASTBlock(Seq(transform(value, Map.empty, None, forInspection = false)))
-    }
+//  def transformAsBlock(value: UValue): ASTBlock = {
+//    value match {
+//      case UOperation.Block(values, _) => ASTBlock(
+//        values.map(transform(_, Map.empty, None, forInspection = false))
+//      )
+//      case _ => ASTBlock(Seq(transform(value, Map.empty, None, forInspection = false)))
+//    }
+//  }
+
+  def transformForInspection(value: UValue): ASTValue = {
+    // TODO: Remove this branching for ASTBlock
+    transform(value, Map.empty, renameAllPrefix = None, forInspection = true)
   }
 
-  def transformForInspection(value: Value): ASTBlock =
-    transform(value, Map.empty, renameAllPrefix = None, forInspection = true) match {
-      case ASTValue.Block(block, _) => block
-      case astValue => ASTBlock(Seq(astValue))
-    }
-
-  def transformForInspection(arguments: Arguments[Value]) = ASTArguments(
+  def transformForInspection(arguments: Arguments[UValue]) = ASTArguments(
     positional = arguments.positional.map(transform(_, Map.empty, None, forInspection = true)),
     named = arguments.named.view.mapValues(transform(_, Map.empty, None, forInspection = true)).toMap
   )
 
   private def transform(
-    value: Value,
+    value: UValue,
     varNames: Map[VariableName, String],
     renameAllPrefix: Option[String],
     forInspection: Boolean
   ): ASTValue = value match {
-    case PureValue.Nothing(location) => ASTValue.NameReference("None", location)
-    case PureValue.Boolean(value, location) => ASTValue.Boolean(value, location)
-    case PureValue.Int(value, location) => ASTValue.Int(value, location)
-    case PureValue.Float(value, location) => ASTValue.Float(value, location)
-    case PureValue.String(value, location) => ASTValue.String(value, location)
+    case ULiteral.Nothing(location) => ASTValue.NameReference("None", location)
+    case ULiteral.Boolean(value, location) => ASTValue.Boolean(value, location)
+    case ULiteral.Int(value, location) => ASTValue.Int(value, location)
+    case ULiteral.Float(value, location) => ASTValue.Float(value, location)
+    case ULiteral.String(value, location) => ASTValue.String(value, location)
 
-    case PureValue.Native(MacroASTValue(ast), _) => ast
+//    case ULiteral.Native(MacroASTValue(ast), _) => ast
 
-    case PureValue.Native(List(values), location) => ASTValue.Call(
-      target = ASTValue.NameReference("List", location),
-      name = "of",
-      arguments = ASTArguments.positional(
-        values.map(transform(_, varNames, renameAllPrefix, forInspection))
-      ),
-      mayBeVarCall = false,
-      location
-    )
+//    case PureValue.Native(List(values), location) => ASTValue.Call(
+//      target = ASTValue.NameReference("List", location),
+//      name = "of",
+//      arguments = ASTArguments.positional(
+//        values.map(transform(_, varNames, renameAllPrefix, forInspection))
+//      ),
+//      mayBeVarCall = false,
+//      location
+//    )
 
-    case PureValue.Native(_, location) =>
-      if (!forInspection) {
-        throw EvalError("Cannot convert Native value to ASTValue", location)
-      }
+//    case PureValue.Native(_, location) =>
+//      if (!forInspection) {
+//        throw EvalError("Cannot convert Native value to ASTValue", location)
+//      }
+//
+//      ASTValue.NameReference("<native>", location)
 
-      ASTValue.NameReference("<native>", location)
+//    case UOperation.Function(fn, location) =>
+//      if (!forInspection) {
+//        throw EvalError("Cannot convert UOperation.Function to ASTValue", location)
+//      }
+//
+//      transformFn(fn, varNames, location, forInspection)
 
-    case BoundValue.Function(fn, _, _, _, location) =>
-      if (!forInspection) {
-        throw EvalError("Cannot convert BoundValue.Function to ASTValue", location)
-      }
+//    case BoundValue.Object(values, _, _, location) =>
+//      if (!forInspection) {
+//        throw EvalError("Cannot convert BoundValue.Object to ASTValue", location)
+//      }
+//
+//      ASTValue.Call(
+//        ASTValue.NameReference("Object", None),
+//        "call",
+//        ASTArguments(
+//          positional = Seq.empty,
+//          named = values.view.mapValues(transform(_, varNames, renameAllPrefix, forInspection)).toMap
+//        ),
+//        mayBeVarCall = false,
+//        location
+//      )
 
-      transformFn(fn, varNames, location, forInspection)
-
-    case BoundValue.Object(values, _, _, location) =>
-      if (!forInspection) {
-        throw EvalError("Cannot convert BoundValue.Object to ASTValue", location)
-      }
-
-      ASTValue.Call(
-        ASTValue.NameReference("Object", None),
-        "call",
-        ASTArguments(
-          positional = Seq.empty,
-          named = values.view.mapValues(transform(_, varNames, renameAllPrefix, forInspection)).toMap
-        ),
-        mayBeVarCall = false,
-        location
-      )
-
-    case Operation.Block(values, _, _, location) =>
+    case UOperation.Block(values, location) =>
       ASTValue.Block(
-        ASTBlock(values.map(transform(_, varNames, renameAllPrefix, forInspection))),
+        values.map(transform(_, varNames, renameAllPrefix, forInspection)),
         location
       )
 
-    case Operation.Let(variable, letValue, block, _, _, location) =>
+    case UOperation.Let(variable, letValue, block, location) =>
       val name = renameAllPrefix match {
-        case Some(prefix) => s"${prefix}$$${variable.originalName}"
+        case Some(prefix) => s"$prefix$$${variable.originalName}"
         case None =>
           uniqueName(
             variable.originalName,
@@ -107,21 +103,21 @@ object ValueToAST {
       ASTValue.Let(
         name,
         transform(letValue, innerVarNames, renameAllPrefix, forInspection),
-        transformBlock(block, innerVarNames, renameAllPrefix, forInspection),
+        transform(block, innerVarNames, renameAllPrefix, forInspection),
         location
       )
 
-    case Operation.Reference(name, _, _, location) =>
+    case UOperation.Reference(name, location) =>
       ASTValue.NameReference(
         varNames.getOrElse(name, name.originalName),
         location
       )
 
-    case Operation.Function(fn, _, _, location) =>
+    case UOperation.Function(fn, location) =>
       transformFn(fn, varNames, location, forInspection)
 
-    case Operation.Call(target, name, arguments, _, _, location) =>
-      val astTarget = transform(target, varNames, renameAllPrefix, forInspection)
+    case UOperation.Call(name, arguments, location) =>
+      val astTarget = transform(arguments.self, varNames, renameAllPrefix, forInspection)
       val astArguments = ASTArguments(
         positional = arguments.positional.map(transform(_, varNames, renameAllPrefix, forInspection)),
 
@@ -161,16 +157,16 @@ object ValueToAST {
     name
   }
 
-  private def transformBlock(
-    block: Operation.Block,
-    varNames: Map[VariableName, String],
-    renameAllPrefix: Option[String],
-    forInspection: Boolean
-  ) =
-    ASTBlock(block.values.map(transform(_, varNames, renameAllPrefix, forInspection)))
+//  private def transformBlock(
+//    block: UOperation.Block,
+//    varNames: Map[VariableName, String],
+//    renameAllPrefix: Option[String],
+//    forInspection: Boolean
+//  ) =
+//    ASTBlock(block.values.map(transform(_, varNames, renameAllPrefix, forInspection)))
 
   private def transformFn(
-    fn: Function,
+    fn: UFunction,
     varNames: Map[VariableName, String],
     location: Option[Location],
     forInspection: Boolean
@@ -181,13 +177,13 @@ object ValueToAST {
           // TODO: Support renames of function parameters
           param.name.originalName,
           // TODO: Is this correct that the rename prefix is empty?
-          param.typeValue.map(transform(_, varNames, None, forInspection)),
+          Some(param.typ).map(transform(_, varNames, None, forInspection)),
           location
         )
       },
       // TODO: Is this correct that the rename prefix is empty?
-      body = transformBlock(fn.body, varNames, None, forInspection),
-      returnType = fn.returnType.map(transform(_, varNames, None, forInspection)),
+      body = transform(fn.body, varNames, None, forInspection),
+      returnType = Some(fn.returnType).map(transform(_, varNames, None, forInspection)),
       location
     )
 }
