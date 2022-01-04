@@ -26,9 +26,7 @@ object ASTToValue {
         val lambdaScope = scope.newChild(parameters.map(_.name))
 
         val body = transform(astBody, lambdaScope)
-        val returns = returnType.map(transform(_, scope)).getOrElse {
-          throw EvalError("Function return type has to be defined explicitly for now", location)
-        }
+        val returns = returnType.map(transform(_, scope))
         val fn = new UFunction(parameters, body, returns)
 
         UOperation.Function(fn, location)

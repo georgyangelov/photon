@@ -23,11 +23,13 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
 
   private lazy val argTypes = args.map { arg => arg.evalType.getOrElse(arg.typ) }
 
-  private lazy val method =
-    args.self.evalType
+  private lazy val method = {
+    val evalType = args.self.evalType
       .getOrElse(args.self.typ)
-      .method(name)
-      .getOrElse { throw EvalError(s"No method named $name on ${args.self}", location) }
+
+    evalType.method(name)
+      .getOrElse { throw EvalError(s"No method named $name on $evalType (self = ${args.self})", location) }
+  }
 
   override def toUValue(core: Core) = UOperation.Call(name, args.map(_.toUValue(core)), location)
 }

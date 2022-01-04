@@ -94,7 +94,7 @@ trait EValue {
   def assert[T <: EValue](implicit tag: ClassTag[T]) =
     this match {
       case value: T => value
-      case _ => throw EvalError(s"Invalid value type $this, expected a native value", location)
+      case _ => throw EvalError(s"Invalid value type $this, expected a $tag value", location)
     }
 }
 
@@ -201,9 +201,7 @@ object Arguments {
 class UFunction(
   val params: Seq[UParameter],
   val body: UValue,
-
-  // TODO: Type inference
-  val returnType: UValue
+  val returnType: Option[UValue]
 ) extends Equals {
   val objectId = ObjectId()
 

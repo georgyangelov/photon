@@ -183,7 +183,7 @@ object ValueToAST {
       },
       // TODO: Is this correct that the rename prefix is empty?
       body = transform(fn.body, varNames, None, forInspection),
-      returnType = Some(fn.returnType).map(transform(_, varNames, None, forInspection)),
+      returnType = fn.returnType.map(transform(_, varNames, None, forInspection)),
       location
     )
 }

@@ -11,9 +11,9 @@ object Reference extends StandardType {
 }
 
 case class ReferenceValue(variable: Variable, location: Option[Location]) extends EValue {
-  override val typ = Block
+  override val typ = Reference
   override def evalMayHaveSideEffects = false
-  override def evalType = variable.value.evalType
+  override def evalType = Some(variable.value.evalType.getOrElse(variable.value.typ))
   override def toUValue(core: Core) = UOperation.Reference(variable.name, location)
   override protected def evaluate: EValue = variable.value
 }

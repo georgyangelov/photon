@@ -10,9 +10,26 @@ import photon.{EValue, Location, PhotonError, Scope, ULiteral, UOperation, UValu
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
 
+object Interpreter {
+  private[this] val threadLocal = ThreadLocal.withInitial[Option[Interpreter]](() => None)
+
+  def current = threadLocal.get.getOrElse { throw EvalError("No current interpreter", None) }
+
+  private def withCurrent[T](interpreter: Interpreter)(code: => T) = {
+    val old = threadLocal.get
+
+    try {
+      threadLocal.set(Some(interpreter))
+      code
+    } finally {
+      threadLocal.set(old)
+    }
+  }
+}
+
 class Interpreter {
   private val logger = Logger[Interpreter]
-  private val core = new Core
+  val core = new Core
 
   def evaluate(ast: ASTValue): EValue = {
     val uvalue = ASTToValue.transform(ast, core.staticRootScope)
@@ -20,10 +37,14 @@ class Interpreter {
     evaluate(uvalue)
   }
 
-  def evaluate(value: UValue): EValue = {
-    val evalue = toEValue(value, Scope.newRoot(Seq()))
+  def evaluateInScope(value: UValue, scope: Scope): EValue = {
+    val evalue = toEValue(value, scope)
 
     evalue.evaluated
+  }
+
+  def evaluate(value: UValue): EValue = Interpreter.withCurrent(this) {
+    evaluateInScope(value, core.rootScope)
   }
 
   def evaluateToUValue(value: ASTValue): UValue = evaluate(value).toUValue(core)

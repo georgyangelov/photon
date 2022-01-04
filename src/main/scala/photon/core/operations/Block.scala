@@ -16,9 +16,9 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
 
   override def evalType =
 //    if (values.nonEmpty)
-      values.last.evalType
+      Some(values.last.evalType.getOrElse(values.last.typ))
 //    else
-//      NothinValue(location)
+//      NothingValue(location)
 
   override protected def evaluate: EValue = {
     val lastValueIndex = values.length - 1

@@ -13,7 +13,7 @@ object Let extends StandardType {
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
   override val typ = Block
   override def evalMayHaveSideEffects = value.evalMayHaveSideEffects || body.evalMayHaveSideEffects
-  override def evalType = body.evalType
+  override def evalType = Some(body.evalType.getOrElse(body.typ))
 
   override protected def evaluate: EValue = {
     val evalue = value.evaluated

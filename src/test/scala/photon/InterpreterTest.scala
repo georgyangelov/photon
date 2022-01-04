@@ -25,8 +25,13 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("answer = 42; answer", "42")
   }
 
+  test("return type inference") {
+    expectEvalCompileTime("(a: Int) { a + 41 }.call 1", "42")
+    expectEvalCompileTime("(a: Int) { a + 41 }.returnType", "Int")
+  }
+
   test("closures") {
-    expectEvalCompileTime("(a:Int):Int{ (b:Int):Int{ a + b } }(1)(41)", "42")
+    expectEvalCompileTime("(a:Int){ (b:Int){ a + b } }(1)(41)", "42")
   }
 
   test("higher-order functions") {
