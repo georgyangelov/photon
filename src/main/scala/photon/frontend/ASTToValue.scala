@@ -65,7 +65,7 @@ object ASTToValue {
             UOperation.Reference(variable, location)
 
           case None =>
-            val self = scope.find("self").getOrElse { throw EvalError("Cannot find 'self' in scope", location) }
+            val self = scope.find("self").getOrElse { throw EvalError(s"Cannot find name $name", location) }
             val referenceToSelf = UOperation.Reference(self, location)
 
             UOperation.Call(

@@ -34,14 +34,14 @@ object TestHelpers {
     interpreter.evaluateToUValue(value)
   }
 
-  def evalRunTime(code: String): EValue = {
+  def evalRunTime(code: String): UValue = {
     val interpreter = new Interpreter(/* RunMode.Runtime */)
     val value = parseCode(code, Parser.BlankMacroHandler)
 
-    interpreter.evaluate(value)
+    interpreter.evaluateToUValue(value)
   }
 
-  def eval(prelude: String, code: String): EValue = {
+  def eval(prelude: String, code: String): UValue = {
     val logger = Logger("TestHelpers")
 
     val compiledValue = evalCompileTime(Some(prelude), code)

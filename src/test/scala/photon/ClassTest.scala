@@ -13,7 +13,7 @@ class ClassTest extends FunSuite {
           Class.field("age", Int)
         ),
 
-        instanceMethods = List.empty
+        methods = List.empty
       )
 
       person = Person.new(name = "Ivan", age = 42)

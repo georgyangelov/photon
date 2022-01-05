@@ -26,7 +26,7 @@ class Core extends EValue {
     "Int" -> photon.core.Int,
     "Float" -> photon.core.Float,
     "String" -> photon.core.String,
-    // "List" -> photon.core.List,
+    "List" -> photon.core.List,
     "Function" -> photon.core.operations.FunctionRoot,
     // "Class" -> photon.core.Class
     // "Optional" -> photon.core.Optional
