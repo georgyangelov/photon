@@ -94,6 +94,8 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
   override def typ = FunctionRoot
   override val location = None
 
+  private[this] val self = this
+
   override val methods = Map(
     "returnType" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
@@ -114,7 +116,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
     "call" -> new Method {
       // TODO: Add traits to the type itself
-      override val traits = Set(MethodTrait.RunTime, MethodTrait.CompileTime)
+      override val traits = self.traits
       override def typeCheck(args: Arguments[EValue]) = returnType.evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
         // TODO: Add self argument
@@ -132,7 +134,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
           return CallValue("call", args, location)
         }
 
-        // TODO: Better arg check
+        // TODO: Better arg check + do it in the typeCheck method
         if (args.positional.size + args.named.size != params.size) {
           throw EvalError("Wrong number of arguments for this function", location)
         }
@@ -150,15 +152,6 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
             case None => throw EvalError(s"Argument $name not specified in method call", location)
           }
         }
-
-//        val positionalVariables = positionalParams
-//          .map { case (name, value) => Variable(fn.nameMap(name), value) }
-//
-//        val namedVariables = namedParams
-//          .map { case (name, value) => Variable(fn.nameMap(name), value) }
-
-        // TODO: Is there a smarter, more generic way of doing this?
-//        val namesThatAreDirectReferences = positionalParams.
 
         val localVariables = (positionalParams ++ namedParams).map { case name -> value =>
           value match {
@@ -178,6 +171,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
         val bodyWrappedInLets = partialSelf
           .addInnerVariables(
+            // TODO: Preserve order of definition so that latter variables can use prior ones
             localVariables
               .filter { case (_, _, isFromParentScope) => !isFromParentScope }
               .map(_._2)
@@ -185,24 +179,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
           .replaceWith(ebody)
           .wrapBack
 
-//        val bodyWrappedInLets = localVariables
-//          .filter { case (_, _, isFromParentScope) => !isFromParentScope }
-//          .map(_._2)
-//          .foldRight(ebody) { case (variable, evalue) =>
-//            LetValue(variable.name, variable.value, evalue, location)
-//          }
-
         bodyWrappedInLets.evaluated
-//        val partialResult = partialSelf.replaceWith(result)
-
-        // TODO: Preserve order of definition so that latter variables can use prior ones
-//        val bodyWrappedInLets = localVariables.foldLeft(fn.body) { case (evalue, variable) =>
-//          UOperation.Let(variable.name, variable.value, )
-//        }
-
-//        val result = Interpreter.current.evaluateInScope(fn.body, fn.scope, )
-
-//        partialResult.wrapBack
       }
     }
   )
