@@ -11,7 +11,7 @@ object ListType extends StandardType {
   override val methods = Map(
     "of" -> new Method {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
-      override def typeCheck(argumentTypes: Arguments[Type]) = List
+      override def typeCheck(args: Arguments[EValue]) = List
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         if (args.named.nonEmpty) {
           throw EvalError("Cannot call List.of with named arguments", location)
@@ -23,7 +23,7 @@ object ListType extends StandardType {
 
     "empty" -> new Method {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
-      override def typeCheck(argumentTypes: Arguments[Type]) = List
+      override def typeCheck(args: Arguments[EValue]) = List
       override def call(args: Arguments[EValue], location: Option[Location]) =
         ListValue(Seq.empty, location)
     }
@@ -39,10 +39,10 @@ object List extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[ListValue]
+        val self = args.self.evalAssert[ListValue]
 
         IntValue(self.values.length, location)
       }
@@ -52,11 +52,11 @@ object List extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actual type here
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[ListValue]
-        val index = args.positional.head.assert[IntValue].value
+        val self = args.self.evalAssert[ListValue]
+        val index = args.positional.head.evalAssert[IntValue].value
 
         self.values(index)
       }

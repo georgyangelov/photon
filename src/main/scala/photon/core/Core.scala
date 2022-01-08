@@ -28,8 +28,8 @@ class Core extends EValue {
     "String" -> photon.core.String,
     "List" -> photon.core.List,
     "Function" -> photon.core.operations.FunctionRoot,
-    // "Class" -> photon.core.Class
-    // "Optional" -> photon.core.Optional
+    "Class" -> photon.core.ClassRoot,
+    "Optional" -> photon.core.OptionalRoot
   )
 
   lazy val rootScope = Scope.newRoot(globals.names)

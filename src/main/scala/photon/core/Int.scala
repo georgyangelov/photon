@@ -10,7 +10,7 @@ object IntType extends StandardType {
     "answer" -> new Method {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) =
         IntValue(42, location)
@@ -27,11 +27,11 @@ object Int extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[IntValue]
-        val other = args.get(1, "other").assert[IntValue]
+        val self = args.self.evalAssert[IntValue]
+        val other = args.get(1, "other").evalAssert[IntValue]
 
         IntValue(self.value + other.value, location)
       }
@@ -41,11 +41,11 @@ object Int extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[IntValue]
-        val other = args.get(1, "other").assert[IntValue]
+        val self = args.self.evalAssert[IntValue]
+        val other = args.get(1, "other").evalAssert[IntValue]
 
         IntValue(self.value - other.value, location)
       }
@@ -55,11 +55,11 @@ object Int extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[IntValue]
-        val other = args.get(1, "other").assert[IntValue]
+        val self = args.self.evalAssert[IntValue]
+        val other = args.get(1, "other").evalAssert[IntValue]
 
         IntValue(self.value * other.value, location)
       }
@@ -69,11 +69,11 @@ object Int extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
+      override def typeCheck(args: Arguments[EValue]) = Bool
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[IntValue]
-        val other = args.get(1, "other").assert[IntValue]
+        val self = args.self.evalAssert[IntValue]
+        val other = args.get(1, "other").evalAssert[IntValue]
 
         BoolValue(self.value == other.value, location)
       }

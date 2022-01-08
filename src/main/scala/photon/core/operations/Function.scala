@@ -40,7 +40,7 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
 
   private def inferReturnType(eparams: Seq[EParameter]) = {
     val partialScope = scope.newChild(eparams.map { param =>
-      Variable(fn.nameMap(param.name), UnknownValue(param.typ.evaluated.assert[Type], param.location))
+      Variable(fn.nameMap(param.name), UnknownValue(param.typ.evalAssert[Type], param.location))
     })
     val ebody = Interpreter.current.toEValue(fn.body, partialScope)
 
@@ -55,7 +55,7 @@ object FunctionRootType extends StandardType {
   override val methods = Map(
     "call" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
-      override def typeCheck(argumentTypes: Arguments[Type]) = FunctionRoot
+      override def typeCheck(args: Arguments[EValue]) = FunctionRoot
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         if (args.positional.nonEmpty) {
           throw EvalError("Function type parameters must be named", location)
@@ -89,19 +89,19 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue) extends Standa
   override val methods = Map(
     "returnType" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
-      override def typeCheck(argumentTypes: Arguments[Type]) = TypeRoot
+      override def typeCheck(args: Arguments[EValue]) = TypeRoot
       override def call(args: Arguments[EValue], location: Option[Location]) = returnType
     },
 
     "call" -> new Method {
       // TODO: Add traits to the type itself
       override val traits = Set(MethodTrait.RunTime, MethodTrait.CompileTime)
-      override def typeCheck(argumentTypes: Arguments[Type]) = returnType.evaluated.assert[Type]
+      override def typeCheck(args: Arguments[EValue]) = returnType.evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         // TODO: Add self argument
         // TODO: Handle unevaluated arguments?
 
-        val fn = args.self.assert[FunctionValue]
+        val fn = args.self.evalAssert[FunctionValue]
 
         // TODO: Better arg check
         if (args.positional.size + args.named.size != params.size) {

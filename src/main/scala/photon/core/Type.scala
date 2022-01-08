@@ -9,7 +9,7 @@ abstract class Type extends EValue {
 trait Method {
   val traits: Set[MethodTrait]
 
-  def typeCheck(argumentTypes: Arguments[Type]): Type
+  def typeCheck(args: Arguments[EValue]): Type
   def call(args: Arguments[EValue], location: Option[Location]): EValue
 }
 

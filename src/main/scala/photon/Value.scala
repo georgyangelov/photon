@@ -91,6 +91,12 @@ trait EValue {
 
   protected def evaluate: EValue
 
+  def evalAssert[T <: EValue](implicit tag: ClassTag[T]) =
+    this.evaluated match {
+      case value: T => value
+      case _ => throw EvalError(s"Invalid value type $this, expected a $tag value", location)
+    }
+
   def assert[T <: EValue](implicit tag: ClassTag[T]) =
     this match {
       case value: T => value
@@ -193,6 +199,12 @@ object Arguments {
     self = self,
     positional = values,
     named = Map.empty
+  )
+
+  def named[T](self: T, values: Map[String, T]) = Arguments[T](
+    self = self,
+    positional = Seq.empty,
+    named = values
   )
 }
 

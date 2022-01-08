@@ -15,13 +15,14 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
   override val typ = Call
   override def evalMayHaveSideEffects = method.traits.contains(MethodTrait.SideEffects)
 
-  override def evalType = Some(method.typeCheck(argTypes))
+  override def evalType = Some(method.typeCheck(args))
   override protected def evaluate: EValue = {
     // TODO: Detect if values are fully evaluated or not
-    method.call(args.map(_.evaluated), location)
+    // method.call(args.map(_.evaluated), location)
+    method.call(args, location)
   }
 
-  private lazy val argTypes = args.map { arg => arg.evalType.getOrElse(arg.typ) }
+//  private lazy val argTypes = args.map { arg => arg.evalType.getOrElse(arg.typ) }
 
   private lazy val method = {
     val evalType = args.self.evalType

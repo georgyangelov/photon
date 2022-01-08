@@ -18,10 +18,10 @@ object String extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Int
+      override def typeCheck(args: Arguments[EValue]) = Int
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[StringValue]
+        val self = args.self.evalAssert[StringValue]
 
         IntValue(self.value.length, location)
       }

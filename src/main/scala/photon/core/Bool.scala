@@ -23,11 +23,11 @@ object Bool extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
+      override def typeCheck(arguments: Arguments[EValue]) = Bool
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[BoolValue]
-        val other = args.get(1, "other").assert[BoolValue]
+        val self = args.self.evalAssert[BoolValue]
+        val other = args.get(1, "other").evalAssert[BoolValue]
 
         BoolValue(self.value && other.value, location)
       }
@@ -37,11 +37,11 @@ object Bool extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Bool
+      override def typeCheck(arguments: Arguments[EValue]) = Bool
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[BoolValue]
-        val other = args.get(1, "other").assert[BoolValue]
+        val self = args.self.evalAssert[BoolValue]
+        val other = args.get(1, "other").evalAssert[BoolValue]
 
         BoolValue(self.value || other.value, location)
       }
@@ -51,10 +51,15 @@ object Bool extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Extract a common type, or check to see if the two types are equal
-      override def typeCheck(argumentTypes: Arguments[Type]) = argumentTypes.positional.head
+      override def typeCheck(arguments: Arguments[EValue]) = {
+        val first = arguments.positional.head
+
+        first.evalType.getOrElse(first.typ)
+      }
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val condition = args.self.assert[BoolValue].value
+        // TODO: Make this a normal assert so that it can be partially evaluated
+        val condition = args.self.evalAssert[BoolValue].value
 
         val fnToCall = if (condition) {
           args.positional.head
@@ -64,7 +69,8 @@ object Bool extends StandardType {
 
 //        CallValue("call", Arguments.empty(fnToCall), location)
 
-        fnToCall.typ
+        // TODO: Can this be `evalType`?
+        fnToCall.evaluated.typ
           .method("call")
           .getOrElse { throw EvalError("Functions given to ifElse must be callable", location) }
           .call(Arguments.empty(fnToCall), location)

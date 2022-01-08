@@ -18,11 +18,11 @@ object Float extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Float
+      override def typeCheck(args: Arguments[EValue]) = Float
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[FloatValue]
-        val other = args.get(1, "other").assert[FloatValue]
+        val self = args.self.evalAssert[FloatValue]
+        val other = args.get(1, "other").evalAssert[FloatValue]
 
         FloatValue(self.value + other.value, location)
       }
@@ -32,11 +32,11 @@ object Float extends StandardType {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
 
       // TODO: Actually type check arguments
-      override def typeCheck(argumentTypes: Arguments[Type]) = Float
+      override def typeCheck(args: Arguments[EValue]) = Float
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.assert[FloatValue]
-        val other = args.get(1, "other").assert[FloatValue]
+        val self = args.self.evalAssert[FloatValue]
+        val other = args.get(1, "other").evalAssert[FloatValue]
 
         FloatValue(self.value - other.value, location)
       }

@@ -8,12 +8,8 @@ class ClassTest extends FunSuite {
     expectEvalCompileTime(
       """
       Person = Class.new(
-        fields = List.of(
-          Class.field("name", String),
-          Class.field("age", Int)
-        ),
-
-        methods = List.empty
+        Class.property("name", String),
+        Class.property("age", Int)
       )
 
       person = Person.new(name = "Ivan", age = 42)
@@ -28,14 +24,10 @@ class ClassTest extends FunSuite {
     expectEvalCompileTime(
       """
       Person = Class.new(
-        fields = List.of(
-          Class.field("name", String),
-          Class.field("age", Int)
-        ),
+        Class.field("name", String),
+        Class.field("age", Int),
 
-        instanceMethods = List.of(
-          Class.method("nextAge", (): Int { age + 1 })
-        )
+        Class.method("nextAge", (): Int { age + 1 })
       )
 
       person = Person.new(name = "Ivan", age = 42)
@@ -50,17 +42,14 @@ class ClassTest extends FunSuite {
     expectEvalCompileTime(
       """
       Person = Class.new(
-        fields = List.of(
-          Class.field("name", String),
-          Class.field("parent", lazy Optional(Person))
-        ),
-        instanceMethods = List.of()
+        Class.property("name", String),
+        Class.property("parent", Optional(Person))
       )
 
-      person = Person.new(name = "Ivan", parent = Optional(Person).none)
+      person = Person.new(name = "Ivan", parent = Optional(Person).empty)
       person.parent
       """,
-      "None"
+      "Optional(Person).empty"
     )
   }
 
