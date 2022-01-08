@@ -120,9 +120,14 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         // TODO: Add self argument
         // TODO: Handle unevaluated arguments?
 
-        val fn = args.self.evalAssert[FunctionValue]
+        val partialSelf = args.self.evaluated match {
+          case letValue: LetValue => letValue.partialValue
+          case innerValue => PartialValue(innerValue, Seq.empty)
+        }
 
-        // TODO Also check if it CAN be evaluated (i.e. if the values are "real")?
+        val fn = partialSelf.value.evalAssert[FunctionValue]
+
+        // TODO: Also check if it CAN be evaluated (i.e. if the values are "real")?
         if (!fn.typ.traits.contains(MethodTrait.CompileTime)) {
           return CallValue("call", args, location)
         }
@@ -171,15 +176,24 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         val renamedUBody = URename.rename(fn.body, renames)
         val ebody = Interpreter.current.toEValue(renamedUBody, scope)
 
-        val bodyWrappedInLets = localVariables
-          .filter { case (_, _, isFromParentScope) => !isFromParentScope }
-          .map(_._2)
-          .foldRight(ebody) { case (variable, evalue) =>
-            LetValue(variable.name, variable.value, evalue, location)
-          }
+        val bodyWrappedInLets = partialSelf
+          .addInnerVariables(
+            localVariables
+              .filter { case (_, _, isFromParentScope) => !isFromParentScope }
+              .map(_._2)
+          )
+          .replaceWith(ebody)
+          .wrapBack
 
-        val result = bodyWrappedInLets.evaluated
+//        val bodyWrappedInLets = localVariables
+//          .filter { case (_, _, isFromParentScope) => !isFromParentScope }
+//          .map(_._2)
+//          .foldRight(ebody) { case (variable, evalue) =>
+//            LetValue(variable.name, variable.value, evalue, location)
+//          }
 
+        bodyWrappedInLets.evaluated
+//        val partialResult = partialSelf.replaceWith(result)
 
         // TODO: Preserve order of definition so that latter variables can use prior ones
 //        val bodyWrappedInLets = localVariables.foldLeft(fn.body) { case (evalue, variable) =>
@@ -188,7 +202,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
 //        val result = Interpreter.current.evaluateInScope(fn.body, fn.scope, )
 
-        result
+//        partialResult.wrapBack
       }
     }
   )

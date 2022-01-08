@@ -1,7 +1,10 @@
 package photon.core.operations
 
 import photon.core.{Core, StandardType, TypeRoot}
-import photon.{EValue, Location, UOperation, VariableName}
+import photon.{EValue, Location, UOperation, Variable, VariableName}
+
+import scala.annotation.tailrec
+import scala.collection.mutable
 
 object Let extends StandardType {
   override val typ = TypeRoot
@@ -35,4 +38,31 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
   }
 
   override def toUValue(core: Core) = UOperation.Let(name, value.toUValue(core), body.toUValue(core), location)
+
+  def partialValue: PartialValue = partialValue(Seq.newBuilder)
+
+  @tailrec
+  private def partialValue(variables: mutable.Builder[Variable, Seq[Variable]]): PartialValue = {
+    variables.addOne(Variable(name, value))
+
+    body match {
+      case let: LetValue => let.partialValue(variables)
+      case _ => PartialValue(body, variables.result)
+    }
+  }
+}
+
+case class PartialValue(value: EValue, variables: Seq[Variable]) {
+  def replaceWith(newValue: EValue) = PartialValue(newValue, variables)
+  def addOuterVariables(additionalVars: Seq[Variable]) = PartialValue(value, additionalVars ++ variables)
+  def addInnerVariables(additionalVars: Seq[Variable]) = PartialValue(value, variables ++ additionalVars)
+
+  def wrapBack: EValue =
+    variables.foldRight(value) { case (Variable(name, varValue), innerValue) =>
+      if (innerValue.unboundNames.contains(name)) {
+        LetValue(name, varValue, innerValue, varValue.location)
+      } else {
+        innerValue
+      }
+    }
 }
