@@ -23,6 +23,7 @@ object MethodTrait {
 object TypeRoot extends Type {
   override val location = None
   lazy val typ = this
+  override def unboundNames = Set.empty
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this

@@ -181,13 +181,13 @@ class ParserTest extends FunSuite {
   test("lambdas") {
     assert(parse("{ a\n b\n }") == "(lambda [] { a b })")
     assert(parse("(a, b) { a\n b\n }") == "(lambda [(param a) (param b)] { a b })")
-    assert(parse("{ a\n }.call 42") == "(call (lambda [] { a }) 42)")
-    assert(parse("{ a\n }(42)") == "(call (lambda [] { a }) 42)")
+    assert(parse("{ a\n }.call 42") == "(call (lambda [] a) 42)")
+    assert(parse("{ a\n }(42)") == "(call (lambda [] a) 42)")
   }
 
   test("lambdas with a single expression") {
-    assert(parse("(a, b) a + b") == "(lambda [(param a) (param b)] { (+ a b) })")
-    assert(parse("((a, b) a + b)()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
+    assert(parse("(a, b) a + b") == "(lambda [(param a) (param b)] (+ a b))")
+    assert(parse("((a, b) a + b)()") == "(call (lambda [(param a) (param b)] (+ a b)))")
 
     // TODO: These should be errors
     // assert(parse("(a, b) (a + b)") == "(lambda [(param a) (param b)] { (+ a b) })")
@@ -195,13 +195,13 @@ class ParserTest extends FunSuite {
     // assert(parse("((a, b) (a) + (b))()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
     // assert(parse("((a, b) ((a) + (b)))()") == "(call (lambda [(param a) (param b)] { (+ a b) }))")
 
-    assert(parse("() a + b") == "(lambda [] { (+ a b) })")
-    assert(parse("(() a + b)()") == "(call (lambda [] { (+ a b) }))")
+    assert(parse("() a + b") == "(lambda [] (+ a b))")
+    assert(parse("(() a + b)()") == "(call (lambda [] (+ a b)))")
   }
 
   test("Ambiguous lambda cases") {
-    assert(parse("array.forEach (element) { element + 1 }") == "(forEach array (lambda [(param element)] { (+ element 1) }))")
-    assert(parse("forEach (element) { element + 1 }") == "(forEach self (lambda [(param element)] { (+ element 1) }))")
+    assert(parse("array.forEach (element) { element + 1 }") == "(forEach array (lambda [(param element)] (+ element 1)))")
+    assert(parse("forEach (element) { element + 1 }") == "(forEach self (lambda [(param element)] (+ element 1)))")
 
     // TODO: These should be errors
     // assert(parse("array.forEach(element) { element + 1 }") == "(forEach array (lambda [(param element)] { (+ element 1) }))")
@@ -210,15 +210,15 @@ class ParserTest extends FunSuite {
     assert(parse("array.forEach(element)") == "(forEach array element)")
     assert(parse("forEach(element)") == "(forEach self element)")
 
-    assert(parse("(a){ a + 41 }(1)") == "(call (lambda [(param a)] { (+ a 41) }) 1)")
-    assert(parse("((a){ a + 41 })(1)") == "(call (lambda [(param a)] { (+ a 41) }) 1)")
+    assert(parse("(a){ a + 41 }(1)") == "(call (lambda [(param a)] (+ a 41)) 1)")
+    assert(parse("((a){ a + 41 })(1)") == "(call (lambda [(param a)] (+ a 41)) 1)")
 
     // TODO: This is an error, the argument list must not have whitespace before the open paren
     // assert(parse("(a){ a + 41 } (1)") == "(lambda [(param a)] { (+ a 41) }) 1")
   }
 
   test("nested lambda calls") {
-    assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] { (lambda [(param b)] { (+ a b) }) }) 1) 41)");
+    assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] (lambda [(param b)] (+ a b))) 1) 41)");
   }
 
   test("named arguments") {
@@ -241,8 +241,8 @@ class ParserTest extends FunSuite {
   }
 
   test("direct call on lambda with named arguments") {
-    assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) 1 (param b 2))")
-    assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] { (+ a b) }) (param a 1) (param b 2))")
+    assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] (+ a b)) 1 (param b 2))")
+    assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] (+ a b)) (param a 1) (param b 2))")
   }
 
   test("type annotations on values") {
@@ -256,20 +256,20 @@ class ParserTest extends FunSuite {
   }
 
   test("type annotations on function parameters") {
-    assert(parse("(a: Int) a + 1") == "(lambda [(param a Int)] { (+ a 1) })")
-    assert(parse("(a: Int, b: String) a + b") == "(lambda [(param a Int) (param b String)] { (+ a b) })")
-    assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] { 42 })")
+    assert(parse("(a: Int) a + 1") == "(lambda [(param a Int)] (+ a 1))")
+    assert(parse("(a: Int, b: String) a + b") == "(lambda [(param a Int) (param b String)] (+ a b))")
+    assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] 42)")
   }
 
   test("type annotations on function return type") {
-    assert(parse("(a: Int): Int { a + 1 }") == "(lambda [(param a Int)] Int { (+ a 1) })")
-    assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int { (+ a 1) })")
+    assert(parse("(a: Int): Int { a + 1 }") == "(lambda [(param a Int)] Int (+ a 1))")
+    assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int (+ a 1))")
   }
 
   test("parentheses for blocks") {
     assert(parse("(a; b)") == "{ a b }")
     assert(parse("(a; b) + 1") == "(+ { a b } 1)")
-    assert(parse("a = 11; (a = 42; () { a }) + a") == "(let a 11 { (+ (let a 42 { (lambda [] { a }) }) a) })")
+    assert(parse("a = 11; (a = 42; () { a }) + a") == "(let a 11 (+ (let a 42 (lambda [] a)) a))")
 
     assertThrows[ParseError] { parse("()") }
   }

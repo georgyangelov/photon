@@ -3,9 +3,11 @@ package photon.core
 import photon.core.operations.CallValue
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location}
+import photon.lib.ScalaExtensions._
 
 object ListType extends StandardType {
   override val typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
@@ -32,6 +34,7 @@ object ListType extends StandardType {
 
 object List extends StandardType {
   override val typ = ListType
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
@@ -66,6 +69,7 @@ object List extends StandardType {
 
 case class ListValue(values: Seq[EValue], location: Option[Location]) extends EValue {
   override val typ = List
+  override def unboundNames = values.map(_.unboundNames).unionSets
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def toUValue(core: Core) = CallValue("of", Arguments.positional(List, values), location).toUValue(core)

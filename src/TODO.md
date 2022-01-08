@@ -1,7 +1,2 @@
-- [Value->ASTValue] Support renames of function parameters
-- [Value->ASTValue] Serialize traits
-- [Value] Remove `Variable` type
-- [Parse macros] Implement with the new structure
-- [Interpreter] Support calling methods on a partial struct
-- [Interpreter] Partially evaluate function body
-- [Interpreter] Serialize traits during BoundFunction -> Function conversion in scope extraction
+- [Interpreter] Need to at least partially evaluate all values - currently types / functions in Class.new are never evaluated
+- [Value] The toUValue function assumes value will not be evaluated compile-time - need to encode method traits as well

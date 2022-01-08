@@ -6,6 +6,7 @@ import photon.{EValue, Location, Scope, UOperation, Variable, VariableName}
 
 object CoreType extends StandardType {
   override val typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override val methods = Map.empty
   override def toUValue(core: Core) = inconvertible
@@ -13,6 +14,7 @@ object CoreType extends StandardType {
 
 class Core extends EValue {
   override val typ = CoreType
+  override def unboundNames = Set.empty
   override val location = None
   override def evalMayHaveSideEffects = false
   override def evalType = None

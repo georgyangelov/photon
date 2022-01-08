@@ -5,6 +5,7 @@ import photon.{Arguments, EValue, Location}
 
 object OptionalRootType extends StandardType {
   override val location = None
+  override def unboundNames = Set.empty
   override def typ = TypeRoot
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
@@ -18,6 +19,7 @@ object OptionalRootType extends StandardType {
 }
 object OptionalRoot extends StandardType {
   override def typ = OptionalRootType
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
@@ -25,6 +27,7 @@ object OptionalRoot extends StandardType {
 
 case class OptionalT(optional: Optional) extends StandardType {
   override def typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = optional.location
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
@@ -45,6 +48,7 @@ case class OptionalT(optional: Optional) extends StandardType {
 }
 case class Optional(innerType: EValue, location: Option[Location]) extends StandardType {
   override lazy val typ = OptionalT(this)
+  override def unboundNames = innerType.unboundNames
   override def toUValue(core: Core) =
     CallValue(
       "call",
@@ -63,6 +67,7 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
 
 case class OptionalValue(typ: Optional, innerValue: Option[EValue], location: Option[Location]) extends EValue {
   override def evalType = None
+  override def unboundNames = innerValue.map(_.unboundNames).getOrElse(Set.empty)
   override def evalMayHaveSideEffects = false
   override def toUValue(core: Core) =
     if (innerValue.isDefined) {

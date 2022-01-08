@@ -6,6 +6,7 @@ import photon.{Arguments, EValue, Location, ULiteral}
 object BoolType extends StandardType {
   override val typ = TypeRoot
   override val location = None
+  override def unboundNames = Set.empty
   override val methods = Map.empty
 
   override def toUValue(core: Core) = inconvertible
@@ -14,6 +15,7 @@ object BoolType extends StandardType {
 object Bool extends StandardType {
   override val typ = BoolType
   override val location = None
+  override def unboundNames = Set.empty
 
   override def toUValue(core: Core) = core.referenceTo(Bool, location)
 
@@ -81,6 +83,7 @@ object Bool extends StandardType {
 
 case class BoolValue(value: scala.Boolean, location: Option[Location]) extends EValue {
   override val typ = Bool
+  override def unboundNames = Set.empty
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this

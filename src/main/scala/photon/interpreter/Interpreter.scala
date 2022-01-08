@@ -37,14 +37,19 @@ class Interpreter {
     evaluate(uvalue)
   }
 
-  def evaluateInScope(value: UValue, scope: Scope): EValue = {
-    val evalue = toEValue(value, scope)
-
-    evalue.evaluated
-  }
+//  def evaluateInNewSubScope(
+//    value: UValue,
+//    scope: Scope,
+//    locals: Seq[Variable],
+//    renames: Map[VariableName, VariableName]
+//  ): EValue = {
+//    val evalue = toEValue(value, scope, renames)
+//
+//    evalue.evaluated
+//  }
 
   def evaluate(value: UValue): EValue = Interpreter.withCurrent(this) {
-    evaluateInScope(value, core.rootScope)
+    toEValue(value, core.rootScope).evaluated
   }
 
   def evaluateToUValue(value: ASTValue): UValue = evaluate(value).toUValue(core)

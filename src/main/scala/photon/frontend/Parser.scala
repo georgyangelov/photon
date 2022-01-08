@@ -507,7 +507,7 @@ class Parser(
     parameters.result
   }
 
-  private def parseBlock(): ASTValue.Block = {
+  private def parseBlock() = {
     val values = Vector.newBuilder[ASTValue]
     val startLocation = lastLocation
 
@@ -515,7 +515,13 @@ class Parser(
       values += parseExpression(requireCallParens = false)
     }
 
-    ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
+    val valuesResult = values.result
+
+    if (valuesResult.length == 1) {
+      valuesResult.head
+    } else {
+      ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
+    }
   }
 
   private def parseRestOfBlock() = {
@@ -526,7 +532,13 @@ class Parser(
       values += parseExpression(requireCallParens = false)
     }
 
-    ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
+    val valuesResult = values.result
+
+    if (valuesResult.length == 1) {
+      valuesResult.head
+    } else {
+      ASTValue.Block(values.result, Some(startLocation.extendWith(lastLocation)))
+    }
   }
 
   private def parseUnaryOperator(requireCallParens: Boolean): ASTValue = {

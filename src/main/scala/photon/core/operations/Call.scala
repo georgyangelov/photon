@@ -6,6 +6,7 @@ import photon.{Arguments, EValue, Location, UOperation}
 
 object Call extends StandardType {
   override val typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
@@ -13,7 +14,12 @@ object Call extends StandardType {
 
 case class CallValue(name: String, args: Arguments[EValue], location: Option[Location]) extends EValue {
   override val typ = Call
-  override def evalMayHaveSideEffects = method.traits.contains(MethodTrait.SideEffects)
+  override def unboundNames =
+    args.self.unboundNames ++
+    args.positional.flatMap(_.unboundNames).toSet ++
+    args.named.values.flatMap(_.unboundNames).toSet
+
+  override def evalMayHaveSideEffects = true // method.traits.contains(MethodTrait.SideEffects)
 
   override def evalType = Some(method.typeCheck(args))
   override protected def evaluate: EValue = {

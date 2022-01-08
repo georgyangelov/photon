@@ -5,6 +5,7 @@ import photon.{EValue, Location, UOperation}
 
 object Block extends StandardType {
   override val typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
@@ -12,6 +13,7 @@ object Block extends StandardType {
 
 case class BlockValue(values: Seq[EValue], location: Option[Location]) extends EValue {
   override val typ = Block
+  override def unboundNames = values.flatMap(_.unboundNames).toSet
   override def evalMayHaveSideEffects = values.exists(_.evalMayHaveSideEffects)
 
   override def evalType =
@@ -21,11 +23,13 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
 //      NothingValue(location)
 
   override protected def evaluate: EValue = {
+    val ENABLE_SIDE_EFFECT_CHECK = true
+
     val lastValueIndex = values.length - 1
     val evalues = values
       .map(_.evaluated)
       .zipWithIndex
-      .filter { case (value, index) => index == lastValueIndex || value.evalMayHaveSideEffects }
+      .filter { case (value, index) => !ENABLE_SIDE_EFFECT_CHECK || index == lastValueIndex || value.evalMayHaveSideEffects }
       .map(_._1)
 
     if (evalues.length == 1) {

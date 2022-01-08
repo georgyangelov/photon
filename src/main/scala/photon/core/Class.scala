@@ -5,6 +5,7 @@ import photon.{Arguments, EValue, Location}
 
 object ClassRootType extends StandardType {
   override def typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
@@ -46,6 +47,7 @@ object ClassRootType extends StandardType {
 
 object ClassRoot extends StandardType {
   override def typ = ClassRootType
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
@@ -53,6 +55,7 @@ object ClassRoot extends StandardType {
 
 case class ClassT(klass: photon.core.Class) extends StandardType {
   override val location = klass.location
+  override def unboundNames = Set.empty
   override def typ = TypeRoot
   override def toUValue(core: Core) = inconvertible
 
@@ -73,6 +76,7 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
 }
 case class Class(properties: Seq[PropertyValue], location: Option[Location]) extends StandardType {
   override lazy val typ = ClassT(this)
+  override def unboundNames = properties.flatMap(_.unboundNames).toSet
 
   override def toUValue(core: Core) =
     CallValue(
@@ -99,8 +103,12 @@ case class Class(properties: Seq[PropertyValue], location: Option[Location]) ext
   }.toMap
 }
 
-case class Object(typ: photon.core.Class, properties: Map[String, EValue], location: Option[Location]) extends EValue {
+case class Object(classValue: EValue, properties: Map[String, EValue], location: Option[Location]) extends EValue {
+  override def typ = classValue.evalAssert[photon.core.Class]
   override def evalType = None
+
+  // TODO: Not sure if this including the classValue is 100% correct
+  override def unboundNames = classValue.unboundNames ++ properties.values.flatMap(_.unboundNames).toSet
 
   // TODO: Can it have side-effects?
   //       If any of the not-yet-evaluated properties have side-effects when evaluating?
@@ -117,12 +125,14 @@ case class Object(typ: photon.core.Class, properties: Map[String, EValue], locat
 
 object Property extends StandardType {
   override def typ = TypeRoot
+  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
 }
 case class PropertyValue(name: StringValue, propType: EValue, location: Option[Location]) extends EValue {
   override def typ = Property
+  override def unboundNames = propType.unboundNames
   override def evalType = None
   override def evalMayHaveSideEffects = false
   override def toUValue(core: Core) =
