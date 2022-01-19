@@ -1,5 +1,6 @@
 package photon
 
+import photon.compiler.CompilerContext
 import photon.interpreter.EvalError
 import photon.core.{Core, Type}
 
@@ -14,13 +15,15 @@ trait EValue {
   protected def inconvertible =
     throw EvalError(s"Cannot convert value of class ${this.getClass.getName} to UValue", location)
 
-//  def unbind(from: Scope, to: Scope, renames: Map[VariableName, VariableName]): EValue
-
   lazy val evaluated: EValue = evaluate
   protected def evaluate: EValue
 
   def evalType: Option[Type]
   def evalMayHaveSideEffects: Boolean
+
+  def compile(context: CompilerContext): Unit
+  protected def uncompilable =
+    throw EvalError(s"Cannot compile value of class ${this.getClass.getName}", location)
 
   def evalCheck[T <: EValue](implicit tag: ClassTag[T]): Option[T] =
     this.evaluated match {

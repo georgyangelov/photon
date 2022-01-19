@@ -15,7 +15,7 @@ object Interpreter {
 
   def current = threadLocal.get.getOrElse { throw EvalError("No current interpreter", None) }
 
-  private def withCurrent[T](interpreter: Interpreter)(code: => T) = {
+  def withCurrent[T](interpreter: Interpreter)(code: => T) = {
     val old = threadLocal.get
 
     try {

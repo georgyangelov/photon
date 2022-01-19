@@ -1,10 +1,12 @@
 package photon.core.operations
 
+import photon.compiler.CompilerContext
 import photon.core.{Core, StandardType, TypeRoot}
 import photon.{EValue, Location, UOperation, Variable, VariableName}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.reflect.internal.util.NoFile.output
 
 object Let extends StandardType {
   override val typ = TypeRoot
@@ -12,6 +14,7 @@ object Let extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
@@ -49,6 +52,22 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
       case let: LetValue => let.partialValue(variables)
       case _ => PartialValue(body, variables.result)
     }
+  }
+
+  override def compile(context: CompilerContext): Unit = {
+    val typ = value.evalType.getOrElse(value.typ)
+    val cType = context.requireType(typ)
+
+    val cName = s"${name.originalName}$$${name.uniqueId}"
+
+    context.code.append(cType).append(" ").append(cName).append(";\n")
+
+    value.compile(context.returnInto(cName))
+    context.code.append(";\n")
+
+    context.code.append("{")
+    body.compile(context)
+    context.code.append("}\n")
   }
 }
 

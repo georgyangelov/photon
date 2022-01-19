@@ -1,5 +1,6 @@
 package photon.core.operations
 
+import photon.compiler.CompilerContext
 import photon.core.{Core, Method, MethodTrait, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, Interpreter, URename}
 import photon.{Arguments, EValue, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
@@ -10,6 +11,7 @@ object FunctionDef extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option[Location]) extends EValue {
@@ -18,6 +20,12 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
 
   override def evalMayHaveSideEffects = false
   override def evalType = Some(evaluate.typ)
+
+  override def compile(context: CompilerContext): Unit = {
+    context.definitions.append("// TheFunctionStruct definition\n")
+
+    context.compiler.typedefs.addOne(this -> "TheFunctionStruct")
+  }
 
   // TODO: Should this indirection be here at all?
   //       Maybe when type inference for parameters is implemented?
@@ -56,6 +64,7 @@ object FunctionRootType extends StandardType {
   override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
+  override def compile(output: CompilerContext): Unit = uncompilable
   override val methods = Map(
     "call" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
@@ -88,11 +97,17 @@ object FunctionRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[MethodTrait]) extends StandardType {
   override def typ = FunctionRoot
   override val location = None
+  override def compile(context: CompilerContext): Unit = {
+    context.definitions.append("// Lambda type definition\n")
+
+    context.compiler.typedefs.addOne(this -> "TODOFunctionType")
+  }
 
   private[this] val self = this
 
@@ -112,6 +127,12 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
+
+      override def compile(context: CompilerContext): Unit = {
+        context.definitions.append("// RuntimeOnly type definition\n")
+
+        context.compiler.functions.addOne(this -> "runTimeOnly")
+      }
     },
 
     "call" -> new Method {
@@ -127,6 +148,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
           case innerValue => PartialValue(innerValue, Seq.empty)
         }
 
+        // TODO: This is incorrect, it will not always have the function value known
         val fn = partialSelf.value.evalAssert[FunctionValue]
 
         // TODO: Also check if it CAN be evaluated (i.e. if the values are "real")?
@@ -181,6 +203,30 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
         bodyWrappedInLets.evaluated
       }
+
+      override def compile(context: CompilerContext): Unit = {
+        val fnName = s"CALL_ANON_${objectId.id}"
+
+        context.definitions.append(s"""
+          #define $fnName(__lambdaRef__) __lambdaRef__.fn()
+        """)
+
+        context.compiler.functions.addOne(this -> fnName)
+//        val fnName = s"anon$$${objectId.id}$$call"
+//        val fnContext = context.newFunction("result")
+//
+//        val cReturnType = fnContext.requireType(returnType)
+//
+//        fnContext.code.append(s"$cReturnType $fnName() {\n")
+//
+//
+//
+//        fnContext.code.append("return result;\n")
+//        fnContext.code.append("}\n")
+//        fnContext.endFunction()
+//
+//        context.compiler.functions.addOne(this -> fnName)
+      }
     }
   )
 
@@ -230,4 +276,6 @@ case class FunctionValue(
     ),
     location
   )
+
+  override def compile(output: CompilerContext): Unit = ???
 }

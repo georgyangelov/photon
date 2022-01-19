@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.compiler.CompilerContext
 import photon.frontend.StaticScope
 import photon.interpreter.EvalError
 import photon.{EValue, Location, Scope, UOperation, Variable, VariableName}
@@ -10,6 +11,7 @@ object CoreType extends StandardType {
   override val location = None
   override val methods = Map.empty
   override def toUValue(core: Core) = inconvertible
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 class Core extends EValue {
@@ -39,6 +41,8 @@ class Core extends EValue {
 
   def referenceTo(value: EValue, location: Option[Location]) =
     globals.referenceTo(value, location)
+
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 object Globals {

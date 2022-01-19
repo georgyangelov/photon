@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.compiler.CompilerContext
 import photon.core.operations.CallValue
 import photon.{Arguments, EValue, Location, ULiteral}
 
@@ -18,6 +19,7 @@ object IntType extends StandardType {
         IntValue(42, location)
     }
   )
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 object Int extends StandardType {
@@ -41,6 +43,12 @@ object Int extends StandardType {
         } else {
           CallValue("+", args, location)
         }
+      }
+
+      override def compile(context: CompilerContext): Unit = {
+        context.definitions.append("inline int Int$plus(int a, int b) { return a + b; }\n")
+
+        context.compiler.functions.addOne(this -> "Int$plus")
       }
     },
 
@@ -86,6 +94,7 @@ object Int extends StandardType {
       }
     }
   )
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class IntValue(value: scala.Int, location: Option[Location]) extends EValue {
@@ -95,4 +104,5 @@ case class IntValue(value: scala.Int, location: Option[Location]) extends EValue
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.Int(value, location)
   override def evaluate = this
+  override def compile(output: CompilerContext): Unit = output.appendValue(value.toString)
 }

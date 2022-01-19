@@ -1,16 +1,31 @@
 package photon.core
 
-import photon.{Arguments, EValue, Location}
+import photon.compiler.CompilerContext
+import photon.lib.ObjectId
+import photon.{Arguments, EValue, Location, UFunction}
 
 abstract class Type extends EValue {
   def method(name: String): Option[Method]
 }
 
-trait Method {
+trait Method extends Equals {
   val traits: Set[MethodTrait]
 
   def typeCheck(args: Arguments[EValue]): Type
   def call(args: Arguments[EValue], location: Option[Location]): EValue
+  def compile(context: CompilerContext): Unit = ???
+
+
+  val objectId = ObjectId()
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[UFunction]
+  override def equals(that: Any): Boolean = {
+    that match {
+      case other: UFunction => this.objectId == other.objectId
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = objectId.hashCode
 }
 
 sealed abstract class MethodTrait
@@ -30,6 +45,7 @@ object TypeRoot extends Type {
 
   override def method(name: String) = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 abstract class StandardType extends Type {

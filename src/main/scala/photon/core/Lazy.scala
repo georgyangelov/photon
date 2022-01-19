@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.compiler.CompilerContext
 import photon.{EValue, Location}
 
 object Lazy extends StandardType {
@@ -8,6 +9,7 @@ object Lazy extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class LazyValue(lazyValue: photon.lib.Lazy[EValue], location: Option[Location]) extends EValue {
@@ -17,4 +19,5 @@ case class LazyValue(lazyValue: photon.lib.Lazy[EValue], location: Option[Locati
   override def evalType = lazyValue.resolve.evalType
   override def toUValue(core: Core) = inconvertible
   override def evaluate = lazyValue.resolve.evaluated
+  override def compile(output: CompilerContext): Unit = lazyValue.resolve.compile(output)
 }

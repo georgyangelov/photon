@@ -1,5 +1,6 @@
 package photon
 
+import photon.core.operations.EParameter
 import photon.interpreter.EvalError
 
 case class Arguments[+T](
@@ -28,6 +29,17 @@ case class Arguments[+T](
         case None => throw EvalError(s"Missing argument $name (at index $index)", None)
       }
     }
+  }
+
+  def toPositional(params: Seq[EParameter]) = {
+    // TODO: Optional parameters?
+    val namedParamsInOrder = params.drop(positional.length)
+      .map { param => named.get(param.name) }
+
+    Arguments.positional(
+      self,
+      positional ++ namedParamsInOrder
+    )
   }
 
   //  override def toString = Unparser.unparse(

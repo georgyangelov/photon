@@ -1,6 +1,8 @@
 package photon.core.operations
 
+import photon.compiler.CompilerContext
 import photon.core.{Core, StandardType, TypeRoot}
+import photon.interpreter.EvalError
 import photon.{EValue, Location, UOperation}
 
 object Block extends StandardType {
@@ -9,6 +11,7 @@ object Block extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class BlockValue(values: Seq[EValue], location: Option[Location]) extends EValue {
@@ -17,10 +20,12 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
   override def evalMayHaveSideEffects = values.exists(_.evalMayHaveSideEffects)
 
   override def evalType =
-//    if (values.nonEmpty)
+    if (values.nonEmpty)
       Some(values.last.evalType.getOrElse(values.last.typ))
-//    else
-//      NothingValue(location)
+    else
+      // TODO: Support empty blocks?
+      throw EvalError("Empty blocks are not supported for now", location)
+  //      NothingValue(location)
 
   override protected def evaluate: EValue = {
     val ENABLE_SIDE_EFFECT_CHECK = true
@@ -40,4 +45,16 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
   }
 
   override def toUValue(core: Core) = UOperation.Block(values.map(_.toUValue(core)), location)
+
+  override def compile(context: CompilerContext): Unit = {
+    val lastIndex = values.length - 1
+    values.zipWithIndex.foreach { case (value, index) =>
+      if (index == lastIndex)
+        value.compile(context.withoutReturn)
+      else
+        value.compile(context)
+
+      context.code.append(";")
+    }
+  }
 }

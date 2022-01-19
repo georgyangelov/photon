@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.compiler.CompilerContext
 import photon.interpreter.EvalError
 import photon.{EValue, Location}
 
@@ -9,6 +10,7 @@ object Unknown extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class UnknownValue(etype: Type, location: Option[Location]) extends EValue {
@@ -18,4 +20,5 @@ case class UnknownValue(etype: Type, location: Option[Location]) extends EValue 
   override def evalType = Some(etype)
   override def toUValue(core: Core) = inconvertible
   override def evaluate = throw EvalError("Cannot evaluate Unknown", location)
+  override def compile(output: CompilerContext): Unit = uncompilable
 }

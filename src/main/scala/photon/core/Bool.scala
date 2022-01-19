@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.compiler.CompilerContext
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location, ULiteral}
 
@@ -10,6 +11,7 @@ object BoolType extends StandardType {
   override val methods = Map.empty
 
   override def toUValue(core: Core) = inconvertible
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 object Bool extends StandardType {
@@ -79,6 +81,8 @@ object Bool extends StandardType {
       }
     }
   )
+
+  override def compile(output: CompilerContext): Unit = uncompilable
 }
 
 case class BoolValue(value: scala.Boolean, location: Option[Location]) extends EValue {
@@ -88,4 +92,5 @@ case class BoolValue(value: scala.Boolean, location: Option[Location]) extends E
   override def evalType = None
   override def evaluate = this
   override def toUValue(core: Core) = ULiteral.Boolean(value, location)
+  override def compile(output: CompilerContext): Unit = output.appendValue(if (value) "true" else "false")
 }
