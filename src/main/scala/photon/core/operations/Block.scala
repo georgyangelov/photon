@@ -1,9 +1,9 @@
 package photon.core.operations
 
-import photon.compiler.CompilerContext
+import photon.compiler.{CCode, CompileContext}
 import photon.core.{Core, StandardType, TypeRoot}
 import photon.interpreter.EvalError
-import photon.{EValue, Location, UOperation}
+import photon.{EValue, Location, UOperation, compiler}
 
 object Block extends StandardType {
   override val typ = TypeRoot
@@ -11,7 +11,7 @@ object Block extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext): CCode = uncompilable
 }
 
 case class BlockValue(values: Seq[EValue], location: Option[Location]) extends EValue {
@@ -46,15 +46,47 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
 
   override def toUValue(core: Core) = UOperation.Block(values.map(_.toUValue(core)), location)
 
-  override def compile(context: CompilerContext): Unit = {
+  override def compile(context: CompileContext) = {
     val lastIndex = values.length - 1
-    values.zipWithIndex.foreach { case (value, index) =>
-      if (index == lastIndex)
-        value.compile(context.withoutReturn)
-      else
-        value.compile(context)
+    val innerBlock = context.newInnerBlock.withoutReturn
 
-      context.code.append(";")
+    innerBlock.addCode("{")
+
+    values.zipWithIndex.foreach { case (value, index) =>
+      if (index == lastIndex) {
+        innerBlock.returnsIn(context.returnName).addStatement(value)
+      } else {
+        innerBlock.addStatement(value)
+      }
     }
+
+    innerBlock.addCode("}")
+
+    innerBlock.toStatement
+
+//    val lastIndex = values.length - 1
+//    val innerBlock = CompilerBlock(compiler, block.locals)
+//
+//    values.zipWithIndex.foreach { case (value, index) =>
+//      if (index == lastIndex) {
+//        value.compile(compiler, innerBlock, resultName)
+//      } else {
+//        value.compile(compiler, innerBlock, None)
+//      }
+//    }
+//
+//    innerBlock.asStatement
   }
+
+//  override def compile(context: CompilerContext): Unit = {
+//    val lastIndex = values.length - 1
+//    values.zipWithIndex.foreach { case (value, index) =>
+//      if (index == lastIndex)
+//        value.compile(context)
+//      else
+//        value.compile(context.withoutReturn)
+//
+//      context.code.append(";")
+//    }
+//  }
 }

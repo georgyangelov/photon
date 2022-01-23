@@ -1,6 +1,6 @@
 package photon
 
-import photon.compiler.CompilerContext
+import photon.compiler.{CCode, CompileContext}
 import photon.interpreter.EvalError
 import photon.core.{Core, Type}
 
@@ -21,7 +21,7 @@ trait EValue {
   def evalType: Option[Type]
   def evalMayHaveSideEffects: Boolean
 
-  def compile(context: CompilerContext): Unit
+  def compile(context: CompileContext): CCode
   protected def uncompilable =
     throw EvalError(s"Cannot compile value of class ${this.getClass.getName}", location)
 

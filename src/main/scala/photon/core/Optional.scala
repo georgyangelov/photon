@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.compiler.CompilerContext
+import photon.compiler.CompileContext
 import photon.core.operations.CallValue
 import photon.{Arguments, EValue, Location}
 
@@ -17,7 +17,7 @@ object OptionalRootType extends StandardType {
         Optional(args.positional.head, location)
     }
   )
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 object OptionalRoot extends StandardType {
   override def typ = OptionalRootType
@@ -25,7 +25,7 @@ object OptionalRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class OptionalT(optional: Optional) extends StandardType {
@@ -48,7 +48,7 @@ case class OptionalT(optional: Optional) extends StandardType {
         OptionalValue(optional, Some(args.positional.head), location)
     }
   )
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 case class Optional(innerType: EValue, location: Option[Location]) extends StandardType {
   override lazy val typ = OptionalT(this)
@@ -68,7 +68,7 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
     }
   )
 
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class OptionalValue(typ: Optional, innerValue: Option[EValue], location: Option[Location]) extends EValue {
@@ -92,5 +92,5 @@ case class OptionalValue(typ: Optional, innerValue: Option[EValue], location: Op
 
   override protected def evaluate: EValue = this
 
-  override def compile(output: CompilerContext): Unit = ???
+  override def compile(context: CompileContext) = ???
 }

@@ -1,84 +1,94 @@
 package photon.compiler
 
-import photon.EValue
-import photon.core.{Core, Method}
-import photon.core.operations.{BlockValue, FunctionValue}
+import photon.{EValue, Location, PhotonError, VariableName}
+import photon.core.Method
 
 import scala.collection.mutable
 
-case class CompilerContext(
-  compiler: Compiler,
-  definitions: StringBuilder,
-  code: StringBuilder,
-  returnName: Option[String]
-) {
-  def newFunction(returnName: String): CompilerContext = {
-    val fnBuilder = new StringBuilder
-
-    CompilerContext(compiler, definitions, fnBuilder, Some(returnName))
-  }
-
-  def withoutReturn = CompilerContext(compiler, definitions, code, None)
-  def returnInto(returnName: String) =
-    CompilerContext(compiler, definitions, code, Some(returnName))
-
-  def endFunction(): Unit = {
-    definitions.append("\n\n")
-    definitions.append(code.result)
-  }
-
-  def appendValue(string: String) = {
-    if (returnName.isDefined) {
-      code.append(returnName.get)
-      code.append(" = ")
-      code.append(string)
-    } else {
-      code.append(string)
-    }
-  }
-
-  def requireType(value: EValue): String =
-    compiler.typedefs.get(value) match {
-      case Some(name) => name
-      case None =>
-        value.compile(this)
-
-        compiler.typedefs(value)
-    }
-
-  def requireFunction(method: Method): String =
-    compiler.functions.get(method) match {
-      case Some(name) => name
-      case None =>
-        method.compile(this)
-
-        compiler.functions(method)
-    }
+sealed trait CCode
+object CCode {
+  case object Nothing extends CCode
+  case class Statement(code: String) extends CCode
+  case class Expression(code: String) extends CCode
 }
 
-class Compiler(core: Core) {
-  val typedefs = new mutable.HashMap[EValue, String]
-  val functions = new mutable.HashMap[Method, String]
+case class CompileError(message: String, override val location: Option[Location] = None)
+  extends PhotonError(message, location) {}
 
-  def compileProgram(evalues: Seq[EValue]): String = {
-    typedefs.addOne(photon.core.Int -> "int")
+class Compiler {
+  val definitions = Seq.newBuilder[String]
+  val typeNames = new mutable.HashMap[EValue, String]
+  val functionNames = new mutable.HashMap[Method, String]
 
-    val context = CompilerContext(
-      this,
-      new StringBuilder(),
-      new StringBuilder(),
-      None
-    )
+  private val rootContext = CompileContext(this, new StringBuilder, None)
 
-    context.definitions.append("#include <stdio.h>\n")
-
-    BlockValue(evalues, None).compile(context)
-
-    context.definitions.append("int main() {\n")
-    context.definitions.append(context.code)
-    context.definitions.append("  return 0;\n")
-    context.definitions.append("}")
-
-    context.definitions.result
+  def defineType(value: EValue, name: String, code: String): Unit = {
+    definitions.addOne(code)
+    typeNames.addOne(value -> name)
   }
+
+  def defineFunction(method: Method, name: String, code: String): Unit = {
+    definitions.addOne(code)
+    functionNames.addOne(method -> name)
+  }
+
+  def typeNameOf(value: EValue): String = {
+    typeNames.getOrElse(value, {
+      value.compile(rootContext)
+
+      typeNames.getOrElse(value, throw CompileError(s"Expected $value to define a type"))
+    })
+  }
+
+  def functionNameOf(method: Method): String = {
+    functionNames.getOrElse(method, {
+      method.compile(this)
+
+      functionNames.getOrElse(method, throw CompileError(s"Expected $method to define a function"))
+    })
+  }
+}
+
+case class CompileContext(
+  compiler: Compiler,
+  private val blockCode: StringBuilder,
+  returnName: Option[String]
+) {
+  def addCode(code: String) = blockCode.append(code)
+
+  def addStatement(value: EValue): Unit = {
+    val result = value.compile(this)
+
+    result match {
+      case CCode.Nothing =>
+      case CCode.Statement(code) => blockCode.append(code).append(";\n")
+      case CCode.Expression(code) => blockCode.append(code).append(";\n")
+    }
+  }
+
+  def toStatement = CCode.Statement(blockCode.result)
+
+  def typeNameOf(value: EValue) = compiler.typeNameOf(value)
+  def functionNameOf(method: Method) = compiler.functionNameOf(method)
+
+  def valueOf(value: EValue, nameHint: String): CCode.Expression = {
+    val returnName = s"${nameHint}__${new VariableName(nameHint).uniqueId}_temp"
+    val context = CompileContext(compiler, blockCode, Some(returnName))
+
+    value.compile(context) match {
+      case CCode.Nothing => throw CompileError(s"Expected $value to compile to something")
+      case CCode.Statement(code) =>
+        blockCode.append(s"${typeNameOf(value)} $returnName;\n")
+        blockCode.append(code).append(";\n")
+
+        CCode.Expression(returnName)
+
+      case cValue: CCode.Expression => cValue
+    }
+  }
+
+  def newInnerBlock = CompileContext(compiler, new StringBuilder(), returnName)
+
+  def returnsIn(returnName: Option[String]) = CompileContext(compiler, blockCode, returnName)
+  def withoutReturn = CompileContext(compiler, blockCode, None)
 }

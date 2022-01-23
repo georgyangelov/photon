@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.compiler.CompilerContext
+import photon.compiler.{CCode, CompileContext, Compiler}
 import photon.lib.ObjectId
 import photon.{Arguments, EValue, Location, UFunction}
 
@@ -13,8 +13,7 @@ trait Method extends Equals {
 
   def typeCheck(args: Arguments[EValue]): Type
   def call(args: Arguments[EValue], location: Option[Location]): EValue
-  def compile(context: CompilerContext): Unit = ???
-
+  def compile(compiler: Compiler): Unit = ???
 
   val objectId = ObjectId()
 
@@ -45,7 +44,7 @@ object TypeRoot extends Type {
 
   override def method(name: String) = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext): CCode = uncompilable
 }
 
 abstract class StandardType extends Type {

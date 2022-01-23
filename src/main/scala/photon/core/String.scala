@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.compiler.CompilerContext
+import photon.compiler.{CCode, CompileContext}
 import photon.{Arguments, EValue, Location, ULiteral}
 
 object StringType extends StandardType {
@@ -9,7 +9,7 @@ object StringType extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 object String extends StandardType {
@@ -31,7 +31,7 @@ object String extends StandardType {
       }
     }
   )
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class StringValue(value: java.lang.String, location: Option[Location]) extends EValue {
@@ -41,7 +41,7 @@ case class StringValue(value: java.lang.String, location: Option[Location]) exte
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.String(value, location)
   override def evaluate = this
-  override def compile(output: CompilerContext): Unit = output.appendValue(
+  override def compile(context: CompileContext) = CCode.Expression(
     // TODO: Better encoding?
     "\"" + value.replace("\n", "\\n").replace("\"", "\\\"") + "\""
   )

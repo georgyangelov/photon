@@ -1,12 +1,11 @@
 package photon.core.operations
 
-import photon.compiler.CompilerContext
+import photon.compiler.CompileContext
 import photon.core.{Core, StandardType, TypeRoot}
 import photon.{EValue, Location, UOperation, Variable, VariableName}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.reflect.internal.util.NoFile.output
 
 object Let extends StandardType {
   override val typ = TypeRoot
@@ -14,7 +13,7 @@ object Let extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
@@ -54,20 +53,37 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
     }
   }
 
-  override def compile(context: CompilerContext): Unit = {
+  override def compile(context: CompileContext) = {
+    val block = context.newInnerBlock.withoutReturn
+
     val typ = value.evalType.getOrElse(value.typ)
-    val cType = context.requireType(typ)
-
+    val cType = block.typeNameOf(typ)
     val cName = s"${name.originalName}$$${name.uniqueId}"
+    val cValue = block.valueOf(value, "letValue")
 
-    context.code.append(cType).append(" ").append(cName).append(";\n")
+    block.addCode(s"$cType $cName = $cValue;\n");
+    block.addStatement()
 
-    value.compile(context.returnInto(cName))
-    context.code.append(";\n")
 
-    context.code.append("{")
-    body.compile(context)
-    context.code.append("}\n")
+    s"""
+      $typeName $cName = ${context.valueOf(value, "letValue")};
+
+      ${context.addStatement()}
+    """.stripMargin.trim
+
+//    val typ = value.evalType.getOrElse(value.typ)
+//    val cType = context.requireType(typ)
+//
+//    val cName = s"${name.originalName}$$${name.uniqueId}"
+//
+//    context.code.append(cType).append(" ").append(cName).append(";\n")
+//
+//    value.compile(context.returnInto(cName))
+//    context.code.append(";\n")
+//
+//    context.code.append("{")
+//    body.compile(context)
+//    context.code.append("}\n")
   }
 }
 

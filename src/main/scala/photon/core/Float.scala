@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.compiler.CompilerContext
+import photon.compiler.{CCode, CompileContext}
 import photon.{Arguments, EValue, Location, ULiteral}
 
 object FloatType extends StandardType {
@@ -9,7 +9,7 @@ object FloatType extends StandardType {
   override val location = None
   override val methods = Map.empty
   override def toUValue(core: Core) = inconvertible
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 object Float extends StandardType {
@@ -46,7 +46,7 @@ object Float extends StandardType {
       }
     }
   )
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class FloatValue(value: scala.Double, location: Option[Location]) extends EValue {
@@ -56,5 +56,5 @@ case class FloatValue(value: scala.Double, location: Option[Location]) extends E
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.Float(value, location)
   override def evaluate = this
-  override def compile(output: CompilerContext): Unit = output.appendValue(value.toString)
+  override def compile(context: CompileContext) = CCode.Expression(value.toString)
 }

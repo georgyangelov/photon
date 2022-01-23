@@ -1,6 +1,6 @@
 package photon.core.operations
 
-import photon.compiler.CompilerContext
+import photon.compiler.{Compiler, CCode, CompileContext}
 import photon.core.{Core, Method, MethodTrait, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, Interpreter, URename}
 import photon.{Arguments, EValue, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
@@ -11,7 +11,7 @@ object FunctionDef extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option[Location]) extends EValue {
@@ -21,10 +21,10 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
   override def evalMayHaveSideEffects = false
   override def evalType = Some(evaluate.typ)
 
-  override def compile(context: CompilerContext): Unit = {
-    context.definitions.append("// TheFunctionStruct definition\n")
+  override def compile(context: CompileContext) = {
+    context.compiler.defineType(this, "TheFunctionStruct", "// TheFunctionStruct definition")
 
-    context.compiler.typedefs.addOne(this -> "TheFunctionStruct")
+    CCode.Nothing
   }
 
   // TODO: Should this indirection be here at all?
@@ -64,7 +64,7 @@ object FunctionRootType extends StandardType {
   override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
   override val methods = Map(
     "call" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
@@ -97,16 +97,16 @@ object FunctionRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
-  override def compile(output: CompilerContext): Unit = uncompilable
+  override def compile(context: CompileContext) = uncompilable
 }
 
 case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[MethodTrait]) extends StandardType {
   override def typ = FunctionRoot
   override val location = None
-  override def compile(context: CompilerContext): Unit = {
-    context.definitions.append("// Lambda type definition\n")
+  override def compile(context: CompileContext) = {
+    context.compiler.defineType(this, "TODOFunctionType", "// Lambda type definition\n")
 
-    context.compiler.typedefs.addOne(this -> "TODOFunctionType")
+    CCode.Nothing
   }
 
   private[this] val self = this
@@ -128,10 +128,8 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
 
-      override def compile(context: CompilerContext): Unit = {
-        context.definitions.append("// RuntimeOnly type definition\n")
-
-        context.compiler.functions.addOne(this -> "runTimeOnly")
+      override def compile(compiler: Compiler) = {
+        compiler.defineFunction(this, "runTimeOnly", "// RuntimeOnly type definition\n")
       }
     },
 
@@ -204,14 +202,13 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         bodyWrappedInLets.evaluated
       }
 
-      override def compile(context: CompilerContext): Unit = {
+      override def compile(compiler: Compiler) = {
         val fnName = s"CALL_ANON_${objectId.id}"
 
-        context.definitions.append(s"""
+        compiler.defineFunction(this, fnName, s"""
           #define $fnName(__lambdaRef__) __lambdaRef__.fn()
         """)
 
-        context.compiler.functions.addOne(this -> fnName)
 //        val fnName = s"anon$$${objectId.id}$$call"
 //        val fnContext = context.newFunction("result")
 //
@@ -277,5 +274,5 @@ case class FunctionValue(
     location
   )
 
-  override def compile(output: CompilerContext): Unit = ???
+  override def compile(output: CompileContext) = ???
 }
