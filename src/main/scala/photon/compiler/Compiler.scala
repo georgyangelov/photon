@@ -8,8 +8,34 @@ import scala.collection.mutable
 sealed trait CCode
 object CCode {
   case object Nothing extends CCode
+  case class Block(statements: Seq[String]) extends CCode
   case class Statement(code: String) extends CCode
   case class Expression(code: String) extends CCode
+
+  case class BlockBuilder(context: CompileContext) {
+    private[this] val statements = Seq.newBuilder[String]
+
+    def addStatement(code: String): Unit = statements.addOne(code)
+    def addStatement(value: EValue): Unit = {
+      val result = value.compile(context.withoutReturn)
+
+      result match {
+        case Nothing =>
+        // TODO: Can this not be a sub-block (i.e. `{ <code> }`?)
+        case Block(subStatements) => statements.addOne(s"{\n ${subStatements.mkString(";\n")} }\n")
+        case Statement(code) => addStatement(code)
+        case Expression(code) => addStatement(code)
+      }
+    }
+
+    def addReturn(code: String): Unit = context.returnName match {
+      case Some(returnName) => statements.addOne(s"$returnName = ($code)")
+      case None => statements.addOne(code)
+    }
+    def addReturn(value: EValue): Unit = value.compile(context)
+
+    def build = CCode.Block(statements.result)
+  }
 }
 
 case class CompileError(message: String, override val location: Option[Location] = None)
@@ -49,45 +75,40 @@ class Compiler {
   }
 }
 
+
+
 case class CompileContext(
   compiler: Compiler,
   private val blockCode: StringBuilder,
   returnName: Option[String]
 ) {
-  def addCode(code: String) = blockCode.append(code)
 
-  def addStatement(value: EValue): Unit = {
-    val result = value.compile(this)
-
-    result match {
-      case CCode.Nothing =>
-      case CCode.Statement(code) => blockCode.append(code).append(";\n")
-      case CCode.Expression(code) => blockCode.append(code).append(";\n")
-    }
-  }
 
   def toStatement = CCode.Statement(blockCode.result)
 
   def typeNameOf(value: EValue) = compiler.typeNameOf(value)
   def functionNameOf(method: Method) = compiler.functionNameOf(method)
 
-  def valueOf(value: EValue, nameHint: String): CCode.Expression = {
-    val returnName = s"${nameHint}__${new VariableName(nameHint).uniqueId}_temp"
-    val context = CompileContext(compiler, blockCode, Some(returnName))
+//  def valueOf(value: EValue, nameHint: String): CCode.Expression = {
+//    val returnName = s"${nameHint}__${new VariableName(nameHint).uniqueId}_temp"
+//    val context = CompileContext(compiler, blockCode, Some(returnName))
+//
+//    value.compile(context) match {
+//      case CCode.Nothing => throw CompileError(s"Expected $value to compile to something")
+//      case CCode.Statement(code) =>
+//        // TODO: This won't work correctly
+//        blockCode.append(s"${typeNameOf(value)} $returnName;\n")
+//        blockCode.append(code).append(";\n")
+//
+//        CCode.Expression(returnName)
+//
+//      case cValue: CCode.Expression => cValue
+//    }
+//  }
 
-    value.compile(context) match {
-      case CCode.Nothing => throw CompileError(s"Expected $value to compile to something")
-      case CCode.Statement(code) =>
-        blockCode.append(s"${typeNameOf(value)} $returnName;\n")
-        blockCode.append(code).append(";\n")
+  def newBlock = CCode.BlockBuilder(this)
 
-        CCode.Expression(returnName)
-
-      case cValue: CCode.Expression => cValue
-    }
-  }
-
-  def newInnerBlock = CompileContext(compiler, new StringBuilder(), returnName)
+//  def newInnerBlock = CompileContext(compiler, new StringBuilder(), returnName)
 
   def returnsIn(returnName: Option[String]) = CompileContext(compiler, blockCode, returnName)
   def withoutReturn = CompileContext(compiler, blockCode, None)

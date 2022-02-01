@@ -54,6 +54,18 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
   }
 
   override def compile(context: CompileContext) = {
+    val block = context.newBlock
+
+    val typ = value.evalType.getOrElse(value.typ)
+    val cType = context.typeNameOf(typ)
+    val cName = s"${name.originalName}$$${name.uniqueId}"
+
+    block.addStatement(s"$cType $cName")
+    block.addReturn()
+
+
+
+
     val block = context.newInnerBlock.withoutReturn
 
     val typ = value.evalType.getOrElse(value.typ)
@@ -61,7 +73,7 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
     val cName = s"${name.originalName}$$${name.uniqueId}"
     val cValue = block.valueOf(value, "letValue")
 
-    block.addCode(s"$cType $cName = $cValue;\n");
+    block.addStatement(s"$cType $cName = $cValue;\n");
     block.addStatement()
 
 
