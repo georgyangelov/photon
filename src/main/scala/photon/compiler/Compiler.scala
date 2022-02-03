@@ -28,6 +28,19 @@ object CCode {
       }
     }
 
+    def addExpression(value: EValue): String = {
+      val varName = s"expr__${new VariableName("expr").uniqueId}"
+      val
+      val expressionCode = value.compile(context.returnsIn(Some()))
+
+      expressionCode match {
+        case Nothing => ???
+        case Block(statements) => ???
+        case Statement(code) => ???
+        case Expression(code) => ???
+      }
+    }
+
     def addReturn(code: String): Unit = context.returnName match {
       case Some(returnName) => statements.addOne(s"$returnName = ($code)")
       case None => statements.addOne(code)

@@ -61,6 +61,7 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
     val cName = s"${name.originalName}$$${name.uniqueId}"
 
     block.addStatement(s"$cType $cName")
+    block.
     block.addReturn()
 
 
