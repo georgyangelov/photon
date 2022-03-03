@@ -1,6 +1,5 @@
 package photon.core.operations
 
-import photon.compiler.CompileContext
 import photon.core.{Core, StandardType, TypeRoot}
 import photon.{EValue, Location, UOperation, Variable, VariableName}
 
@@ -13,7 +12,6 @@ object Let extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
@@ -51,15 +49,6 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
       case let: LetValue => let.partialValue(variables)
       case _ => PartialValue(body, variables.result)
     }
-  }
-
-  override def compile(context: CompileContext) = {
-    val block = context.newBlock
-
-    block.let(name, value)
-    block.addReturn(body)
-
-    block.build
   }
 }
 

@@ -5,7 +5,6 @@ import org.scalatest.Matchers.intercept
 import org.scalatest.Assertions._
 import photon.frontend.{ASTValue, Lexer, Parser, Unparser, ValueToAST}
 import photon.interpreter.{EvalError, Interpreter}
-import photon.compiler.{CPPCompiler, Compiler}
 
 object TestHelpers {
   def parseCode(code: String, macroHandler: Parser.MacroHandler = Parser.BlankMacroHandler): ASTValue = {
@@ -107,26 +106,4 @@ object TestHelpers {
 //
 //    assert(evalError.message.contains(message))
   }
-
-  def expectCompiled(code: String, expected: String): Unit = {
-    val interpreter = new Interpreter()
-    val compiler = new Compiler()
-
-    val value = parseCode(code/*, interpreter.macroHandler*/)
-    val evaluatedValue = interpreter.evaluate(value)
-
-    Interpreter.withCurrent(interpreter) {
-      val compiled = compiler.compileProgram(Seq(evaluatedValue))
-
-      assert(formatCPPCode(compiled) == formatCPPCode(expected))
-    }
-  }
-
-  private def formatCPPCode(code: String): String =
-    new CPPCompiler(
-      code
-        .strip
-        .stripIndent
-        .replaceAll("\n+", "\n")
-    ).format
 }

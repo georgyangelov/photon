@@ -1,6 +1,5 @@
 package photon.core
 
-import photon.compiler.CompileContext
 import photon.core.operations.CallValue
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location}
@@ -31,7 +30,6 @@ object ListType extends StandardType {
         ListValue(Seq.empty, location)
     }
   )
-  override def compile(context: CompileContext) = uncompilable
 }
 
 object List extends StandardType {
@@ -67,8 +65,6 @@ object List extends StandardType {
       }
     }
   )
-
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class ListValue(values: Seq[EValue], location: Option[Location]) extends EValue {
@@ -78,5 +74,4 @@ case class ListValue(values: Seq[EValue], location: Option[Location]) extends EV
   override def evalType = None
   override def toUValue(core: Core) = CallValue("of", Arguments.positional(List, values), location).toUValue(core)
   override def evaluate = this
-  override def compile(context: CompileContext) = ???
 }

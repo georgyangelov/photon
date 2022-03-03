@@ -1,9 +1,8 @@
 package photon.core.operations
 
-import photon.compiler.{CCode, CompileContext}
-import photon.core.{Core, MethodTrait, StandardType, TypeRoot}
+import photon.core.{Core, StandardType, TypeRoot}
 import photon.interpreter.EvalError
-import photon.{Arguments, EValue, Location, UOperation, compiler}
+import photon.{Arguments, EValue, Location, UOperation}
 
 object Call extends StandardType {
   override val typ = TypeRoot
@@ -11,7 +10,6 @@ object Call extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class CallValue(name: String, args: Arguments[EValue], location: Option[Location]) extends EValue {
@@ -41,51 +39,4 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
   }
 
   override def toUValue(core: Core) = UOperation.Call(name, args.map(_.toUValue(core)), location)
-
-  override def compile(context: CompileContext) = {
-    val block = context.newBlock
-    val fnName = context.functionNameOf(method)
-
-    // TODO: Support named arguments
-    val callArgs = args.positional.prepended(args.self)
-      // TODO: Instead of `.evaluated`, we should support partial evaluation of `.runTimeOnly`
-//      .map(_.evaluated)
-      .map(block.resultOf)
-
-    block.addReturn(s"$fnName(${callArgs.mkString(", ")})")
-
-    block.build
-  }
-
-//  override def compile(compiler: Compiler, block: CompilerBlock, resultName: Option[String]) = {
-//    val fnName = compiler.functionNameOf(method)
-//
-//    // TODO: Support named arguments
-//    val callArgs = args.positional.prepended(args.self)
-//      .zipWithIndex
-//      .map { case (argument, argIndex) => block.valueOf(argument, s"${fnName}__$argIndex") }
-//      .map(_.code)
-//
-//    CCode.Expression(s"$fnName(${callArgs.mkString(", ")})")
-//  }
-
-//  override def compile(context: CompilerContext): Unit = {
-//    val cFunctionName = context.requireFunction(method)
-//
-//    // TODO: Support named arguments
-//    // TODO: This should support block values
-////    val cArgs = args.positional.prepended(args.self).map(_.compile(context))
-////    val cArgs = args.toPositional(method.)
-//
-//    val callArgs = args.positional.prepended(args.self)
-//    val argNames = callArgs.zipWithIndex.map { case (arg, index) =>
-//      val argType = arg.evalType.getOrElse(arg.typ)
-//      val varName = s"${cFunctionName}__arg__$index"
-//
-//      context.code.append(s"${context.requireType(argType)} $varName;")
-//      arg.compile(context.returnInto(varName))
-//    }
-//
-//    context.appendValue(s"$cFunctionName(${argNames.mkString(", ")})")
-//  }
 }

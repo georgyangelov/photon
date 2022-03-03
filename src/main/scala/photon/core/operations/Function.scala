@@ -1,6 +1,5 @@
 package photon.core.operations
 
-import photon.compiler.{Compiler, CCode, CompileContext}
 import photon.core.{Core, Method, MethodTrait, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, Interpreter, URename}
 import photon.{Arguments, EValue, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
@@ -11,7 +10,6 @@ object FunctionDef extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option[Location]) extends EValue {
@@ -20,8 +18,6 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
 
   override def evalMayHaveSideEffects = false
   override def evalType = Some(evaluate.typ)
-
-  override def compile(context: CompileContext) = evaluate.compile(context)
 
   // TODO: Should this indirection be here at all?
   //       Maybe when type inference for parameters is implemented?
@@ -60,7 +56,6 @@ object FunctionRootType extends StandardType {
   override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
-  override def compile(context: CompileContext) = uncompilable
   override val methods = Map(
     "call" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
@@ -93,17 +88,11 @@ object FunctionRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[MethodTrait]) extends StandardType {
   override def typ = FunctionRoot
   override val location = None
-  override def compile(context: CompileContext) = {
-    context.compiler.defineType(this, "TODOFunctionType", "// Lambda type definition\n")
-
-    CCode.EmptyBlock
-  }
 
   private[this] val self = this
 
@@ -122,10 +111,6 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         val fn = args.self.evalAssert[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
-      }
-
-      override def compile(compiler: Compiler) = {
-        compiler.defineFunction(this, "runTimeOnly", "// RuntimeOnly type definition\n")
       }
     },
 
@@ -197,29 +182,6 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
         bodyWrappedInLets.evaluated
       }
-
-      override def compile(compiler: Compiler) = {
-        val fnName = s"CALL_ANON_${objectId.id}"
-
-        compiler.defineFunction(this, fnName, s"""
-          #define $fnName(__lambdaRef__) __lambdaRef__.fn()
-        """)
-
-//        val fnName = s"anon$$${objectId.id}$$call"
-//        val fnContext = context.newFunction("result")
-//
-//        val cReturnType = fnContext.requireType(returnType)
-//
-//        fnContext.code.append(s"$cReturnType $fnName() {\n")
-//
-//
-//
-//        fnContext.code.append("return result;\n")
-//        fnContext.code.append("}\n")
-//        fnContext.endFunction()
-//
-//        context.compiler.functions.addOne(this -> fnName)
-      }
     }
   )
 
@@ -269,17 +231,4 @@ case class FunctionValue(
     ),
     location
   )
-
-  override def compile(context: CompileContext) = {
-    context.compiler.defineType(this, "TheFunctionStruct", "// TheFunctionStruct definition")
-
-    // TODO: This should create an instance of the structure,
-    //       referencing variables from the scope (unboundNames)
-    val block = context.newBlock
-
-    block.addStatement("TheFunctionStruct fn = { .scope = varFromScope }")
-    block.addReturn("fn")
-
-    block.build
-  }
 }

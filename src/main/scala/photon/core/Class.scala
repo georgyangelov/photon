@@ -1,5 +1,4 @@
 package photon.core
-import photon.compiler.CompileContext
 import photon.core.operations.CallValue
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location}
@@ -44,8 +43,6 @@ object ClassRootType extends StandardType {
         )
     }
   )
-
-  override def compile(context: CompileContext) = uncompilable
 }
 
 object ClassRoot extends StandardType {
@@ -54,7 +51,6 @@ object ClassRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
-  override def compile(context: CompileContext) = uncompilable
 }
 
 case class ClassT(klass: photon.core.Class) extends StandardType {
@@ -77,8 +73,6 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
       }
     }
   )
-
-  override def compile(context: CompileContext) = ???
 }
 case class Class(properties: Seq[PropertyValue], location: Option[Location]) extends StandardType {
   override lazy val typ = ClassT(this)
@@ -107,8 +101,6 @@ case class Class(properties: Seq[PropertyValue], location: Option[Location]) ext
       }
     }
   }.toMap
-
-  override def compile(context: CompileContext) = ???
 }
 
 case class Object(classValue: EValue, properties: Map[String, EValue], location: Option[Location]) extends EValue {
@@ -129,8 +121,6 @@ case class Object(classValue: EValue, properties: Map[String, EValue], location:
     ).toUValue(core)
 
   override protected def evaluate: EValue = this
-
-  override def compile(context: CompileContext) = ???
 }
 
 object Property extends StandardType {
@@ -139,7 +129,6 @@ object Property extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
-  override def compile(context: CompileContext) = ???
 }
 case class PropertyValue(name: StringValue, propType: EValue, location: Option[Location]) extends EValue {
   override def typ = Property
@@ -157,5 +146,4 @@ case class PropertyValue(name: StringValue, propType: EValue, location: Option[L
     ).toUValue(core)
 
   override protected def evaluate: EValue = this
-  override def compile(context: CompileContext) = ???
 }
