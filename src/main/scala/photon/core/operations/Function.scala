@@ -21,11 +21,7 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
   override def evalMayHaveSideEffects = false
   override def evalType = Some(evaluate.typ)
 
-  override def compile(context: CompileContext) = {
-    context.compiler.defineType(this, "TheFunctionStruct", "// TheFunctionStruct definition")
-
-    CCode.Nothing
-  }
+  override def compile(context: CompileContext) = evaluate.compile(context)
 
   // TODO: Should this indirection be here at all?
   //       Maybe when type inference for parameters is implemented?
@@ -106,7 +102,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
   override def compile(context: CompileContext) = {
     context.compiler.defineType(this, "TODOFunctionType", "// Lambda type definition\n")
 
-    CCode.Nothing
+    CCode.EmptyBlock
   }
 
   private[this] val self = this
@@ -274,5 +270,16 @@ case class FunctionValue(
     location
   )
 
-  override def compile(output: CompileContext) = ???
+  override def compile(context: CompileContext) = {
+    context.compiler.defineType(this, "TheFunctionStruct", "// TheFunctionStruct definition")
+
+    // TODO: This should create an instance of the structure,
+    //       referencing variables from the scope (unboundNames)
+    val block = context.newBlock
+
+    block.addStatement("TheFunctionStruct fn = { .scope = varFromScope }")
+    block.addReturn("fn")
+
+    block.build
+  }
 }

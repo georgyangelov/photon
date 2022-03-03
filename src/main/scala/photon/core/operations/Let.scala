@@ -56,47 +56,10 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
   override def compile(context: CompileContext) = {
     val block = context.newBlock
 
-    val typ = value.evalType.getOrElse(value.typ)
-    val cType = context.typeNameOf(typ)
-    val cName = s"${name.originalName}$$${name.uniqueId}"
+    block.let(name, value)
+    block.addReturn(body)
 
-    block.addStatement(s"$cType $cName")
-    block.
-    block.addReturn()
-
-
-
-
-    val block = context.newInnerBlock.withoutReturn
-
-    val typ = value.evalType.getOrElse(value.typ)
-    val cType = block.typeNameOf(typ)
-    val cName = s"${name.originalName}$$${name.uniqueId}"
-    val cValue = block.valueOf(value, "letValue")
-
-    block.addStatement(s"$cType $cName = $cValue;\n");
-    block.addStatement()
-
-
-    s"""
-      $typeName $cName = ${context.valueOf(value, "letValue")};
-
-      ${context.addStatement()}
-    """.stripMargin.trim
-
-//    val typ = value.evalType.getOrElse(value.typ)
-//    val cType = context.requireType(typ)
-//
-//    val cName = s"${name.originalName}$$${name.uniqueId}"
-//
-//    context.code.append(cType).append(" ").append(cName).append(";\n")
-//
-//    value.compile(context.returnInto(cName))
-//    context.code.append(";\n")
-//
-//    context.code.append("{")
-//    body.compile(context)
-//    context.code.append("}\n")
+    block.build
   }
 }
 

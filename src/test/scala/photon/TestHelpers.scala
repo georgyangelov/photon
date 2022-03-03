@@ -110,7 +110,7 @@ object TestHelpers {
 
   def expectCompiled(code: String, expected: String): Unit = {
     val interpreter = new Interpreter()
-    val compiler = new Compiler(interpreter.core)
+    val compiler = new Compiler()
 
     val value = parseCode(code/*, interpreter.macroHandler*/)
     val evaluatedValue = interpreter.evaluate(value)

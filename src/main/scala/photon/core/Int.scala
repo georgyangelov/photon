@@ -95,7 +95,11 @@ object Int extends StandardType {
       }
     }
   )
-  override def compile(context: CompileContext): CCode = uncompilable
+  override def compile(context: CompileContext) = {
+    context.compiler.defineType(this, "Int", "typedef int Int")
+
+    CCode.EmptyBlock
+  }
 }
 
 case class IntValue(value: scala.Int, location: Option[Location]) extends EValue {

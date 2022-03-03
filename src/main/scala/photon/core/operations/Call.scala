@@ -43,15 +43,18 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
   override def toUValue(core: Core) = UOperation.Call(name, args.map(_.toUValue(core)), location)
 
   override def compile(context: CompileContext) = {
+    val block = context.newBlock
     val fnName = context.functionNameOf(method)
 
     // TODO: Support named arguments
     val callArgs = args.positional.prepended(args.self)
-      .zipWithIndex
-      .map { case (argument, argIndex) => context.valueOf(argument, s"${fnName}__$argIndex") }
-      .map(_.code)
+      // TODO: Instead of `.evaluated`, we should support partial evaluation of `.runTimeOnly`
+//      .map(_.evaluated)
+      .map(block.resultOf)
 
-    CCode.Expression(s"$fnName(${callArgs.mkString(", ")})")
+    block.addReturn(s"$fnName(${callArgs.mkString(", ")})")
+
+    block.build
   }
 
 //  override def compile(compiler: Compiler, block: CompilerBlock, resultName: Option[String]) = {

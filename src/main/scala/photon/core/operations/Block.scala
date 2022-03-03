@@ -47,46 +47,17 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
   override def toUValue(core: Core) = UOperation.Block(values.map(_.toUValue(core)), location)
 
   override def compile(context: CompileContext) = {
+    val block = context.newBlock
+
     val lastIndex = values.length - 1
-    val innerBlock = context.newInnerBlock.withoutReturn
-
-    innerBlock.addCode("{")
-
     values.zipWithIndex.foreach { case (value, index) =>
       if (index == lastIndex) {
-        innerBlock.returnsIn(context.returnName).addStatement(value)
+        block.addReturn(value)
       } else {
-        innerBlock.addStatement(value)
+        block.addStatement(value)
       }
     }
 
-    innerBlock.addCode("}")
-
-    innerBlock.toStatement
-
-//    val lastIndex = values.length - 1
-//    val innerBlock = CompilerBlock(compiler, block.locals)
-//
-//    values.zipWithIndex.foreach { case (value, index) =>
-//      if (index == lastIndex) {
-//        value.compile(compiler, innerBlock, resultName)
-//      } else {
-//        value.compile(compiler, innerBlock, None)
-//      }
-//    }
-//
-//    innerBlock.asStatement
+    block.build
   }
-
-//  override def compile(context: CompilerContext): Unit = {
-//    val lastIndex = values.length - 1
-//    values.zipWithIndex.foreach { case (value, index) =>
-//      if (index == lastIndex)
-//        value.compile(context)
-//      else
-//        value.compile(context.withoutReturn)
-//
-//      context.code.append(";")
-//    }
-//  }
 }
