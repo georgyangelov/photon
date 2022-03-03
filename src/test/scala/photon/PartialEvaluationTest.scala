@@ -8,7 +8,7 @@ class PartialEvaluationTest extends FunSuite {
 //
 //  }
 
-  test("evaluates some functions compile-time inside of lambdas during compile-time") {
+  ignore("evaluates some functions compile-time inside of lambdas during compile-time") {
     expectEvalCompileTime(
       """
           () {
@@ -33,14 +33,14 @@ class PartialEvaluationTest extends FunSuite {
     )
   }
 
-  test("partial evaluation of simple objects") {
+  ignore("partial evaluation of simple objects") {
     expectEvalCompileTime(
       "val object = Object(unknown = () {}.runTimeOnly, answer = () 42); object.answer",
       "42"
     )
   }
 
-  test("compile-time evaluation of partial objects") {
+  ignore("compile-time evaluation of partial objects") {
     expectEvalCompileTime(
       "val unknown = () { 11 }.runTimeOnly; val object = Object(unknown = unknown, answer = () 42); object.answer",
       "42"

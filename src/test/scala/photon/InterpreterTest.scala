@@ -51,7 +51,7 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
   }
 
-  test("simple macros") {
+  ignore("simple macros") {
     expectEvalCompileTime(
       "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); #e + 1 })",
       "val unknown = ():Int{}.runTimeOnly; add_one unknown()",
@@ -80,12 +80,12 @@ class InterpreterTest extends FunSuite {
     expectEvalCompileTime("(a:Int, b:Int, c:Int):Int { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
   }
 
-  test("runtime-only functions") {
+  ignore("runtime-only functions") {
     expectPhases("val runtime = ():Int { 42 }; runtime()", "42", "42")
     expectPhases("val runtime = ():Int { 42 }.runTimeOnly; runtime()", "val runtime = ():Int { 42 }; runtime()", "42")
   }
 
-  test("compile-time-only functions") {
+  ignore("compile-time-only functions") {
     expectPhases("val fn = ():Int { 42 }.compileTimeOnly; fn()", "42", "42")
   }
 

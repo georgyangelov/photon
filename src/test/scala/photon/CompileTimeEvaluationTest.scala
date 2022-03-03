@@ -78,7 +78,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   // TODO: This needs partial evaluation
-  test("does not duplicate variables during partial evaluation") {
+  ignore("does not duplicate variables during partial evaluation") {
     expectEvalCompileTime(
       """
           val unknown = { 42 }.runTimeOnly
@@ -183,7 +183,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 
   test("variables do not escape the scope (without partial evaluation)") {
     expectEvalCompileTime(
-      "outer = (a:Int) { { a } }; outer(42)",
+      "val outer = (a:Int) { { a } }; outer(42)",
       "val a = 42; (): Int { a }"
     )
 
@@ -202,7 +202,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("variables do not escape the scope (without partial evaluation) 2") {
     expectEvalCompileTime(
       "val fn = (a:Int) { { a } }; val something = (x:Function(returns=Int)) { x }.runTimeOnly; something(x = fn(42))",
-      "val something = (x:Function(returns=Int)): Function(returns=Int) { x }; something(x = (a = 42; (): Int { a }))"
+      "val something = (x:Function(returns=Int)): Function(returns=Int) { x }; something(x = (val a = 42; (): Int { a }))"
     )
   }
 

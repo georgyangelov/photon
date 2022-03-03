@@ -9,15 +9,6 @@ object ValueToAST {
   def transform(value: UValue): ASTValue =
     transform(value, Map.empty, renameAllPrefix = None, forInspection = false)
 
-//  def transformAsBlock(value: UValue): ASTBlock = {
-//    value match {
-//      case UOperation.Block(values, _) => ASTBlock(
-//        values.map(transform(_, Map.empty, None, forInspection = false))
-//      )
-//      case _ => ASTBlock(Seq(transform(value, Map.empty, None, forInspection = false)))
-//    }
-//  }
-
   def transformForInspection(value: UValue): ASTValue = {
     // TODO: Remove this branching for ASTBlock
     transform(value, Map.empty, renameAllPrefix = None, forInspection = true)
@@ -39,48 +30,6 @@ object ValueToAST {
     case ULiteral.Int(value, location) => ASTValue.Int(value, location)
     case ULiteral.Float(value, location) => ASTValue.Float(value, location)
     case ULiteral.String(value, location) => ASTValue.String(value, location)
-
-//    case ULiteral.Native(MacroASTValue(ast), _) => ast
-
-//    case PureValue.Native(List(values), location) => ASTValue.Call(
-//      target = ASTValue.NameReference("List", location),
-//      name = "of",
-//      arguments = ASTArguments.positional(
-//        values.map(transform(_, varNames, renameAllPrefix, forInspection))
-//      ),
-//      mayBeVarCall = false,
-//      location
-//    )
-
-//    case PureValue.Native(_, location) =>
-//      if (!forInspection) {
-//        throw EvalError("Cannot convert Native value to ASTValue", location)
-//      }
-//
-//      ASTValue.NameReference("<native>", location)
-
-//    case UOperation.Function(fn, location) =>
-//      if (!forInspection) {
-//        throw EvalError("Cannot convert UOperation.Function to ASTValue", location)
-//      }
-//
-//      transformFn(fn, varNames, location, forInspection)
-
-//    case BoundValue.Object(values, _, _, location) =>
-//      if (!forInspection) {
-//        throw EvalError("Cannot convert BoundValue.Object to ASTValue", location)
-//      }
-//
-//      ASTValue.Call(
-//        ASTValue.NameReference("Object", None),
-//        "call",
-//        ASTArguments(
-//          positional = Seq.empty,
-//          named = values.view.mapValues(transform(_, varNames, renameAllPrefix, forInspection)).toMap
-//        ),
-//        mayBeVarCall = false,
-//        location
-//      )
 
     case UOperation.Block(values, location) =>
       ASTValue.Block(
@@ -156,14 +105,6 @@ object ValueToAST {
 
     name
   }
-
-//  private def transformBlock(
-//    block: UOperation.Block,
-//    varNames: Map[VariableName, String],
-//    renameAllPrefix: Option[String],
-//    forInspection: Boolean
-//  ) =
-//    ASTBlock(block.values.map(transform(_, varNames, renameAllPrefix, forInspection)))
 
   private def transformFn(
     fn: UFunction,

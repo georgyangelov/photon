@@ -26,14 +26,14 @@ class ListTest extends FunSuite {
     )
   }
 
-  test("supports map") {
+  ignore("supports map") {
     expectEval(
       "List.of(1, 2, 3, 4).map (x: Int) x + 1",
       "List.of(2, 3, 4, 5)"
     )
   }
 
-  test("supports reduce") {
+  ignore("supports reduce") {
     expectEval(
       "List.of(1, 2, 3, 4).reduce 0, (x: Int, y: Int) x + y",
       "10"

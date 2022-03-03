@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 import photon.TestHelpers.{expectEval, expectEvalCompileTime}
 
 class MacroTest extends FunSuite {
-  test("macro functions do not collide with functions in scope") {
+  ignore("macro functions do not collide with functions in scope") {
     val macroDef = """
       Core.defineMacro 'objectify', (parser) {
         Struct(value = parser.parseNext.eval)
@@ -22,7 +22,7 @@ class MacroTest extends FunSuite {
     )
   }
 
-  test("macro variables in lambda params do not collide with in-scope variables") {
+  ignore("macro variables in lambda params do not collide with in-scope variables") {
     val macroDefinition = """
         Core.defineMacro 'run', (parser) {
           (variable) {
@@ -43,7 +43,7 @@ class MacroTest extends FunSuite {
     )
   }
 
-  test("supports simple parser macros") {
+  ignore("supports simple parser macros") {
     val macroDefinition = """
         Core.defineMacro 'plusOne', (parser) {
           parser.parseNext.eval + 1
@@ -58,7 +58,7 @@ class MacroTest extends FunSuite {
     )
   }
 
-  test("supports simple parser macros with lets") {
+  ignore("supports simple parser macros with lets") {
     val macroDefinition = """
         Core.defineMacro 'plusOne', (parser) {
           val number = parser.parseNext.eval
@@ -75,7 +75,7 @@ class MacroTest extends FunSuite {
     )
   }
 
-  test("supports parser macros") {
+  ignore("supports parser macros") {
     val macroDefinition = """
         Core.defineMacro 'if', (parser) {
           val condition = parser.parseNext
@@ -97,7 +97,7 @@ class MacroTest extends FunSuite {
     )
   }
 
-  test("lambdas parsed by macros can use closure scope") {
+  ignore("lambdas parsed by macros can use closure scope") {
     val macroDefinition = """
         Core.defineMacro 'run', (parser) {
           val lambda = parser.parseNext
@@ -110,7 +110,7 @@ class MacroTest extends FunSuite {
     expectEvalCompileTime(macroDefinition, "val answer = 42; run { answer }", "42")
   }
 
-  test("macro variables do not collide with in-scope variables") {
+  ignore("macro variables do not collide with in-scope variables") {
     val macroDefinition = """
         Core.defineMacro 'run', (parser) {
           val variable = parser.parseNext.eval
