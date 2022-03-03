@@ -199,7 +199,7 @@ class CompileTimeEvaluationTest extends FunSuite {
     )
   }
 
-  test("variables do not escape the scope (without partial evaluation) 2") {
+  ignore("variables do not escape the scope (without partial evaluation) 2") {
     expectEvalCompileTime(
       "val fn = (a:Int) { { a } }; val something = (x:Function(returns=Int)) { x }.runTimeOnly; something(x = fn(42))",
       "val something = (x:Function(returns=Int)): Function(returns=Int) { x }; something(x = (val a = 42; (): Int { a }))"
