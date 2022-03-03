@@ -5,8 +5,8 @@ import photon.TestHelpers.{expectEvalCompileTime, expectFailCompileTime}
 
 class TypeSystemTest extends FunSuite {
   test("calling functions with types") {
-    expectEvalCompileTime("fn = (a: Int): Int a + 41; fn(1)", "42")
-    expectEvalCompileTime("fn = (a: Int, b: Int): Int a + b; fn(1, 41)", "42")
+    expectEvalCompileTime("val fn = (a: Int): Int a + 41; fn(1)", "42")
+    expectEvalCompileTime("val fn = (a: Int, b: Int): Int a + b; fn(1, 41)", "42")
   }
 
 //  test("typechecking primitive types") {

@@ -22,7 +22,7 @@ class InterpreterTest extends FunSuite {
   }
 
   test("assignment") {
-    expectEvalCompileTime("answer = 42; answer", "42")
+    expectEvalCompileTime("val answer = 42; answer", "42")
   }
 
   test("return type inference") {
@@ -37,9 +37,9 @@ class InterpreterTest extends FunSuite {
   test("higher-order function types") {
     expectEvalCompileTime(
       """
-        IntFn = Function(a = Int, returns = Int)
+        val IntFn = Function(a = Int, returns = Int)
 
-        callWithOne = (fn: IntFn) { fn(1) }
+        val callWithOne = (fn: IntFn) { fn(1) }
         callWithOne (a: Int) { 41 + a }
       """,
       "42"
@@ -48,26 +48,26 @@ class InterpreterTest extends FunSuite {
 
   test("higher-order functions") {
     expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
-    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ b = a; b + 41 })", "42")
+    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
   }
 
   test("simple macros") {
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); #e + 1 })",
-      "unknown = ():Int{}.runTimeOnly; add_one unknown()",
+      "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); #e + 1 })",
+      "val unknown = ():Int{}.runTimeOnly; add_one unknown()",
 
-      "unknown = ():Int{}; unknown() + 1"
+      "val unknown = ():Int{}; unknown() + 1"
     )
 
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); #e + 1 })",
+      "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); #e + 1 })",
       "(a:Int):Int{ add_one(a + 2) }",
 
       "(a:Int):Int{ a + 2 + 1 }"
     )
 
     expectEvalCompileTime(
-      "Core.defineMacro('add_one', (parser: Parser): Any { e = parser.parseNext(); 42 })",
+      "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); 42 })",
       "(a:Int):Int{ add_one(a + 2) }",
 
       "(a:Int):Int{ 42 }"
@@ -81,12 +81,12 @@ class InterpreterTest extends FunSuite {
   }
 
   test("runtime-only functions") {
-    expectPhases("runtime = ():Int { 42 }; runtime()", "42", "42")
-    expectPhases("runtime = ():Int { 42 }.runTimeOnly; runtime()", "runtime = ():Int { 42 }; runtime()", "42")
+    expectPhases("val runtime = ():Int { 42 }; runtime()", "42", "42")
+    expectPhases("val runtime = ():Int { 42 }.runTimeOnly; runtime()", "val runtime = ():Int { 42 }; runtime()", "42")
   }
 
   test("compile-time-only functions") {
-    expectPhases("fn = ():Int { 42 }.compileTimeOnly; fn()", "42", "42")
+    expectPhases("val fn = ():Int { 42 }.compileTimeOnly; fn()", "42", "42")
   }
 
 // TODO: Make sure this is checked at some point with the type system
@@ -108,6 +108,6 @@ class InterpreterTest extends FunSuite {
 //  }
 
   test("binding to variable names in functions") {
-    expectEvalCompileTime("factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
+    expectEvalCompileTime("val factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 }

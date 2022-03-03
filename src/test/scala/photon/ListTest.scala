@@ -7,7 +7,7 @@ class ListTest extends FunSuite {
   test("supports construction with List.of") {
     expectEval(
       """
-        numbers = List.of(1, 2, 3)
+        val numbers = List.of(1, 2, 3)
         numbers.get(1)
       """,
       "2"

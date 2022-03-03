@@ -47,8 +47,8 @@ class ParserTest extends FunSuite {
   }
 
   test("assignment") {
-    assert(parse("a = 15") == "(let a 15 {})")
-    assert(parse("a = 5 * 5") == "(let a (* 5 5) {})")
+    assert(parse("val a = 15") == "(let a 15 {})")
+    assert(parse("val a = 5 * 5") == "(let a (* 5 5) {})")
   }
 
   test("prefix operators") {
@@ -82,7 +82,7 @@ class ParserTest extends FunSuite {
   }
 
   test("newlines in expressions") {
-    assert(parse("a =\n\n 5 * 5") == "(let a (* 5 5) {})")
+    assert(parse("val a =\n\n 5 * 5") == "(let a (* 5 5) {})")
 
     assert(parse("1 + 2 - 5") == "(- (+ 1 2) 5)")
     assert(parse("1 + 2 \n - 5") == "(+ 1 2) (- 5)")
@@ -269,7 +269,7 @@ class ParserTest extends FunSuite {
   test("parentheses for blocks") {
     assert(parse("(a; b)") == "{ a b }")
     assert(parse("(a; b) + 1") == "(+ { a b } 1)")
-    assert(parse("a = 11; (a = 42; () { a }) + a") == "(let a 11 (+ (let a 42 (lambda [] a)) a))")
+    assert(parse("val a = 11; (val a = 42; () { a }) + a") == "(let a 11 (+ (let a 42 (lambda [] a)) a))")
 
     assertThrows[ParseError] { parse("()") }
   }

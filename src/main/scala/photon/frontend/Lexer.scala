@@ -25,6 +25,7 @@ object TokenType {
   case object Pipe extends TokenType("Pipe")
   case object Dollar extends TokenType("Dollar")
   case object DoubleColon extends TokenType("DoubleColon")
+  case object Val extends TokenType("Val")
   case object UnaryOperator extends TokenType("UnaryOperator")
   case object BinaryOperator extends TokenType("BinaryOperator")
   case object Name extends TokenType("Name")
@@ -50,6 +51,7 @@ case class Token(tokenType: TokenType, string: String, location: Location, hadWh
         | TokenType.Pipe
         | TokenType.Dollar
         | TokenType.DoubleColon
+        | TokenType.Val
         => s"($tokenType)"
 
       case TokenType.UnaryOperator
@@ -184,6 +186,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       case _ if Lexer.isStartPartOfName(c) =>
         val name = readName()
         val tokenType = name match {
+          case "val" => TokenType.Val
           case "and" | "or" => TokenType.BinaryOperator
           case "true" | "false" => TokenType.BoolLiteral
           case _ => TokenType.Name

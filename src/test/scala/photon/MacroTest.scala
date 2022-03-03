@@ -14,7 +14,7 @@ class MacroTest extends FunSuite {
     expectEval(
       macroDef,
       """
-        Struct = 1234
+        val Struct = 1234
 
         (objectify 42).value
       """,
@@ -34,8 +34,8 @@ class MacroTest extends FunSuite {
     expectEval(
       macroDefinition,
       """
-         answer = (){ 42 }.runTimeOnly
-         variable = answer()
+         val answer = (){ 42 }.runTimeOnly
+         val variable = answer()
 
          run { variable }
       """,
@@ -53,15 +53,15 @@ class MacroTest extends FunSuite {
     expectEvalCompileTime(macroDefinition, "plusOne 41","42")
     expectEvalCompileTime(
       macroDefinition,
-      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
-      "unknown = () { 41 }; unknown() + 1"
+      "val unknown = () { 41 }.runTimeOnly; plusOne unknown()",
+      "val unknown = () { 41 }; unknown() + 1"
     )
   }
 
   test("supports simple parser macros with lets") {
     val macroDefinition = """
         Core.defineMacro 'plusOne', (parser) {
-          number = parser.parseNext.eval
+          val number = parser.parseNext.eval
 
           number + 1
         }
@@ -70,17 +70,17 @@ class MacroTest extends FunSuite {
     expectEvalCompileTime(macroDefinition, "plusOne 41","42")
     expectEvalCompileTime(
       macroDefinition,
-      "unknown = () { 41 }.runTimeOnly; plusOne unknown()",
-      "unknown = () { 41 }; plusOne$number = unknown(); plusOne$number + 1"
+      "val unknown = () { 41 }.runTimeOnly; plusOne unknown()",
+      "val unknown = () { 41 }; val plusOne$number = unknown(); plusOne$number + 1"
     )
   }
 
   test("supports parser macros") {
     val macroDefinition = """
         Core.defineMacro 'if', (parser) {
-          condition = parser.parseNext
-          ifTrue = parser.parseNext
-          ifFalse = (parser.nextToken.string == "else").ifElse({ parser.skipNextToken; parser.parseNext.eval }, { {} })
+          val condition = parser.parseNext
+          val ifTrue = parser.parseNext
+          val ifFalse = (parser.nextToken.string == "else").ifElse({ parser.skipNextToken; parser.parseNext.eval }, { {} })
 
           condition.eval.toBool.ifElse(ifTrue.eval, ifFalse)
         }
@@ -92,28 +92,28 @@ class MacroTest extends FunSuite {
 
     expectEvalCompileTime(
       macroDefinition,
-      "unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
-      "unknown = (){ true }; if$ifFalse = { 11 }; unknown().toBool.ifElse({ 42 }, if$ifFalse)"
+      "val unknown = (){ true }.runTimeOnly; if unknown() { 42 } else { 11 }",
+      "val unknown = (){ true }; val if$ifFalse = { 11 }; unknown().toBool.ifElse({ 42 }, if$ifFalse)"
     )
   }
 
   test("lambdas parsed by macros can use closure scope") {
     val macroDefinition = """
         Core.defineMacro 'run', (parser) {
-          lambda = parser.parseNext
+          val lambda = parser.parseNext
 
           lambda.eval.call
         }
     """
 
     expectEvalCompileTime(macroDefinition, "run { 42 }","42")
-    expectEvalCompileTime(macroDefinition, "answer = 42; run { answer }", "42")
+    expectEvalCompileTime(macroDefinition, "val answer = 42; run { answer }", "42")
   }
 
   test("macro variables do not collide with in-scope variables") {
     val macroDefinition = """
         Core.defineMacro 'run', (parser) {
-          variable = parser.parseNext.eval
+          val variable = parser.parseNext.eval
 
           variable.call
         }
@@ -122,8 +122,8 @@ class MacroTest extends FunSuite {
     expectEval(
       macroDefinition,
       """
-         answer = (){ 42 }.runTimeOnly
-         variable = answer()
+         val answer = (){ 42 }.runTimeOnly
+         val variable = answer()
 
          run { variable }
       """,

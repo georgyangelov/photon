@@ -12,20 +12,20 @@ class PartialEvaluationTest extends FunSuite {
     expectEvalCompileTime(
       """
           () {
-            unknown = () { 42 }.runTimeOnly
-            add = (a, b) { a + b }
-            var1 = unknown()
-            var2 = add(1, 10)
+            val unknown = () { 42 }.runTimeOnly
+            val add = (a, b) { a + b }
+            val var1 = unknown()
+            val var2 = add(1, 10)
 
             add(var1, var2)
           }
       """,
       """
           () {
-            unknown = () { 42 }
-            add = (a, b) { a + b }
-            var1 = unknown()
-            var2 = 11
+            val unknown = () { 42 }
+            val add = (a, b) { a + b }
+            val var1 = unknown()
+            val var2 = 11
 
             add(var1, var2)
           }
@@ -35,19 +35,19 @@ class PartialEvaluationTest extends FunSuite {
 
   test("partial evaluation of simple objects") {
     expectEvalCompileTime(
-      "object = Object(unknown = () {}.runTimeOnly, answer = () 42); object.answer",
+      "val object = Object(unknown = () {}.runTimeOnly, answer = () 42); object.answer",
       "42"
     )
   }
 
   test("compile-time evaluation of partial objects") {
     expectEvalCompileTime(
-      "unknown = () { 11 }.runTimeOnly; object = Object(unknown = unknown, answer = () 42); object.answer",
+      "val unknown = () { 11 }.runTimeOnly; val object = Object(unknown = unknown, answer = () 42); object.answer",
       "42"
     )
     expectEvalCompileTime(
-      "unknown = () { 42 }.runTimeOnly; object = Object(unknown = unknown, answer = () 42); object.unknown",
-      "unknown = () { 42 }; object = Object(unknown = unknown, answer = () 42); object.unknown"
+      "val unknown = () { 42 }.runTimeOnly; val object = Object(unknown = unknown, answer = () 42); object.unknown",
+      "val unknown = () { 42 }; val object = Object(unknown = unknown, answer = () 42); object.unknown"
     )
   }
 

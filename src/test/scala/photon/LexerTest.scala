@@ -31,6 +31,12 @@ class LexerTest extends FunSuite {
     )
   }
 
+  test("keywords") {
+    assert(
+      lex("val a = b") == "(Val) (Name 'a') (BinaryOperator '=') (Name 'b') (EOF)"
+    )
+  }
+
   test("single quote strings") {
     assert(lex("'test'") == "(String 'test') (EOF)")
     assert(lex("'te\\ns\\t'") == "(String 'te\\ns\\t') (EOF)")

@@ -7,12 +7,12 @@ class ClassTest extends FunSuite {
   test("can create classes with fields") {
     expectEvalCompileTime(
       """
-      Person = Class.new(
+      val Person = Class.new(
         Class.property("name", String),
         Class.property("age", Int)
       )
 
-      person = Person.new(name = "Ivan", age = 42)
+      val person = Person.new(name = "Ivan", age = 42)
 
       person.age
       """,
@@ -23,14 +23,14 @@ class ClassTest extends FunSuite {
   test("can create classes with methods using self") {
     expectEvalCompileTime(
       """
-      Person = Class.new(
+      val Person = Class.new(
         Class.property("name", String),
         Class.property("age", Int),
 
         Class.method("nextAge", (self: Person): Int { age + 1 })
       )
 
-      person = Person.new(name = "Ivan", age = 42)
+      val person = Person.new(name = "Ivan", age = 42)
 
       person.nextAge
       """,
@@ -41,12 +41,12 @@ class ClassTest extends FunSuite {
   test("can create classes with properties referencing the class") {
     expectEvalCompileTime(
       """
-      Person = Class.new(
+      val Person = Class.new(
         Class.property("name", String),
         Class.property("parent", Optional(Person))
       )
 
-      person = Person.new(name = "Ivan", parent = Optional(Person).empty)
+      val person = Person.new(name = "Ivan", parent = Optional(Person).empty)
       person.parent
       """,
       "Optional(Person).empty"

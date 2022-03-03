@@ -24,7 +24,7 @@ object Unparser {
     case ASTValue.NameReference(name, _) => name
 
     case ASTValue.Let(name, value, block, _) =>
-      val letString = s"$name = ${unparse(value, expectSingleValue = true)}; ${unparse(block)}"
+      val letString = s"val $name = ${unparse(value, expectSingleValue = true)}; ${unparse(block)}"
 
       if (expectSingleValue) {
         s"($letString)"

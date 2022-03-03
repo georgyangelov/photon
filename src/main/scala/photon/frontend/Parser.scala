@@ -84,20 +84,7 @@ class Parser(
       val right = parseExpression(precedence + 1, requireCallParens)
       val location = left.location.get.extendWith(right.location.get)
 
-      left = if (operator.string == "=") {
-        left match {
-          case ASTValue.NameReference(name, _) =>
-            val body = parseRestOfBlock()
-
-            ASTValue.Let(
-              name,
-              right,
-              body,
-              Some(location)
-            )
-          case _ => throw new ParseError("Left side of assignment must have a name", location)
-        }
-      } else if (operator.tokenType == TokenType.Colon) {
+      left = if (operator.tokenType == TokenType.Colon) {
         ASTValue.Call(
           target = ASTValue.NameReference("Core", Some(location)),
           name = "typeCheck",
@@ -120,6 +107,32 @@ class Parser(
   }
 
   private def parsePrimary(requireCallParens: Boolean): ASTValue = {
+    if (token.tokenType == TokenType.Val) {
+      val startLocation = token.location
+      read() // val
+
+      if (token.tokenType != TokenType.Name) {
+        parseError("`val` needs to be followed by a name")
+      }
+      val name = read()
+
+      if (token.tokenType != TokenType.BinaryOperator || token.string != "=") {
+        parseError("Val needs to have an =")
+      }
+      val equals = read() // =
+
+      val value = parseExpression(operatorPrecedence(equals) + 1, requireCallParens = false)
+      val body = parseRestOfBlock()
+      val location = startLocation.extendWith(body.location.get)
+
+      return ASTValue.Let(
+        name.string,
+        value,
+        body,
+        Some(location)
+      )
+    }
+
     if (token.tokenType == TokenType.BinaryOperator && token.string == "-") {
       val startLocation = token.location
       read() // -
@@ -253,6 +266,7 @@ class Parser(
 
       case TokenType.Dollar => true
       case TokenType.BinaryOperator => false
+      case TokenType.Val => false
       case TokenType.Name => true
       case TokenType.NumberLiteral => true
       case TokenType.StringLiteral => true
