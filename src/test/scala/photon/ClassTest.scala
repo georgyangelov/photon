@@ -38,6 +38,24 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("can create classes with methods using return type inference") {
+    expectEvalCompileTime(
+      """
+      val Person = Class.new(
+        Class.property("name", String),
+        Class.property("age", Int),
+
+        Class.method("nextAge", (self: Person) { age + 1 })
+      )
+
+      val person = Person.new(name = "Ivan", age = 42)
+
+      person.nextAge
+      """,
+      "43"
+    )
+  }
+
   test("can create classes with properties referencing the class") {
     expectEvalCompileTime(
       """

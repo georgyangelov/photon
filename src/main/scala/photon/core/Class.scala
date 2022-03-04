@@ -53,7 +53,7 @@ object ClassRootType extends StandardType {
       override def call(args: Arguments[EValue], location: Option[Location]) =
         MethodValue(
           args.positional.head.evalAssert[StringValue],
-          args.positional(1).evalAssert[FunctionValue],
+          args.positional(1),
           location
         )
     }
@@ -122,10 +122,10 @@ case class Class(
   }.toMap[String, Method] ++ instanceMethods.map { method =>
     method.name.value -> new Method {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
-      override def typeCheck(args: Arguments[EValue]) = method.fn.typ.returnType.evalAssert[Type]
+      override def typeCheck(args: Arguments[EValue]) = method.fn.evalAssert[FunctionValue].typ.returnType.evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.self.evalAssert[Object]
-        val fn = method.fn
+        val fn = method.fn.evalAssert[FunctionValue]
 
         val needsSelfArgument = fn.nameMap.contains("self")
         val hasSelfInArguments = args.named.contains("self")
@@ -201,7 +201,7 @@ object MethodType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map.empty
 }
-case class MethodValue(name: StringValue, fn: FunctionValue, location: Option[Location]) extends EValue {
+case class MethodValue(name: StringValue, fn: EValue, location: Option[Location]) extends EValue {
   override def typ = Property
   override def unboundNames = fn.unboundNames
   override def evalType = None
