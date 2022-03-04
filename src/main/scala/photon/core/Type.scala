@@ -47,6 +47,7 @@ object TypeRoot extends Type {
 abstract class StandardType extends Type {
   val methods: Map[String, Method]
 
+  override def unboundNames = Set.empty
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this

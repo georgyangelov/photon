@@ -7,10 +7,10 @@ class ClassTest extends FunSuite {
   test("can create classes with fields") {
     expectEvalCompileTime(
       """
-      val Person = Class.new(
-        Class.property("name", String),
-        Class.property("age", Int)
-      )
+      val Person = Class.new (self: ClassBuilder) {
+        define "name", String
+        define "age", Int
+      }
 
       val person = Person.new(name = "Ivan", age = 42)
 
@@ -23,12 +23,12 @@ class ClassTest extends FunSuite {
   test("can create classes with methods using self") {
     expectEvalCompileTime(
       """
-      val Person = Class.new(
-        Class.property("name", String),
-        Class.property("age", Int),
+      val Person = Class.new (self: ClassBuilder) {
+        define "name", String
+        define "age", Int
 
-        Class.method("nextAge", (self: Person): Int { age + 1 })
-      )
+        define "nextAge", (self: Person): Int { age + 1 }
+      }
 
       val person = Person.new(name = "Ivan", age = 42)
 
@@ -41,12 +41,12 @@ class ClassTest extends FunSuite {
   test("can create classes with methods using return type inference") {
     expectEvalCompileTime(
       """
-      val Person = Class.new(
-        Class.property("name", String),
-        Class.property("age", Int),
+      val Person = Class.new (self: ClassBuilder) {
+        define "name", String
+        define "age", Int
 
-        Class.method("nextAge", (self: Person) { age + 1 })
-      )
+        define "nextAge", (self: Person) age + 1
+      }
 
       val person = Person.new(name = "Ivan", age = 42)
 
@@ -59,10 +59,10 @@ class ClassTest extends FunSuite {
   test("can create classes with properties referencing the class") {
     expectEvalCompileTime(
       """
-      val Person = Class.new(
-        Class.property("name", String),
-        Class.property("parent", Optional(Person))
-      )
+      val Person = Class.new (self: ClassBuilder) {
+        define "name", String
+        define "parent", Optional(Person)
+      }
 
       val person = Person.new(name = "Ivan", parent = Optional(Person).empty)
       person.parent

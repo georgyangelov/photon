@@ -31,6 +31,7 @@ class Core extends EValue {
     "List" -> photon.core.List,
     "Function" -> photon.core.operations.FunctionRoot,
     "Class" -> photon.core.ClassRoot,
+    "ClassBuilder" -> photon.core.ClassBuilderRoot,
     "Optional" -> photon.core.OptionalRoot
   )
 

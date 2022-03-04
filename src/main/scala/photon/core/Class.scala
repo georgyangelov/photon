@@ -1,11 +1,49 @@
 package photon.core
-import photon.core.operations.{CallValue, FunctionValue}
+import photon.core.operations.FunctionValue
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location}
 
+object ClassBuilderRoot extends StandardType {
+  override def typ = TypeRoot
+  override val location = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+  override val methods = Map(
+    "define" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime)
+
+      // TODO: Nothing
+      override def typeCheck(args: Arguments[EValue]) = TypeRoot
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.evalAssert[ClassBuilder]
+        val name = args.positional.head.evalAssert[StringValue]
+        val definition = args.positional(1)
+
+        self.definitions.addOne(ClassDefinition(name.value, definition, location))
+
+        // TODO: Nothing
+        TypeRoot
+      }
+    }
+  )
+}
+
+class ClassBuilder(val location: Option[Location]) extends EValue {
+  val definitions = Seq.newBuilder[ClassDefinition]
+
+  def build: Class = Class(definitions.result, location)
+
+  override def evalMayHaveSideEffects = false
+  override def typ = ClassBuilderRoot
+  override def toUValue(core: Core) = inconvertible
+  override def unboundNames = Set.empty
+
+  override def evalType = None
+  override protected def evaluate: EValue = this
+}
+
 object ClassRootType extends StandardType {
   override def typ = TypeRoot
-  override def unboundNames = Set.empty
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
@@ -23,39 +61,19 @@ object ClassRootType extends StandardType {
       override def call(args: Arguments[EValue], location: Option[Location]) = buildClass(args, location)
 
       def buildClass(args: Arguments[EValue], location: Option[Location]) = {
-        val evalArgs = args.positional.map(_.evaluated)
-        val properties = evalArgs
-          .filter(_.isInstanceOf[PropertyValue])
-          .map(_.assert[PropertyValue])
+        val builder = new ClassBuilder(location)
 
-        val methods = evalArgs
-          .filter(_.isInstanceOf[MethodValue])
-          .map(_.assert[MethodValue])
+        val builderFn = args.positional.head.evaluated
+        val buildMethod = builderFn.typ.method("call")
+          .getOrElse { throw EvalError("Object passed to Class.new needs to be callable", location) }
 
-        photon.core.Class(properties, methods, location)
+        buildMethod.call(
+          Arguments.positional(builderFn, Seq(builder)),
+          location
+        )
+
+        builder.build
       }
-    },
-
-    "property" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
-      override def typeCheck(args: Arguments[EValue]) = Property
-      override def call(args: Arguments[EValue], location: Option[Location]) =
-        PropertyValue(
-          args.positional.head.evalAssert[StringValue],
-          args.positional(1),
-          location
-        )
-    },
-
-    "method" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
-      override def typeCheck(args: Arguments[EValue]) = MethodType
-      override def call(args: Arguments[EValue], location: Option[Location]) =
-        MethodValue(
-          args.positional.head.evalAssert[StringValue],
-          args.positional(1),
-          location
-        )
     }
   )
 }
@@ -89,61 +107,74 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
     }
   )
 }
+
+case class ClassDefValue(name: String, typ: EValue)
+case class ClassDefMethod(name: String, fn: EValue)
+
 case class Class(
-  properties: Seq[PropertyValue],
-  instanceMethods: Seq[MethodValue],
+  definitions: Seq[ClassDefinition],
   location: Option[Location]
 ) extends StandardType {
   override lazy val typ = ClassT(this)
-  override def unboundNames = properties.flatMap(_.unboundNames).toSet
+  override def unboundNames = definitions.flatMap(_.value.unboundNames).toSet
 
-  override def toUValue(core: Core) =
-    CallValue(
-      "new",
-      Arguments.positional(ClassRoot, properties),
-      location
-    ).toUValue(core)
+  override def toUValue(core: Core) = ???
+//    CallValue(
+//      "new",
+//      Arguments.positional(ClassRoot, properties),
+//      location
+//    ).toUValue(core)
 
-  override val methods = properties.map { prop =>
-    prop.name.value -> new Method {
+  override val methods = definitions.map(methodForDefinition).toMap
+
+//  override val methods = (valueDefs.map(methodForValue) ++ methodDefs.map(methodForFn)).toMap
+
+  private def methodForDefinition(definition: ClassDefinition): (String, Method) = {
+    definition.name -> new Method {
       override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
-      override def typeCheck(args: Arguments[EValue]) = prop.propType.evalAssert[Type]
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[Object]
-        val propName = prop.name.value
-        val propValue = self.properties.get(propName)
-
-        propValue match {
-          case Some(value) => value
-          case None => throw EvalError("There's no such property on the class instance", location)
+      override def typeCheck(args: Arguments[EValue]) = {
+        definition.value.evaluated match {
+          case typ: Type => typ
+          case fn: FunctionValue => fn.typ.returnType.evalAssert[Type]
+          case _ => throw EvalError(s"Invalid definition type $this, expected a type or a function", location)
         }
       }
-    }
-  }.toMap[String, Method] ++ instanceMethods.map { method =>
-    method.name.value -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
-      override def typeCheck(args: Arguments[EValue]) = method.fn.evalAssert[FunctionValue].typ.returnType.evalAssert[Type]
+
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.self.evalAssert[Object]
-        val fn = method.fn.evalAssert[FunctionValue]
 
-        val needsSelfArgument = fn.nameMap.contains("self")
-        val hasSelfInArguments = args.named.contains("self")
+        definition.value.evaluated match {
+          case _: Type =>
+            val value = self.properties.get(definition.name)
 
-        val methodArgs = Arguments(
-          fn,
-          positional = args.positional,
-          named =
-            if (needsSelfArgument && !hasSelfInArguments) {
-              args.named + ("self" -> self)
-            } else {
-              args.named
+            value match {
+              case Some(value) => value
+              case None => throw EvalError("There's no such property on the class instance", location)
             }
-        )
 
-        fn.typ.method("call")
-          .getOrElse { throw EvalError("Cannot call function", location) }
-          .call(methodArgs, location)
+          case fn: FunctionValue =>
+            val self = args.self.evalAssert[Object]
+
+            val needsSelfArgument = fn.nameMap.contains("self")
+            val hasSelfInArguments = args.named.contains("self")
+
+            val methodArgs = Arguments(
+              fn,
+              positional = args.positional,
+              named =
+                if (needsSelfArgument && !hasSelfInArguments) {
+                  args.named + ("self" -> self)
+                } else {
+                  args.named
+                }
+            )
+
+            fn.typ.method("call")
+              .getOrElse { throw EvalError("Cannot call function", location) }
+              .call(methodArgs, location)
+
+          case _ => throw EvalError(s"Invalid definition type $this, expected a type or a function", location)
+        }
       }
     }
   }
@@ -159,62 +190,24 @@ case class Object(classValue: EValue, properties: Map[String, EValue], location:
   // TODO: Can it have side-effects?
   //       If any of the not-yet-evaluated properties have side-effects when evaluating?
   override def evalMayHaveSideEffects = false
-  override def toUValue(core: Core) =
-    CallValue(
-      "new",
-      Arguments.named(typ, properties),
-      location
-    ).toUValue(core)
+  override def toUValue(core: Core) = ???
+//    CallValue(
+//      "new",
+//      Arguments.named(typ, properties),
+//      location
+//    ).toUValue(core)
 
   override protected def evaluate: EValue = this
 }
 
-object Property extends StandardType {
-  override def typ = TypeRoot
-  override def unboundNames = Set.empty
-  override val location = None
-  override def toUValue(core: Core) = inconvertible
-  override val methods = Map.empty
-}
-case class PropertyValue(name: StringValue, propType: EValue, location: Option[Location]) extends EValue {
-  override def typ = Property
-  override def unboundNames = propType.unboundNames
-  override def evalType = None
-  override def evalMayHaveSideEffects = false
-  override def toUValue(core: Core) =
-    CallValue(
-      "property",
-      Arguments.positional(
-        ClassRoot,
-        Seq(name, propType)
-      ),
-      location
-    ).toUValue(core)
-
-  override protected def evaluate: EValue = this
-}
-
-object MethodType extends StandardType {
-  override def typ = TypeRoot
-  override def unboundNames = Set.empty
-  override val location = None
-  override def toUValue(core: Core) = inconvertible
-  override val methods = Map.empty
-}
-case class MethodValue(name: StringValue, fn: EValue, location: Option[Location]) extends EValue {
-  override def typ = Property
-  override def unboundNames = fn.unboundNames
-  override def evalType = None
-  override def evalMayHaveSideEffects = false
-  override def toUValue(core: Core) =
-    CallValue(
-      "method",
-      Arguments.positional(
-        ClassRoot,
-        Seq(name, fn)
-      ),
-      location
-    ).toUValue(core)
-
-  override protected def evaluate: EValue = this
+case class ClassDefinition(name: String, value: EValue, location: Option[Location]) {
+  def toUValue(core: Core) = ???
+  //    CallValue(
+  //      "property",
+  //      Arguments.positional(
+  //        ClassRoot,
+  //        Seq(name, propType)
+  //      ),
+  //      location
+  //    ).toUValue(core)
 }
