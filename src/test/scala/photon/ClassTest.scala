@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 import photon.TestHelpers._
 
 class ClassTest extends FunSuite {
-  test("can create classes with fields") {
+  test("can create classes with values") {
     expectEvalCompileTime(
       """
       val Person = Class.new (self: ClassBuilder) {
@@ -20,6 +20,79 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("supports class syntax for values") {
+    expectEvalCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+        }
+
+        val person = Person.new(name = "Ivan", age = 42)
+
+        person.age
+      """,
+      "42"
+    )
+  }
+
+  test("supports class syntax for methods") {
+    expectEvalCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+
+          def nextAge: Int { age + 1 }
+          def agePlus(x: Int) { age + 1 }
+        }
+
+        val person = Person.new(name = "Ivan", age = 42)
+
+        person.age
+      """,
+      "42"
+    )
+  }
+
+  test("can call functons with arguments") {
+    expectEvalCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+
+          def nextAge: Int { age + 1 }
+          def agePlus(x: Int) { age + x }
+        }
+
+        val person = Person.new(name = "Ivan", age = 42)
+
+        person.agePlus 4
+      """,
+      "46"
+    )
+  }
+
+  test("can call functions with named arguments") {
+    expectEvalCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+
+          def nextAge: Int { age + 1 }
+          def agePlus(x: Int) { age + x }
+        }
+
+        val person = Person.new(name = "Ivan", age = 42)
+
+        person.agePlus x = 4
+      """,
+      "46"
+    )
+  }
+
   test("can create classes with methods using self") {
     expectEvalCompileTime(
       """
@@ -29,6 +102,44 @@ class ClassTest extends FunSuite {
 
         define "nextAge", (self: Person): Int { age + 1 }
       }
+
+      val person = Person.new(name = "Ivan", age = 42)
+
+      person.nextAge
+      """,
+      "43"
+    )
+  }
+
+  test("can create classes when we don't have a direct reference to the name (inline)") {
+    expectEvalCompileTime(
+      """
+      val Person = Class.new (self: ClassBuilder) {
+        define "name", String
+        define "age", Int
+
+        define "nextAge", (self: classType) { age + 1 }
+      }
+
+      val person = Person.new(name = "Ivan", age = 42)
+
+      person.nextAge
+      """,
+      "43"
+    )
+  }
+
+  test("can create classes when we don't have a direct reference to the name") {
+    expectEvalCompileTime(
+      """
+      val classBuildFn = (self: ClassBuilder) {
+        define "name", String
+        define "age", Int
+
+        define "nextAge", (self: classType) { age + 1 }
+      }
+
+      val Person = Class.new(classBuildFn)
 
       val person = Person.new(name = "Ivan", age = 42)
 

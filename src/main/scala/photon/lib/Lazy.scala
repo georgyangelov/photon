@@ -41,6 +41,17 @@ case class Eager[+T](resolve: T) extends Lazy[T] {
 object Lazy {
   def of[T](resolve: () => T): Lazy[T] = new LazyFn[T](resolve)
   def ofValue[T](value: T): Lazy[T] = Eager[T](value)
+  def selfReferencing[T](resolve: Lazy[T] => T): Lazy[T] = {
+    var self: Option[Lazy[T]] = None
+    val lazyFn = new LazyFn[T](() => {
+      // TODO: This will currently blow the stack if it self-references directly
+      resolve(self.get)
+    })
+
+    self = Some(lazyFn)
+
+    lazyFn
+  }
 
   def all[T1](lazy1: Lazy[T1]): Lazy[T1] = lazy1
 

@@ -142,19 +142,9 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
         val paramNames = params.map(_.name)
 
-        val positionalParams = paramNames.zip(args.positional)
-        val namesOfnamedParams = paramNames.drop(args.positional.size).toSet
-        val namedParams = namesOfnamedParams.map { name =>
-          // TODO: This should use the name of the actual parameter always, it should not try to rename it.
-          //       This means parameters may have an "external" name and an "internal" name, probably something
-          //       like `sendEmail = (to as address, subject) { # This uses address and not to }; sendEmail(to = 'email@example.com')`
-          args.named.get(name) match {
-            case Some(value) => (name, value)
-            case None => throw EvalError(s"Argument $name not specified in method call", location)
-          }
-        }
+        val matchedArguments = matchArguments(paramNames, args)
 
-        val localVariables = (positionalParams ++ namedParams).map { case name -> value =>
+        val localVariables = matchedArguments.map { case name -> value =>
           value match {
             case reference: ReferenceValue => (name, reference.variable, true)
             case _ => (name, Variable(new VariableName(name), value), false)
@@ -184,6 +174,27 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
       }
     }
   )
+
+  private def matchArguments(paramNames: Seq[String], args: Arguments[EValue]): Seq[(String, EValue)] = {
+    val positionalNames = paramNames.filterNot(args.named.contains)
+
+    val positionalParams = positionalNames.zip(args.positional)
+    val namedParams = args.named.toSeq
+
+    positionalParams ++ namedParams
+
+//    val namedParams = namesOfnamedParams.map { name =>
+//      // TODO: This should use the name of the actual parameter always, it should not try to rename it.
+//      //       This means parameters may have an "external" name and an "internal" name, probably something
+//      //       like `sendEmail = (to as address, subject) { # This uses address and not to }; sendEmail(to = 'email@example.com')`
+//      args.named.get(name) match {
+//        case Some(value) => (name, value)
+//        case None => throw EvalError(s"Argument $name not specified in method call", location)
+//      }
+//    }
+
+
+  }
 
   // TODO: Add reference to FunctionRoot?
   override def unboundNames = params.flatMap(_.typ.unboundNames).toSet

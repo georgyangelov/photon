@@ -1,6 +1,7 @@
 package photon.core
 
-import photon.frontend.StaticScope
+import photon.frontend.macros.ClassMacros
+import photon.frontend.{ASTValue, Parser, StaticScope}
 import photon.interpreter.EvalError
 import photon.{EValue, Location, Scope, UOperation, Variable, VariableName}
 
@@ -37,6 +38,14 @@ class Core extends EValue {
 
   lazy val rootScope = Scope.newRoot(globals.names)
   lazy val staticRootScope = StaticScope.fromScope(rootScope)
+
+  val macros = Map[String, (Parser, Location) => ASTValue](
+    "class" -> ClassMacros.classMacro,
+    "def" -> ClassMacros.defMacro
+  )
+
+  def applyMacro(name: String, parser: Parser, location: Location): Option[ASTValue] =
+    macros.get(name).map(_.apply(parser, location))
 
   def referenceTo(value: EValue, location: Option[Location]) =
     globals.referenceTo(value, location)

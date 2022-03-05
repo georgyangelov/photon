@@ -29,7 +29,7 @@ object TestHelpers {
 //      case None =>
 //    }
 
-    val value = parseCode(code/*, interpreter.macroHandler*/)
+    val value = parseCode(code, interpreter.core.applyMacro)
 
     interpreter.evaluateToUValue(value)
   }

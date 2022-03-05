@@ -1,6 +1,7 @@
 package photon.core
 import photon.core.operations.FunctionValue
 import photon.interpreter.EvalError
+import photon.lib.Lazy
 import photon.{Arguments, EValue, Location}
 
 object ClassBuilderRoot extends StandardType {
@@ -11,8 +12,7 @@ object ClassBuilderRoot extends StandardType {
     "define" -> new Method {
       override val traits = Set(MethodTrait.CompileTime)
 
-      // TODO: Nothing
-      override def typeCheck(args: Arguments[EValue]) = TypeRoot
+      override def typeCheck(args: Arguments[EValue]) = photon.core.String
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.self.evalAssert[ClassBuilder]
@@ -21,14 +21,25 @@ object ClassBuilderRoot extends StandardType {
 
         self.definitions.addOne(ClassDefinition(name.value, definition, location))
 
-        // TODO: Nothing
-        TypeRoot
+        name
+      }
+    },
+
+    "classType" -> new Method {
+      override val traits = Set(MethodTrait.CompileTime)
+
+      override def typeCheck(args: Arguments[EValue]) = TypeRoot
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.self.evalAssert[ClassBuilder]
+
+        self.classRef.evaluated
       }
     }
   )
 }
 
-class ClassBuilder(val location: Option[Location]) extends EValue {
+class ClassBuilder(val classRef: EValue, val location: Option[Location]) extends EValue {
   val definitions = Seq.newBuilder[ClassDefinition]
 
   def build: Class = Class(definitions.result, location)
@@ -61,18 +72,22 @@ object ClassRootType extends StandardType {
       override def call(args: Arguments[EValue], location: Option[Location]) = buildClass(args, location)
 
       def buildClass(args: Arguments[EValue], location: Option[Location]) = {
-        val builder = new ClassBuilder(location)
+        Lazy.selfReferencing[Class]((self) => {
+          val builder = new ClassBuilder(LazyValue(self, location), location)
 
-        val builderFn = args.positional.head.evaluated
-        val buildMethod = builderFn.typ.method("call")
-          .getOrElse { throw EvalError("Object passed to Class.new needs to be callable", location) }
+          val builderFn = args.positional.head.evaluated
+          val buildMethod = builderFn.typ.method("call")
+            .getOrElse {
+              throw EvalError("Object passed to Class.new needs to be callable", location)
+            }
 
-        buildMethod.call(
-          Arguments.positional(builderFn, Seq(builder)),
-          location
-        )
+          buildMethod.call(
+            Arguments.positional(builderFn, Seq(builder)),
+            location
+          )
 
-        builder.build
+          builder.build
+        }).resolve
       }
     }
   )

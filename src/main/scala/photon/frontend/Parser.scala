@@ -4,16 +4,18 @@ import photon.lib.LookAheadReader
 import photon.{Location, PhotonError}
 
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
+import scala.reflect.ClassTag
 import scala.util.control.Breaks._
 
 class ParseError(message: String, location: Location) extends PhotonError(message, Some(location)) {}
 
 object Parser {
   trait MacroHandler {
-    def apply(name: String, parser: Parser): Option[ASTValue]
+    def apply(name: String, parser: Parser, location: Location): Option[ASTValue]
   }
 
-  val BlankMacroHandler: MacroHandler = (_: String, _: Parser) => None
+  val BlankMacroHandler: MacroHandler = (_: String, _: Parser, _: Location) => None
 }
 
 class Parser(
@@ -23,6 +25,7 @@ class Parser(
   val PARENS_FOR_BLOCKS = true
 
   val reader = new LookAheadReader(() => lexer.nextToken())
+  val letNameStack = mutable.Stack.empty[String]
 
   var token: Token = _
   var atStart = true
@@ -34,6 +37,22 @@ class Parser(
 
     token.tokenType != TokenType.EOF
   }
+
+  def currentLetName = letNameStack.top
+
+  def readToken(tokenType: TokenType, message: String) = {
+    if (token.tokenType != tokenType) {
+      parseError(message)
+    }
+
+    read()
+  }
+
+  def parseAST[T <: ASTValue](implicit tag: ClassTag[T]): T =
+    parseNext() match {
+      case value: T => value
+      case value => parseError(s"Read $value, expected $tag")
+    }
 
   def skipNextToken(): Unit = read()
 
@@ -59,10 +78,10 @@ class Parser(
     expression
   }
 
-  def parseNext(): ASTValue = {
+  def parseNext(requireCallParens: Boolean = false): ASTValue = {
     if (atStart) read()
 
-    parseExpression(requireCallParens = false)
+    parseExpression(requireCallParens = requireCallParens)
   }
 
   private def parseExpression(minPrecedence: Int = 0, requireCallParens: Boolean): ASTValue = {
@@ -121,7 +140,13 @@ class Parser(
       }
       val equals = read() // =
 
-      val value = parseExpression(operatorPrecedence(equals) + 1, requireCallParens = false)
+      letNameStack.push(name.string)
+      val value = try {
+        parseExpression(operatorPrecedence(equals) + 1, requireCallParens = false)
+      } finally {
+        letNameStack.pop()
+      }
+
       val body = parseRestOfBlock()
       val location = startLocation.extendWith(body.location.get)
 
@@ -173,7 +198,7 @@ class Parser(
       case TokenType.Name =>
         val token = read()
 
-        macroHandler.apply(token.string, this) getOrElse {
+        macroHandler.apply(token.string, this, token.location) getOrElse {
           ASTValue.NameReference(token.string, Some(lastLocation))
         }
 
@@ -538,7 +563,7 @@ class Parser(
     }
   }
 
-  private def parseRestOfBlock() = {
+  def parseRestOfBlock() = {
     val values = Vector.newBuilder[ASTValue]
     val startLocation = lastLocation
 
@@ -617,7 +642,7 @@ class Parser(
     oldToken
   }
 
-  private def parseError(explanation: String = "") = {
+  def parseError(explanation: String = "") = {
     throw new ParseError(
       s"Unexpected token ${token.tokenType.name} '${token.string}'. $explanation".strip(),
       token.location
