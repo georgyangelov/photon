@@ -79,6 +79,7 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
   private var c: Int = '\u0000'
   private var atStart = true
   private var atEnd = false
+  private var hadNewline = false
 
   private var line = 1
   private var column = -1
@@ -113,7 +114,9 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       next()
     }
 
-    val hadWhitespace = skipWhitespaceAndComments()
+    val hadWhitespace = skipWhitespaceAndComments() || hadNewline
+    hadNewline = false
+
     val startLocation = currentLocation
     val string = new java.lang.StringBuilder
 
@@ -122,7 +125,10 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
     }
 
     c match {
-      case '\n' | ';' => singleCharToken(TokenType.NewLine, startLocation, hadWhitespace)
+      case '\n' | ';' => {
+        hadNewline = true
+        singleCharToken(TokenType.NewLine, startLocation, hadWhitespace)
+      }
       case '(' => singleCharToken(TokenType.OpenParen, startLocation, hadWhitespace)
       case ')' => singleCharToken(TokenType.CloseParen, startLocation, hadWhitespace)
       case '[' => singleCharToken(TokenType.OpenBracket, startLocation, hadWhitespace)

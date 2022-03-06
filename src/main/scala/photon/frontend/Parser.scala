@@ -69,7 +69,7 @@ class Parser(
   def parseCompleteExpression(): ASTValue = {
     if (atStart) read()
 
-    val expression = parseExpression(requireCallParens = false)
+    val expression = parseExpression(requireCallParens = false, hasLowerPriorityTarget = false)
 
     if (token.tokenType != TokenType.EOF && !newline) {
       parseError("Expected newline or semicolon")
@@ -81,11 +81,15 @@ class Parser(
   def parseNext(requireCallParens: Boolean = false): ASTValue = {
     if (atStart) read()
 
-    parseExpression(requireCallParens = requireCallParens)
+    parseExpression(requireCallParens = requireCallParens, hasLowerPriorityTarget = false)
   }
 
-  private def parseExpression(minPrecedence: Int = 0, requireCallParens: Boolean): ASTValue = {
-    var left = parsePrimary(requireCallParens)
+  private def parseExpression(
+    minPrecedence: Int = 0,
+    requireCallParens: Boolean,
+    hasLowerPriorityTarget: Boolean
+  ): ASTValue = {
+    var left = parsePrimary(requireCallParens, hasLowerPriorityTarget)
 
     while (true) {
       if (newline) return left
@@ -100,7 +104,7 @@ class Parser(
       }
 
       val operator = read()
-      val right = parseExpression(precedence + 1, requireCallParens)
+      val right = parseExpression(precedence + 1, requireCallParens, hasLowerPriorityTarget)
       val location = left.location.get.extendWith(right.location.get)
 
       left = if (operator.tokenType == TokenType.Colon) {
@@ -125,7 +129,7 @@ class Parser(
     throw new RuntimeException("This should not happen")
   }
 
-  private def parsePrimary(requireCallParens: Boolean): ASTValue = {
+  private def parsePrimary(requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): ASTValue = {
     if (token.tokenType == TokenType.Val) {
       val startLocation = token.location
       read() // val
@@ -142,7 +146,7 @@ class Parser(
 
       letNameStack.push(name.string)
       val value = try {
-        parseExpression(operatorPrecedence(equals) + 1, requireCallParens = false)
+        parseExpression(operatorPrecedence(equals) + 1, requireCallParens, hasLowerPriorityTarget)
       } finally {
         letNameStack.pop()
       }
@@ -162,7 +166,7 @@ class Parser(
       val startLocation = token.location
       read() // -
 
-      val expression = parsePrimary(requireCallParens)
+      val expression = parsePrimary(requireCallParens, hasLowerPriorityTarget)
       val location = startLocation.extendWith(expression.location.get)
 
       return ASTValue.Call(
@@ -174,23 +178,19 @@ class Parser(
       )
     }
 
-    var target = parseCallTarget(requireCallParens)
+    var target = parseCallTarget(requireCallParens, hasLowerPriorityTarget)
 
     while (true) {
-      target = tryToParseCall(target, requireCallParens)
-
-      val isFollowedByMethodCall = token.tokenType == TokenType.Dot
-      val isFollowedByAnotherArgumentList = !newline && !token.hadWhitespaceBefore && token.tokenType == TokenType.OpenParen
-
-      if (!isFollowedByMethodCall && !isFollowedByAnotherArgumentList) {
-        return target
+      tryToParseCall(target, requireCallParens, hasLowerPriorityTarget) match {
+        case None => return target
+        case Some(newTarget) => target = newTarget
       }
     }
 
     target
   }
 
-  private def parseCallTarget(requireCallParens: Boolean): ASTValue = {
+  private def parseCallTarget(requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): ASTValue = {
     token.tokenType match {
       case TokenType.BoolLiteral => parseBool()
       case TokenType.NumberLiteral => parseNumber()
@@ -202,11 +202,11 @@ class Parser(
           ASTValue.NameReference(token.string, Some(lastLocation))
         }
 
-      case TokenType.OpenBrace => parseLambda()
-      case TokenType.UnaryOperator => parseUnaryOperator(requireCallParens)
+      case TokenType.OpenBrace => parseLambda(hasLowerPriorityTarget)
+      case TokenType.UnaryOperator => parseUnaryOperator(requireCallParens, hasLowerPriorityTarget)
       case TokenType.OpenParen =>
         if (isOpenParenForLambda) {
-          parseLambda()
+          parseLambda(hasLowerPriorityTarget)
         } else {
           read() // (
 
@@ -215,7 +215,7 @@ class Parser(
             val startLocation = lastLocation
 
             do {
-              valueBuilder.addOne(parseExpression(requireCallParens = false))
+              valueBuilder.addOne(parseExpression(requireCallParens = false, hasLowerPriorityTarget = false))
             } while (token.tokenType != TokenType.CloseParen && newline)
 
             if (token.tokenType != TokenType.CloseParen) {
@@ -230,7 +230,7 @@ class Parser(
               ASTValue.Block(values, Some(startLocation.extendWith(token.location)))
             }
           } else {
-            parseExpression(requireCallParens = false)
+            parseExpression(requireCallParens = false, hasLowerPriorityTarget = false)
           }
 
           if (token.tokenType != TokenType.CloseParen) {
@@ -304,11 +304,16 @@ class Parser(
     }
   }
 
-  private def tryToParseCall(target: ASTValue, requireCallParens: Boolean): ASTValue = {
+  private def tryToParseCall(target: ASTValue, requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): Option[ASTValue] = {
     val startLocation = token.location
 
     // target.call
     if (token.tokenType == TokenType.Dot) {
+      if (token.hadWhitespaceBefore && hasLowerPriorityTarget) {
+        // array.map { 42 } .filter (x) x > 0
+        return None
+      }
+
       read() // .
 
       val canBeAMethodName =
@@ -319,16 +324,16 @@ class Parser(
       if (!canBeAMethodName) parseError("Expected method name")
 
       val name = read()
-      val arguments = parseArguments(requireCallParens)
+      val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = true)
       val location = startLocation.extendWith(lastLocation)
 
-      return ASTValue.Call(
+      return Some(ASTValue.Call(
         target,
         name.string,
         arguments,
         mayBeVarCall = false,
         location = Some(location)
-      )
+      ))
     }
 
     // name a
@@ -336,15 +341,15 @@ class Parser(
     target match {
       case ASTValue.NameReference(name, targetLocation) =>
         if (!requireCallParens && !currentExpressionMayEnd) {
-          val arguments = parseArguments(requireCallParens)
+          val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = true)
 
-          return ASTValue.Call(
+          return Some(ASTValue.Call(
             target = ASTValue.NameReference("self", targetLocation),
             name,
             arguments,
             mayBeVarCall = true,
             location = targetLocation.map(_.extendWith(lastLocation))
-          )
+          ))
         }
 
       case _ => ()
@@ -352,21 +357,21 @@ class Parser(
 
     // expression( ... )
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
-      val arguments = parseArguments(requireCallParens)
+      val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = false)
 
-      return ASTValue.Call(
+      return Some(ASTValue.Call(
         target = target,
         name = "call",
         arguments = arguments,
         mayBeVarCall = false,
         target.location.map(_.extendWith(lastLocation))
-      )
+      ))
     }
 
-    target
+    None
   }
 
-  private def parseArguments(requireParens: Boolean): ASTArguments = {
+  private def parseArguments(requireParens: Boolean, hasLowerPriorityTarget: Boolean): ASTArguments = {
     var withParentheses = false
 
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
@@ -390,7 +395,7 @@ class Parser(
     val positionalArguments = Vector.newBuilder[ASTValue]
     val namedArguments = ListMap.newBuilder[String, ASTValue]
 
-    var value = parseArgument()
+    var value = parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses)
     value match {
       case (Some(name), value) => namedArguments.addOne(name, value)
       case (None, value) => positionalArguments.addOne(value)
@@ -399,7 +404,7 @@ class Parser(
     while (token.tokenType == TokenType.Comma) {
       read() // ,
 
-      value = parseArgument()
+      value = parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses)
       value match {
         case (Some(name), value) => namedArguments.addOne(name, value)
         case (None, value) => positionalArguments.addOne(value)
@@ -419,7 +424,7 @@ class Parser(
     ASTArguments(positionalArguments.result(), namedArguments.result())
   }
 
-  private def parseArgument(): (Option[String], ASTValue) = {
+  private def parseArgument(hasLowerPriorityTarget: Boolean): (Option[String], ASTValue) = {
     val name = if (isNamedArgument) {
       val name = read()
 
@@ -428,7 +433,7 @@ class Parser(
       Some(name.string)
     } else { None }
 
-    val value = parseExpression(requireCallParens = false)
+    val value = parseExpression(requireCallParens = false, hasLowerPriorityTarget = hasLowerPriorityTarget)
 
     (name, value)
   }
@@ -469,7 +474,7 @@ class Parser(
     ASTValue.String(token.string, Some(token.location))
   }
 
-  private def parseLambda(): ASTValue = {
+  private def parseLambda(hasLowerPriorityTarget: Boolean): ASTValue = {
     val startLocation = lastLocation
 
     val hasParameterParens = token.tokenType == TokenType.OpenParen
@@ -483,7 +488,7 @@ class Parser(
     val returnType = if (hasReturnType) {
       read() // :
 
-      Some(parseExpression(requireCallParens = true))
+      Some(parseExpression(requireCallParens = true, hasLowerPriorityTarget = false))
     } else {
       None
     }
@@ -499,7 +504,7 @@ class Parser(
 
       block
     } else {
-      parseExpression(requireCallParens = false)
+      parseExpression(requireCallParens = false, hasLowerPriorityTarget = hasLowerPriorityTarget)
     }
 
     ASTValue.Function(
@@ -527,7 +532,7 @@ class Parser(
           val typeValue = if (token.tokenType == TokenType.Colon) {
             read() // :
 
-            Some(parseExpression(requireCallParens = false))
+            Some(parseExpression(requireCallParens = false, hasLowerPriorityTarget = false))
           } else {
             None
           }
@@ -551,7 +556,7 @@ class Parser(
     val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace) {
-      values += parseExpression(requireCallParens = false)
+      values += parseExpression(requireCallParens = false, hasLowerPriorityTarget = false)
     }
 
     val valuesResult = values.result
@@ -568,7 +573,7 @@ class Parser(
     val startLocation = lastLocation
 
     while (token.tokenType != TokenType.CloseBrace && token.tokenType != TokenType.CloseParen && token.tokenType != TokenType.EOF) {
-      values += parseExpression(requireCallParens = false)
+      values += parseExpression(requireCallParens = false, hasLowerPriorityTarget = false)
     }
 
     val valuesResult = values.result
@@ -580,9 +585,9 @@ class Parser(
     }
   }
 
-  private def parseUnaryOperator(requireCallParens: Boolean): ASTValue = {
+  private def parseUnaryOperator(requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): ASTValue = {
     val operator = read()
-    val target = parsePrimary(requireCallParens)
+    val target = parsePrimary(requireCallParens, hasLowerPriorityTarget)
 
     ASTValue.Call(
       target,

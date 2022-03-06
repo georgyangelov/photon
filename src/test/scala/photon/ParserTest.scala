@@ -273,4 +273,27 @@ class ParserTest extends FunSuite {
 
     assertThrows[ParseError] { parse("()") }
   }
+
+  test("method call precedence") {
+    assert(parse("array.map { 42 }.filter (x) x > 0") == "(map array (filter (lambda [] 42) (lambda [(param x)] (> x 0))))")
+    assert(parse("array.map { 42 } .filter (x) x > 0") == "(filter (map array (lambda [] 42)) (lambda [(param x)] (> x 0)))")
+    assert(parse("array.map({ 42 }).filter (x) x > 0") == "(filter (map array (lambda [] 42)) (lambda [(param x)] (> x 0)))")
+    assert(parse("array.map { 42 }\n.filter (x) x > 0") == "(filter (map array (lambda [] 42)) (lambda [(param x)] (> x 0)))")
+
+    assert(parse("array.map 42.filter") == "(map array (filter 42))")
+    assert(parse("array.map(42 .filter)") == "(map array (filter 42))")
+    assert(parse("array.map 42 .filter") == "(filter (map array 42))")
+    assert(parse("array.map(42).filter") == "(filter (map array 42))")
+
+    assert(parse("array.map 1 + 2.filter") == "(map array (+ 1 (filter 2)))")
+    assert(parse("array.map 1 + 2 .filter") == "(filter (map array (+ 1 2)))")
+    assert(parse("array.map 1.to_s + 2 .filter") == "(filter (map array (+ (to_s 1) 2)))")
+
+    assert(parse("array.map array2.map 1 .filter") == "(filter (map array (map array2 1)))")
+
+    assert(parse("map 42.filter") == "(map self (filter 42))")
+    assert(parse("map(42 .filter)") == "(map self (filter 42))")
+    assert(parse("map 42 .filter") == "(filter (map self 42))")
+    assert(parse("map(42).filter") == "(filter (map self 42))")
+  }
 }
