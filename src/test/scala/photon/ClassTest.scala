@@ -55,7 +55,7 @@ class ClassTest extends FunSuite {
     )
   }
 
-  test("can call functons with arguments") {
+  test("can call functions with arguments") {
     expectEvalCompileTime(
       """
         class Person {

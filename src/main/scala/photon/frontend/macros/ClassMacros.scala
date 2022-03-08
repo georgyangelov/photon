@@ -34,7 +34,7 @@ object ClassMacros {
         ASTValue.NameReference("Class", Some(location)),
         "new",
         ASTArguments.positional(Seq(
-//          ASTValue.String(name.string, Some(name.location)),
+          ASTValue.String(name.string, Some(name.location)),
           builderFnWithSelfArg
         )),
         mayBeVarCall = false,

@@ -17,7 +17,7 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
   override def unboundNames = fn.unboundNames
 
   override def evalMayHaveSideEffects = false
-  override def evalType = Some(evaluate.typ)
+  override def evalType = Some(evaluated.typ)
 
   // TODO: Should this indirection be here at all?
   //       Maybe when type inference for parameters is implemented?

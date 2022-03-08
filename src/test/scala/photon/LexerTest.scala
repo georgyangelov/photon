@@ -26,14 +26,14 @@ class LexerTest extends FunSuite {
 
   test("simple tokens") {
     assert(
-      lex("()[],|.:12345\"test\"\ndoend") ==
-      "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) (Pipe) (Dot) (Colon) (Number '12345') (String 'test') (NewLine) (Name 'doend') (EOF)"
+      lex("()[],.:12345\"test\"\ndoend") ==
+      "(OpenParen) (CloseParen) (OpenBracket) (CloseBracket) (Comma) (Dot) (Colon) (Number '12345') (String 'test') (NewLine) (Name 'doend') (EOF)"
     )
   }
 
   test("keywords") {
     assert(
-      lex("val a = b") == "(Val) (Name 'a') (BinaryOperator '=') (Name 'b') (EOF)"
+      lex("val a = b") == "(Val) (Name 'a') (Equals) (Name 'b') (EOF)"
     )
   }
 
@@ -112,10 +112,6 @@ class LexerTest extends FunSuite {
     assert(lex("<= >= !=") == "(BinaryOperator '<=') (BinaryOperator '>=') (BinaryOperator '!=') (EOF)")
     assert(lex("+= -=") == "(BinaryOperator '+=') (BinaryOperator '-=') (EOF)")
     assert(lex("/= *=") == "(BinaryOperator '/=') (BinaryOperator '*=') (EOF)")
-    assert(lex("a = b") == "(Name 'a') (BinaryOperator '=') (Name 'b') (EOF)")
-  }
-
-  test("method resolves") {
-    assert(lex("a::b") == "(Name 'a') (DoubleColon) (Name 'b') (EOF)")
+    assert(lex("a = b") == "(Name 'a') (Equals) (Name 'b') (EOF)")
   }
 }

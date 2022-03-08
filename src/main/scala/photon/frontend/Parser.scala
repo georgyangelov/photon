@@ -139,7 +139,14 @@ class Parser(
       }
       val name = read()
 
-      if (token.tokenType != TokenType.BinaryOperator || token.string != "=") {
+      val typ =
+        if (token.tokenType == TokenType.Colon) {
+          read() // :
+
+          Some(parseExpression(requireCallParens = true, hasLowerPriorityTarget = false))
+        } else None
+
+      if (token.tokenType != TokenType.Equals) {
         parseError("Val needs to have an =")
       }
       val equals = read() // =
@@ -151,12 +158,23 @@ class Parser(
         letNameStack.pop()
       }
 
+      val valueWithType = typ match {
+        case Some(typ) => ASTValue.Call(
+          target = ASTValue.NameReference("Core", typ.location),
+          name = "typeCheck",
+          arguments = ASTArguments(Seq(value, typ), Map.empty),
+          mayBeVarCall = false,
+          location = typ.location
+        )
+        case None => value
+      }
+
       val body = parseRestOfBlock()
       val location = startLocation.extendWith(body.location.get)
 
       return ASTValue.Let(
         name.string,
-        value,
+        valueWithType,
         body,
         Some(location)
       )
@@ -283,6 +301,7 @@ class Parser(
       case TokenType.CloseBracket => false
       case TokenType.Comma => false
       case TokenType.Dot => false
+      case TokenType.Equals => false
 
       // This is for return type of lambdas. For example:
       // (1 + 2): Int
@@ -298,8 +317,6 @@ class Parser(
       case TokenType.BoolLiteral => true
 
       // TODO: Are these correct?
-      case TokenType.Pipe => false
-      case TokenType.DoubleColon => true
       case TokenType.UnaryOperator => true
     }
   }
@@ -447,9 +464,8 @@ class Parser(
     }
 
     val nextToken = reader.nextToken()
-    val hasEqualsSign = nextToken.tokenType == TokenType.BinaryOperator && nextToken.string == "="
 
-    hasEqualsSign
+    nextToken.tokenType == TokenType.Equals
   }
 
   private def parseBool(): ASTValue.Boolean = {
@@ -606,9 +622,7 @@ class Parser(
     token.tokenType == TokenType.Comma ||
     token.tokenType == TokenType.CloseParen ||
     token.tokenType == TokenType.Dot ||
-    token.tokenType == TokenType.DoubleColon ||
     token.tokenType == TokenType.CloseBracket ||
-    token.tokenType == TokenType.Pipe ||
     token.tokenType == TokenType.CloseBrace
 
   private def operatorPrecedence(token: Token): Int = {

@@ -22,9 +22,8 @@ object TokenType {
   case object Comma extends TokenType("Comma")
   case object Dot extends TokenType("Dot")
   case object Colon extends TokenType("Colon")
-  case object Pipe extends TokenType("Pipe")
   case object Dollar extends TokenType("Dollar")
-  case object DoubleColon extends TokenType("DoubleColon")
+  case object Equals extends TokenType("Equals")
   case object Val extends TokenType("Val")
   case object UnaryOperator extends TokenType("UnaryOperator")
   case object BinaryOperator extends TokenType("BinaryOperator")
@@ -48,9 +47,8 @@ case class Token(tokenType: TokenType, string: String, location: Location, hadWh
         | TokenType.Comma
         | TokenType.Dot
         | TokenType.Colon
-        | TokenType.Pipe
         | TokenType.Dollar
-        | TokenType.DoubleColon
+        | TokenType.Equals
         | TokenType.Val
         => s"($tokenType)"
 
@@ -137,7 +135,6 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
       case '}' => singleCharToken(TokenType.CloseBrace, startLocation, hadWhitespace)
       case ',' => singleCharToken(TokenType.Comma, startLocation, hadWhitespace)
       case '.' => singleCharToken(TokenType.Dot, startLocation, hadWhitespace)
-      case '|' => singleCharToken(TokenType.Pipe, startLocation, hadWhitespace)
 
       case '$' if !Lexer.isStartPartOfName(peek()) =>
         singleCharToken(TokenType.Dollar, startLocation, hadWhitespace)
@@ -149,15 +146,11 @@ class Lexer private(val fileName: String, val reader: PushbackStringReader) {
           string.appendCodePoint(next())
         }
 
-        Token(TokenType.BinaryOperator, string.toString, startLocation.extendWith(currentLocation), hadWhitespace)
-
-      case ':' if peek() == ':' =>
-        next() // :
-        next() // :
+        val str = string.toString
 
         Token(
-          TokenType.DoubleColon,
-          "::",
+          if (str == "=") TokenType.Equals else TokenType.BinaryOperator,
+          str,
           startLocation.extendWith(currentLocation),
           hadWhitespace
         )

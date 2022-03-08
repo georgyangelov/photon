@@ -9,10 +9,27 @@ class TypeSystemTest extends FunSuite {
     expectEvalCompileTime("val fn = (a: Int, b: Int): Int a + b; fn(1, 41)", "42")
   }
 
-//  test("typechecking primitive types") {
-//    expectEvalCompileTime("42: Int", "42")
-//    expectFailCompileTime("42: String", "Incompatible types")
-//  }
+  test("assignment of variables with types") {
+    expectEvalCompileTime("val answer: Int = 42; answer + 1", "43")
+    expectFailCompileTime("val answer: String = 42", "Invalid value 42: Int for type String")
+  }
+
+  test("typechecking primitive types") {
+    expectEvalCompileTime("42: Int", "42")
+    expectFailCompileTime("42: String", "Invalid value 42: Int for type String")
+  }
+
+  test("typecheck classes") {
+    expectEvalCompileTime(
+      """
+         class Person { def name: String; def age: Int }
+
+         val person = Person.new(name = "a", age = 42)
+         (person: Person).age
+      """,
+      "42"
+    )
+  }
 
 //  test("typechecking custom types") {
 //    val types = """

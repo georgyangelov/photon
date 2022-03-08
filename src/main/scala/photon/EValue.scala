@@ -1,11 +1,13 @@
 package photon
 
-import photon.interpreter.EvalError
+import photon.interpreter.{EvalError, Interpreter}
 import photon.core.{Core, Type}
 
 import scala.reflect.ClassTag
 
 trait EValue {
+  def inspect: String = toUValue(Interpreter.current.core).toString
+
   def typ: Type
   def unboundNames: Set[VariableName]
   val location: Option[Location]

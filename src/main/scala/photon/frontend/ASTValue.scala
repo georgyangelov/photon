@@ -87,14 +87,3 @@ object ASTArguments {
 
   def positional(values: Seq[ASTValue]) = ASTArguments(values, named = Map.empty)
 }
-
-// TODO: Is this needed now that we have `ASTValue.Block`?
-//case class ASTBlock(values: Seq[ASTValue]) {
-//  override def toString: String = Unparser.unparse(this)
-//
-//  def inspectAST = {
-//    if (values.nonEmpty) {
-//      s"{ ${values.map(_.inspectAST).mkString(" ")} }"
-//    } else { "{}" }
-//  }
-//}

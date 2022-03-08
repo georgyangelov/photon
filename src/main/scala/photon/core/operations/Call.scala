@@ -1,6 +1,6 @@
 package photon.core.operations
 
-import photon.core.{Core, StandardType, TypeRoot}
+import photon.core.{Core, StandardType, StaticType, TypeRoot}
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location, UOperation}
 
@@ -21,7 +21,14 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
 
   override def evalMayHaveSideEffects = true // method.traits.contains(MethodTrait.SideEffects)
 
-  override def evalType = Some(method.typeCheck(args))
+  override def evalType = {
+    method.typeCheck(args) match {
+      // TODO: Verify that it can actually be called?
+      case StaticType => Some(evaluated.typ)
+      case typ => Some(typ)
+    }
+  }
+
   override protected def evaluate: EValue = {
     // TODO: Detect if values are fully evaluated or not
     // method.call(args.map(_.evaluated), location)

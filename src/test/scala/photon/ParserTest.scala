@@ -266,6 +266,11 @@ class ParserTest extends FunSuite {
     assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int (+ a 1))")
   }
 
+  test("type annotations on val") {
+    assert(parse("val a: Int = 42; a") == "(let a (typeCheck Core 42 Int) a)")
+    assert(parse("val a: Stream(Int) = 42; a") == "(let a (typeCheck Core 42 (call Stream Int)) a)")
+  }
+
   test("parentheses for blocks") {
     assert(parse("(a; b)") == "{ a b }")
     assert(parse("(a; b) + 1") == "(+ { a b } 1)")

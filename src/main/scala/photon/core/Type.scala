@@ -1,5 +1,6 @@
 package photon.core
 
+import photon.core.TypeRoot.location
 import photon.lib.ObjectId
 import photon.{Arguments, EValue, Location, UFunction}
 
@@ -34,6 +35,19 @@ object MethodTrait {
 
 object TypeRoot extends Type {
   override val location = None
+  lazy val typ = this
+  override def unboundNames = Set.empty
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override def evaluate = this
+
+  override def method(name: String) = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+}
+
+object StaticType extends Type {
+  override val location = None
+
   lazy val typ = this
   override def unboundNames = Set.empty
   override def evalMayHaveSideEffects = false

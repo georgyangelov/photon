@@ -39,10 +39,14 @@ object ClassBuilderRoot extends StandardType {
   )
 }
 
-class ClassBuilder(val classRef: EValue, val location: Option[Location]) extends EValue {
+class ClassBuilder(
+  val className: Option[String],
+  val classRef: EValue,
+  val location: Option[Location]
+) extends EValue {
   val definitions = Seq.newBuilder[ClassDefinition]
 
-  def build: Class = Class(definitions.result, location)
+  def build: Class = Class(className, definitions.result, location)
 
   override def evalMayHaveSideEffects = false
   override def typ = ClassBuilderRoot
@@ -63,19 +67,24 @@ object ClassRootType extends StandardType {
 
       // TODO: CompileTimeOnlyMethod class which does not have separate typeCheck and call?
       // TODO: Location for the typeCheck method
-      override def typeCheck(args: Arguments[EValue]) = {
-        val klass = buildClass(args, None)
-
-        klass.evalType.getOrElse(klass.typ)
-      }
+      override def typeCheck(args: Arguments[EValue]) = StaticType
 
       override def call(args: Arguments[EValue], location: Option[Location]) = buildClass(args, location)
 
       def buildClass(args: Arguments[EValue], location: Option[Location]) = {
         Lazy.selfReferencing[Class]((self) => {
-          val builder = new ClassBuilder(LazyValue(self, location), location)
+          val (name, builderFn) =
+            if (args.positional.size == 2) {
+              (
+                Some(args.positional.head.evalAssert[StringValue]),
+                args.positional(1).evaluated
+              )
+            } else {
+              (None, args.positional.head.evaluated)
+            }
 
-          val builderFn = args.positional.head.evaluated
+          val builder = new ClassBuilder(name.map(_.value), LazyValue(self, location), location)
+
           val buildMethod = builderFn.typ.method("call")
             .getOrElse {
               throw EvalError("Object passed to Class.new needs to be callable", location)
@@ -123,13 +132,13 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
   )
 }
 
-case class ClassDefValue(name: String, typ: EValue)
-case class ClassDefMethod(name: String, fn: EValue)
-
 case class Class(
+  name: Option[String],
   definitions: Seq[ClassDefinition],
   location: Option[Location]
 ) extends StandardType {
+  override def inspect = name.getOrElse(super.inspect)
+
   override lazy val typ = ClassT(this)
   override def unboundNames = definitions.flatMap(_.value.unboundNames).toSet
 
@@ -195,12 +204,11 @@ case class Class(
   }
 }
 
-case class Object(classValue: EValue, properties: Map[String, EValue], location: Option[Location]) extends EValue {
-  override def typ = classValue.evalAssert[photon.core.Class]
+case class Object(classValue: photon.core.Class, properties: Map[String, EValue], location: Option[Location]) extends EValue {
+  override def typ = classValue
   override def evalType = None
 
-  // TODO: Not sure if this including the classValue is 100% correct
-  override def unboundNames = classValue.unboundNames ++ properties.values.flatMap(_.unboundNames).toSet
+  override def unboundNames = properties.values.flatMap(_.unboundNames).toSet
 
   // TODO: Can it have side-effects?
   //       If any of the not-yet-evaluated properties have side-effects when evaluating?
