@@ -6,8 +6,14 @@ object FloatType extends StandardType {
   override val typ = TypeRoot
   override def unboundNames = Set.empty
   override val location = None
-  override val methods = Map.empty
   override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+    "from" -> new Method {
+      override val runMode = MethodRunMode.Default
+      override def typeCheck(args: Arguments[EValue]) = ???
+      override def call(args: Arguments[EValue], location: Option[Location]) = ???
+    }
+  )
 }
 
 object Float extends StandardType {
@@ -17,7 +23,7 @@ object Float extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "+" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Float
@@ -31,7 +37,7 @@ object Float extends StandardType {
     },
 
     "-" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Float

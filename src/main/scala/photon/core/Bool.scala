@@ -22,7 +22,7 @@ object Bool extends StandardType {
   override val methods = Map(
     // TODO: Short-circuiting
     "and" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(arguments: Arguments[EValue]) = Bool
@@ -36,7 +36,7 @@ object Bool extends StandardType {
     },
 
     "or" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(arguments: Arguments[EValue]) = Bool
@@ -50,7 +50,7 @@ object Bool extends StandardType {
     },
 
     "ifElse" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Extract a common type, or check to see if the two types are equal
       override def typeCheck(arguments: Arguments[EValue]) = {

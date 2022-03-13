@@ -1,19 +1,74 @@
 package photon
 
 import org.scalatest.FunSuite
-import photon.TestHelpers.expectEvalCompileTime
+import photon.TestHelpers.{expectEvalCompileTime, expectFailCompileTime}
 
 class PartialEvaluationTest extends FunSuite {
-//  test("evaluates functions partially if possible") {
-//
-//  }
-
-  ignore("evaluates some functions compile-time inside of lambdas during compile-time") {
+  test("evaluates functions partially if possible") {
     expectEvalCompileTime(
       """
           () {
-            val unknown = () { 42 }.runTimeOnly
-            val add = (a, b) { a + b }
+            val unknown = { 42 }.runTimeOnly
+            val add = (a: Int, b: Int) a + b
+            val var1 = unknown()
+            val var2 = add(1, 10)
+
+            add(var1, var2)
+          }()
+      """,
+      """
+          val unknown = (): Int 42
+          val var1 = unknown()
+          val var2 = 11
+
+          var1 + var2
+      """
+    )
+
+    expectEvalCompileTime(
+      """
+          val arg = { 42 }.runTimeOnly
+
+          (i: Int) {
+            val add = (a: Int, b: Int) a + b
+            val var2 = add(1, 10)
+
+            add(i, var2)
+          }(arg())
+      """,
+      """
+          val arg = (): Int 42
+          val i = arg()
+          val var2 = 11
+
+          i + var2
+      """
+    )
+  }
+
+  ignore("should not execute things out of order") {
+    expectFailCompileTime(
+      """
+          {
+            val compileTimeFn = (answer: Int) {
+              Log.debug "Line 1", answer
+              { Log.debug "Answer", 2 + 2 }.compileTimeOnly()()
+              Log.debug "Line 2"
+            }.compileTimeOnly
+
+            compileTimeFn()
+          }.runTimeOnly()()
+        """,
+      ""
+    )
+  }
+
+  test("evaluates some functions compile-time inside of lambdas") {
+    expectEvalCompileTime(
+      """
+          () {
+            val unknown = { 42 }.runTimeOnly
+            val add = (a: Int, b: Int) a + b
             val var1 = unknown()
             val var2 = add(1, 10)
 
@@ -21,14 +76,39 @@ class PartialEvaluationTest extends FunSuite {
           }
       """,
       """
-          () {
-            val unknown = () { 42 }
-            val add = (a, b) { a + b }
+          (): Int {
+            val unknown = () 42
+            val add = (a: Int, b: Int): Int a + b
             val var1 = unknown()
             val var2 = 11
 
             add(var1, var2)
           }
+      """
+    )
+  }
+
+  test("evaluates some functions compile-time inside of runtime-only lambdas") {
+    expectEvalCompileTime(
+      """
+          () {
+            val unknown = { 42 }.runTimeOnly
+            val add = (a: Int, b: Int) a + b
+            val var1 = unknown()
+            val var2 = add(1, 10)
+
+            add(var1, var2)
+          }.runTimeOnly()()
+      """,
+      """
+          (): Int {
+            val unknown = () 42
+            val add = (a: Int, b: Int): Int a + b
+            val var1 = unknown()
+            val var2 = 11
+
+            add(var1, var2)
+          }()
       """
     )
   }

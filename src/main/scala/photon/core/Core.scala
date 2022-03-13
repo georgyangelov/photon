@@ -1,7 +1,7 @@
 package photon.core
 
-import photon.frontend.macros.ClassMacros
 import photon.frontend.{ASTValue, Parser, StaticScope}
+import photon.frontend.macros.ClassMacros
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location, Scope, UOperation, Variable, VariableName}
 
@@ -11,7 +11,7 @@ object CoreType extends StandardType {
   override val location = None
   override val methods = Map(
     "typeCheck" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
       override def typeCheck(args: Arguments[EValue]) = args.positional(1).evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         val value = args.positional.head

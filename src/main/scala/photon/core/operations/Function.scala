@@ -1,6 +1,6 @@
 package photon.core.operations
 
-import photon.core.{Core, Method, MethodTrait, StandardType, Type, TypeRoot, UnknownValue}
+import photon.core.{Core, Method, MethodRunMode, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, Interpreter, URename}
 import photon.{Arguments, EValue, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
 
@@ -33,9 +33,8 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
       .map(interpreter.toEValue(_, scope))
       .getOrElse { inferReturnType(eParams) }
 
-    val functionType = FunctionT(eParams, eReturnType, Set(MethodTrait.CompileTime, MethodTrait.RunTime))
+    val functionType = FunctionT(eParams, eReturnType, MethodRunMode.Default)
 
-    // TODO: This should include side-effects?
     FunctionValue(functionType, fn.nameMap, fn.body, scope, location)
   }
 
@@ -58,7 +57,7 @@ object FunctionRootType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "call" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
       override def typeCheck(args: Arguments[EValue]) = FunctionRoot
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         if (args.positional.nonEmpty) {
@@ -73,8 +72,8 @@ object FunctionRootType extends StandardType {
           .map { case name -> etype => EParameter(name, etype, etype.location) }
           .toSeq
 
-        // TODO: This should include side-effects?
-        FunctionT(params, returnType, Set(MethodTrait.CompileTime, MethodTrait.RunTime))
+        // TODO: This should actually return an interface and should only have a runMode if it has a known object inside
+        FunctionT(params, returnType, MethodRunMode.Default)
       }
     }
   )
@@ -90,7 +89,7 @@ object FunctionRoot extends StandardType {
   override val methods = Map.empty
 }
 
-case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[MethodTrait]) extends StandardType {
+case class FunctionT(params: Seq[EParameter], returnType: EValue, runMode: MethodRunMode) extends StandardType {
   override def typ = FunctionRoot
   override val location = None
 
@@ -98,16 +97,16 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
   override val methods = Map(
     "returnType" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
       override def typeCheck(args: Arguments[EValue]) = TypeRoot
       override def call(args: Arguments[EValue], location: Option[Location]) = returnType
     },
 
     "runTimeOnly" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
-      override def typeCheck(args: Arguments[EValue]) = FunctionT(params, returnType, Set(MethodTrait.RunTime))
+      override val runMode = MethodRunMode.CompileTimeOnly
+      override def typeCheck(args: Arguments[EValue]) = FunctionT(params, returnType, MethodRunMode.RunTimeOnly)
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val newType = FunctionT(params, returnType, Set(MethodTrait.RunTime))
+        val newType = FunctionT(params, returnType, MethodRunMode.RunTimeOnly)
         val fn = args.self.evalAssert[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
@@ -116,7 +115,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
 
     "call" -> new Method {
       // TODO: Add traits to the type itself
-      override val traits = self.traits
+      override val runMode = self.runMode
       override def typeCheck(args: Arguments[EValue]) = returnType.evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
         // TODO: Add self argument
@@ -131,9 +130,11 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, traits: Set[Me
         val fn = partialSelf.value.evalAssert[FunctionValue]
 
         // TODO: Also check if it CAN be evaluated (i.e. if the values are "real")?
-        if (!fn.typ.traits.contains(MethodTrait.CompileTime)) {
-          return CallValue("call", args, location)
-        }
+        // TODO: This check should be done in CallValue#evaluate
+//        if (fn.typ.runMode)
+//        if (!fn.typ.traits.contains(MethodTrait.CompileTime)) {
+//          return CallValue("call", args, location)
+//        }
 
         // TODO: Better arg check + do it in the typeCheck method
         if (args.positional.size + args.named.size != params.size) {

@@ -1,6 +1,6 @@
 package photon.core.operations
 
-import photon.core.{Core, StandardType, StaticType, TypeRoot}
+import photon.core.{Core, MethodRunMode, StandardType, StaticType, TypeRoot}
 import photon.interpreter.EvalError
 import photon.{Arguments, EValue, Location, UOperation}
 
@@ -30,8 +30,12 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
   }
 
   override protected def evaluate: EValue = {
-    // TODO: Detect if values are fully evaluated or not
+    // TODO: Detect if values are fully evaluated or not?
     // method.call(args.map(_.evaluated), location)
+    if (method.runMode == MethodRunMode.RunTimeOnly) {
+      return this
+    }
+
     method.call(args, location)
   }
 

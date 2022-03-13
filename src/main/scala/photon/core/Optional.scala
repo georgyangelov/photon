@@ -10,7 +10,7 @@ object OptionalRootType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "call" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
       override def typeCheck(args: Arguments[EValue]) = Optional(args.positional.head, None).typ
       override def call(args: Arguments[EValue], location: Option[Location]) =
         Optional(args.positional.head, location)
@@ -32,14 +32,14 @@ case class OptionalT(optional: Optional) extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "empty" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = optional
       override def call(args: Arguments[EValue], location: Option[Location]) =
         OptionalValue(optional, None, location)
     },
 
     "of" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = optional
       override def call(args: Arguments[EValue], location: Option[Location]) =
         OptionalValue(optional, Some(args.positional.head), location)
@@ -58,7 +58,7 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
 
   override val methods = Map(
     "getAssert" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = ???
       override def call(args: Arguments[EValue], location: Option[Location]) = ???
     }

@@ -10,7 +10,7 @@ object IntType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "answer" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       override def typeCheck(args: Arguments[EValue]) = Int
 
@@ -27,7 +27,7 @@ object Int extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "+" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int
@@ -45,7 +45,7 @@ object Int extends StandardType {
     },
 
     "-" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int
@@ -59,7 +59,7 @@ object Int extends StandardType {
     },
 
     "*" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int
@@ -73,7 +73,7 @@ object Int extends StandardType {
     },
 
     "==" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Bool

@@ -1,11 +1,11 @@
 package photon.core
 
-import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
 import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Scope, TypeType, Variable, VariableName}
 import photon.interpreter.{CallContext, Unbinder}
 
 import scala.collection.mutable
 import photon.core.Conversions._
+import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
 
 object CoreParams {
   val Self = Parameter(0, "self")

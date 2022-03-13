@@ -12,7 +12,7 @@ object ListType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "of" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = List
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         if (args.named.nonEmpty) {
@@ -24,7 +24,7 @@ object ListType extends StandardType {
     },
 
     "empty" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = List
       override def call(args: Arguments[EValue], location: Option[Location]) =
         ListValue(Seq.empty, location)
@@ -39,7 +39,7 @@ object List extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "size" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int
@@ -52,7 +52,7 @@ object List extends StandardType {
     },
 
     "get" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actual type here
       override def typeCheck(args: Arguments[EValue]) = Int

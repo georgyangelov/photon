@@ -1,6 +1,5 @@
 package photon.core
 
-import photon.core.TypeRoot.location
 import photon.lib.ObjectId
 import photon.{Arguments, EValue, Location, UFunction}
 
@@ -9,7 +8,7 @@ abstract class Type extends EValue {
 }
 
 trait Method extends Equals {
-  val traits: Set[MethodTrait]
+  val runMode: MethodRunMode
 
   def typeCheck(args: Arguments[EValue]): Type
   def call(args: Arguments[EValue], location: Option[Location]): EValue
@@ -26,11 +25,12 @@ trait Method extends Equals {
   override def hashCode(): Int = objectId.hashCode
 }
 
-sealed abstract class MethodTrait
-object MethodTrait {
-  object CompileTime extends MethodTrait
-  object RunTime     extends MethodTrait
-  object SideEffects extends MethodTrait
+sealed abstract class MethodRunMode
+object MethodRunMode {
+  object CompileTimeOnly extends MethodRunMode
+  object Default         extends MethodRunMode
+  object PreferRunTime   extends MethodRunMode
+  object RunTimeOnly     extends MethodRunMode
 }
 
 object TypeRoot extends Type {

@@ -10,7 +10,7 @@ object ClassBuilderRoot extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "define" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
 
       override def typeCheck(args: Arguments[EValue]) = photon.core.String
 
@@ -26,7 +26,7 @@ object ClassBuilderRoot extends StandardType {
     },
 
     "classType" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
 
       override def typeCheck(args: Arguments[EValue]) = TypeRoot
 
@@ -63,7 +63,7 @@ object ClassRootType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "new" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime)
+      override val runMode = MethodRunMode.CompileTimeOnly
 
       // TODO: CompileTimeOnlyMethod class which does not have separate typeCheck and call?
       // TODO: Location for the typeCheck method
@@ -118,7 +118,7 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
 
   override val methods = Map(
     "new" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Verify property types
       override def typeCheck(args: Arguments[EValue]) = klass
@@ -155,7 +155,7 @@ case class Class(
 
   private def methodForDefinition(definition: ClassDefinition): (String, Method) = {
     definition.name -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
       override def typeCheck(args: Arguments[EValue]) = {
         definition.value.evaluated match {
           case typ: Type => typ

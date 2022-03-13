@@ -1,9 +1,9 @@
 package photon.core
 
 import photon.New.CompileTimeOnlyMethod
-import photon.frontend.{ASTValue, Parser, Token}
 import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType, UnknownType}
 import photon.core.Conversions._
+import photon.frontend.{ASTValue, Parser, Token}
 import photon.interpreter.CallContext
 
 case class ParserObject(parser: Parser) extends New.NativeObject(ParserType)

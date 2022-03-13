@@ -17,7 +17,7 @@ object String extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "size" -> new Method {
-      override val traits = Set(MethodTrait.CompileTime, MethodTrait.RunTime)
+      override val runMode = MethodRunMode.Default
 
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int

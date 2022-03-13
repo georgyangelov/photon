@@ -31,19 +31,22 @@ class TypeSystemTest extends FunSuite {
     )
   }
 
-//  test("typechecking custom types") {
-//    val types = """
-//      PositiveInt = Struct(
-//        assignableFrom = (self, otherType) self == otherType,
-//
-//        # TODO: Check if number is positive
-//        # TODO: Need `let` here...
-//        call = (number) Struct($type = PositiveInt, number = number)
-//      )
-//    """
-//
-//    expectEvalCompileTime(s"$types; PositiveInt(42): PositiveInt", "42")
-//    expectFailCompileTime(s"$types; PositiveInt(42): Int", "Incompatible types")
-//    expectFailCompileTime(s"$types; 'test': PositiveInt", "Incompatible types")
+  ignore("type inference for function arguments") {
+    expectEvalCompileTime(
+      "val fn = (a: Float) a + 1; fn(42: Int)",
+      "43"
+    )
+
+    expectFailCompileTime(
+      "val fn = (a: Int) a + 1; fn(42.1)",
+      "aaaaa"
+    )
+  }
+
+//  test("implicit conversions of numbers") {
+//    expectEvalCompileTime(
+//      "val answer: Float = 42: Int; answer",
+//      "42"
+//    )
 //  }
 }
