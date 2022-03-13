@@ -55,6 +55,7 @@ class ClassBuilder(
 
   override def evalType = None
   override protected def evaluate: EValue = this
+  override def finalEval = this
 }
 
 object ClassRootType extends StandardType {
@@ -149,10 +150,15 @@ case class Class(
 //      location
 //    ).toUValue(core)
 
+  override def finalEval = Class(
+    name,
+    definitions.map(
+      d => ClassDefinition(d.name, d.value.finalEval, d.location)
+    ),
+    location
+  )
+
   override val methods = definitions.map(methodForDefinition).toMap
-
-//  override val methods = (valueDefs.map(methodForValue) ++ methodDefs.map(methodForFn)).toMap
-
   private def methodForDefinition(definition: ClassDefinition): (String, Method) = {
     definition.name -> new Method {
       override val runMode = MethodRunMode.Default
@@ -172,7 +178,7 @@ case class Class(
             val value = self.properties.get(definition.name)
 
             value match {
-              case Some(value) => value
+              case Some(value) => value.evaluated
               case None => throw EvalError("There's no such property on the class instance", location)
             }
 
@@ -221,6 +227,11 @@ case class Object(classValue: photon.core.Class, properties: Map[String, EValue]
 //    ).toUValue(core)
 
   override protected def evaluate: EValue = this
+  override def finalEval = Object(
+    classValue,
+    properties.view.mapValues(_.finalEval).toMap,
+    location
+  )
 }
 
 case class ClassDefinition(name: String, value: EValue, location: Option[Location]) {

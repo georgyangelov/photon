@@ -95,4 +95,5 @@ case class IntValue(value: scala.Int, location: Option[Location]) extends EValue
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.Int(value, location)
   override def evaluate = this
+  override def finalEval = this
 }

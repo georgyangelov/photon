@@ -87,5 +87,6 @@ case class BoolValue(value: scala.Boolean, location: Option[Location]) extends E
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this
+  override def finalEval = this
   override def toUValue(core: Core) = ULiteral.Boolean(value, location)
 }

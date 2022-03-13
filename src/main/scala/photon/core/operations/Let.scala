@@ -15,6 +15,7 @@ object Let extends StandardType {
 }
 
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
+  override def isOperation = true
   override val typ = Block
   override def unboundNames = value.unboundNames ++ body.unboundNames - name
   override def evalMayHaveSideEffects = value.evalMayHaveSideEffects || body.evalMayHaveSideEffects
@@ -33,7 +34,24 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
     } else if (evalue.evalMayHaveSideEffects) {
       BlockValue(Seq(evalue, ebody), location)
     } else {
-      ebody.evaluated
+      ebody
+    }
+  }
+
+  override def finalEval = {
+    val ENABLE_SIDE_EFFECT_CHECK = true
+
+    val evalue = value.finalEval
+    val ebody = body.finalEval
+
+    if (ebody.unboundNames.contains(name)) {
+      LetValue(name, evalue, ebody, location)
+    } else if (!ENABLE_SIDE_EFFECT_CHECK) {
+      BlockValue(Seq(evalue, ebody), location)
+    } else if (evalue.evalMayHaveSideEffects) {
+      BlockValue(Seq(evalue, ebody), location)
+    } else {
+      ebody
     }
   }
 

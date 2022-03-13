@@ -5,27 +5,10 @@ import photon.core.operations.{BlockValue, CallValue, FunctionDefValue, LetValue
 import photon.core.{BoolValue, Core, FloatValue, IntValue, LazyValue, StringValue}
 import photon.frontend.{ASTToValue, ASTValue}
 import photon.lib.Lazy
-import photon.{EValue, Location, PhotonError, Scope, ULiteral, UOperation, UValue, Variable}
+import photon.{EValue, EValueContext, EvalMode, Location, PhotonError, Scope, ULiteral, UOperation, UValue, Variable}
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
-
-object Interpreter {
-  private[this] val threadLocal = ThreadLocal.withInitial[Option[Interpreter]](() => None)
-
-  def current = threadLocal.get.getOrElse { throw EvalError("No current interpreter", None) }
-
-  def withCurrent[T](interpreter: Interpreter)(code: => T) = {
-    val old = threadLocal.get
-
-    try {
-      threadLocal.set(Some(interpreter))
-      code
-    } finally {
-      threadLocal.set(old)
-    }
-  }
-}
 
 class Interpreter {
   private val logger = Logger[Interpreter]
@@ -37,19 +20,15 @@ class Interpreter {
     evaluate(uvalue)
   }
 
-//  def evaluateInNewSubScope(
-//    value: UValue,
-//    scope: Scope,
-//    locals: Seq[Variable],
-//    renames: Map[VariableName, VariableName]
-//  ): EValue = {
-//    val evalue = toEValue(value, scope, renames)
-//
-//    evalue.evaluated
-//  }
+  def evaluate(value: UValue): EValue = {
+    val context = EValueContext(
+      interpreter = this,
+      evalMode = EvalMode.CompileTime
+    )
 
-  def evaluate(value: UValue): EValue = Interpreter.withCurrent(this) {
-    toEValue(value, core.rootScope).evaluated
+    val evalue = toEValue(value, core.rootScope)
+
+    EValue.withContext(context) { evalue.evaluated.finalEval }
   }
 
   def evaluateToUValue(value: ASTValue): UValue = evaluate(value).toUValue(core)

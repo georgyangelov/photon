@@ -13,6 +13,7 @@ object Block extends StandardType {
 }
 
 case class BlockValue(values: Seq[EValue], location: Option[Location]) extends EValue {
+  override def isOperation = true
   override val typ = Block
   override def unboundNames = values.flatMap(_.unboundNames).toSet
   override def evalMayHaveSideEffects = values.exists(_.evalMayHaveSideEffects)
@@ -41,6 +42,11 @@ case class BlockValue(values: Seq[EValue], location: Option[Location]) extends E
       BlockValue(evalues, location)
     }
   }
+
+  override def finalEval = BlockValue(
+    values.map(_.finalEval),
+    location
+  )
 
   override def toUValue(core: Core) = UOperation.Block(values.map(_.toUValue(core)), location)
 }

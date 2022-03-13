@@ -17,5 +17,6 @@ case class UnknownValue(etype: Type, location: Option[Location]) extends EValue 
   override def evalMayHaveSideEffects = false
   override def evalType = Some(etype)
   override def toUValue(core: Core) = inconvertible
-  override def evaluate = throw EvalError("Cannot evaluate Unknown", location)
+  override def evaluate = this
+  override def finalEval = this
 }

@@ -56,6 +56,8 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
       location
     ).toUValue(core)
 
+  override def finalEval = Optional(innerType.finalEval, location)
+
   override val methods = Map(
     "getAssert" -> new Method {
       override val runMode = MethodRunMode.Default
@@ -85,4 +87,5 @@ case class OptionalValue(typ: Optional, innerValue: Option[EValue], location: Op
     }
 
   override protected def evaluate: EValue = this
+  override def finalEval = this
 }

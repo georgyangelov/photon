@@ -38,4 +38,5 @@ case class StringValue(value: java.lang.String, location: Option[Location]) exte
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.String(value, location)
   override def evaluate = this
+  override def finalEval = this
 }

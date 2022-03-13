@@ -8,7 +8,8 @@ abstract class Type extends EValue {
 }
 
 trait Method extends Equals {
-  val runMode: MethodRunMode
+//  val runMode: MethodRunMode
+//  val inlinePreference: InlinePreference = InlinePreference.Default
 
   def typeCheck(args: Arguments[EValue]): Type
   def call(args: Arguments[EValue], location: Option[Location]): EValue
@@ -33,6 +34,13 @@ object MethodRunMode {
   object RunTimeOnly     extends MethodRunMode
 }
 
+sealed abstract class InlinePreference
+object InlinePreference {
+  object ForceInline extends InlinePreference
+  object Default     extends InlinePreference
+  object NoInline    extends InlinePreference
+}
+
 object TypeRoot extends Type {
   override val location = None
   lazy val typ = this
@@ -40,6 +48,7 @@ object TypeRoot extends Type {
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this
+  override def finalEval = this
 
   override def method(name: String) = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
@@ -53,6 +62,7 @@ object StaticType extends Type {
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this
+  override def finalEval = this
 
   override def method(name: String) = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
@@ -65,6 +75,7 @@ abstract class StandardType extends Type {
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override def evaluate = this
+  override def finalEval = this
 
   override def method(name: String) = methods.get(name)
 }

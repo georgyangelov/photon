@@ -1,8 +1,8 @@
 package photon.core.operations
 
-import photon.core.{Core, Method, MethodRunMode, StandardType, Type, TypeRoot, UnknownValue}
-import photon.interpreter.{EvalError, Interpreter, URename}
-import photon.{Arguments, EValue, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
+import photon.core.{Core, InlinePreference, Method, MethodRunMode, StandardType, Type, TypeRoot, UnknownValue}
+import photon.interpreter.{EvalError, URename}
+import photon.{Arguments, EValue, EValueContext, EvalMode, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
 
 object FunctionDef extends StandardType {
   override val typ = TypeRoot
@@ -13,6 +13,7 @@ object FunctionDef extends StandardType {
 }
 
 case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option[Location]) extends EValue {
+  override def isOperation = true
   override val typ = FunctionDef
   override def unboundNames = fn.unboundNames
 
@@ -22,29 +23,31 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
   // TODO: Should this indirection be here at all?
   //       Maybe when type inference for parameters is implemented?
   override protected def evaluate: EValue = {
-    val interpreter = Interpreter.current
+    val context = EValue.context
     val eParams = fn.params.map { param =>
-      val argType = interpreter.toEValue(param.typ, scope)
+      val argType = context.toEValue(param.typ, scope)
 
       EParameter(param.name, argType, location)
     }
 
     val eReturnType = fn.returnType
-      .map(interpreter.toEValue(_, scope))
-      .getOrElse { inferReturnType(eParams) }
+      .map(context.toEValue(_, scope))
+      .getOrElse { inferReturnType(context, eParams) }
 
-    val functionType = FunctionT(eParams, eReturnType, MethodRunMode.Default)
+    val functionType = FunctionT(eParams, eReturnType, MethodRunMode.Default, InlinePreference.Default)
 
     FunctionValue(functionType, fn.nameMap, fn.body, scope, location)
   }
 
+  override def finalEval = evaluated.finalEval
+
   override def toUValue(core: Core) = UOperation.Function(fn, location)
 
-  private def inferReturnType(eparams: Seq[EParameter]) = {
+  private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
     val partialScope = scope.newChild(eparams.map { param =>
       Variable(fn.nameMap(param.name), UnknownValue(param.typ.evalAssert[Type], param.location))
     })
-    val ebody = Interpreter.current.toEValue(fn.body, partialScope)
+    val ebody = context.toEValue(fn.body, partialScope)
 
     ebody.evalType.getOrElse(ebody.typ)
   }
@@ -73,7 +76,7 @@ object FunctionRootType extends StandardType {
           .toSeq
 
         // TODO: This should actually return an interface and should only have a runMode if it has a known object inside
-        FunctionT(params, returnType, MethodRunMode.Default)
+        FunctionT(params, returnType, MethodRunMode.Default, InlinePreference.Default)
       }
     }
   )
@@ -89,11 +92,23 @@ object FunctionRoot extends StandardType {
   override val methods = Map.empty
 }
 
-case class FunctionT(params: Seq[EParameter], returnType: EValue, runMode: MethodRunMode) extends StandardType {
+case class FunctionT(
+  params: Seq[EParameter],
+  returnType: EValue,
+  runMode: MethodRunMode,
+  inlinePreference: InlinePreference
+) extends StandardType {
   override def typ = FunctionRoot
   override val location = None
 
   private[this] val self = this
+
+  override def finalEval = FunctionT(
+    params.map(p => EParameter(p.name, p.typ.finalEval, p.location)),
+    returnType.finalEval,
+    runMode,
+    inlinePreference
+  )
 
   override val methods = Map(
     "returnType" -> new Method {
@@ -104,9 +119,50 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, runMode: Metho
 
     "runTimeOnly" -> new Method {
       override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) = FunctionT(params, returnType, MethodRunMode.RunTimeOnly)
+      override def typeCheck(args: Arguments[EValue]) =
+        FunctionT(params, returnType, MethodRunMode.RunTimeOnly, inlinePreference)
+
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val newType = FunctionT(params, returnType, MethodRunMode.RunTimeOnly)
+        val newType = FunctionT(params, returnType, MethodRunMode.RunTimeOnly, inlinePreference)
+        val fn = args.self.evalAssert[FunctionValue]
+
+        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
+      }
+    },
+
+    "compileTimeOnly" -> new Method {
+      override val runMode = MethodRunMode.CompileTimeOnly
+      override def typeCheck(args: Arguments[EValue]) =
+        FunctionT(params, returnType, MethodRunMode.CompileTimeOnly, inlinePreference)
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val newType = FunctionT(params, returnType, MethodRunMode.CompileTimeOnly, inlinePreference)
+        val fn = args.self.evalAssert[FunctionValue]
+
+        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
+      }
+    },
+
+    "inline" -> new Method {
+      override val runMode = MethodRunMode.CompileTimeOnly
+      override def typeCheck(args: Arguments[EValue]) =
+        FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val newType = FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
+        val fn = args.self.evalAssert[FunctionValue]
+
+        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
+      }
+    },
+
+    "noInline" -> new Method {
+      override val runMode = MethodRunMode.CompileTimeOnly
+      override def typeCheck(args: Arguments[EValue]) =
+        FunctionT(params, returnType, runMode, InlinePreference.NoInline)
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        val newType = FunctionT(params, returnType, runMode, InlinePreference.NoInline)
         val fn = args.self.evalAssert[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
@@ -118,9 +174,6 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, runMode: Metho
       override val runMode = self.runMode
       override def typeCheck(args: Arguments[EValue]) = returnType.evalAssert[Type]
       override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
-        // TODO: Add self argument
-        // TODO: Handle unevaluated arguments?
-
         val partialSelf = args.self.evaluated match {
           case letValue: LetValue => letValue.partialValue
           case innerValue => PartialValue(innerValue, Seq.empty)
@@ -159,7 +212,7 @@ case class FunctionT(params: Seq[EParameter], returnType: EValue, runMode: Metho
         val scope = fn.scope.newChild(localVariables.map(_._2))
 
         val renamedUBody = URename.rename(fn.body, renames)
-        val ebody = Interpreter.current.toEValue(renamedUBody, scope)
+        val ebody = EValue.context.toEValue(renamedUBody, scope)
 
         val bodyWrappedInLets = partialSelf
           .addInnerVariables(
@@ -232,6 +285,20 @@ case class FunctionValue(
   override def evalType = None
   override def evalMayHaveSideEffects = false
   override protected def evaluate: EValue = this
+
+  override def finalEval = {
+    val partialScope = scope.newChild(typ.params.map { param =>
+      Variable(nameMap(param.name), UnknownValue(param.typ.evalAssert[Type], param.location))
+    })
+
+    val partialContext = EValue.context.copy(evalMode = EvalMode.Partial(typ.runMode))
+    val ebody = EValue.withContext(partialContext) {
+      partialContext.toEValue(body, partialScope).evaluated.finalEval
+    }
+    val finalBody = ebody.toUValue(EValue.context.core)
+
+    FunctionValue(typ, nameMap, finalBody, scope, location)
+  }
 
   // TODO: Encode method traits with `.compileTimeOnly` / `.runTimeOnly`
   override def toUValue(core: Core) = UOperation.Function(

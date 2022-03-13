@@ -74,4 +74,5 @@ case class ListValue(values: Seq[EValue], location: Option[Location]) extends EV
   override def evalType = None
   override def toUValue(core: Core) = CallValue("of", Arguments.positional(List, values), location).toUValue(core)
   override def evaluate = this
+  override def finalEval = ListValue(values.map(_.finalEval), location)
 }

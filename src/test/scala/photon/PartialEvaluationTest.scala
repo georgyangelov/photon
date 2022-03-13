@@ -63,12 +63,28 @@ class PartialEvaluationTest extends FunSuite {
     )
   }
 
+  test("throws an error if compile-time-only fn cannot be called") {
+    expectFailCompileTime(
+      """
+          () {
+            val unknown = { 42 }.runTimeOnly
+            val add = (a: Int, b: Int) { a + b }.compileTimeOnly
+            val var1 = unknown()
+            val var2 = add(1, 10)
+
+            add(var1, var2)
+          }
+      """,
+      "Could not evaluate compile-time-only method"
+    )
+  }
+
   test("evaluates some functions compile-time inside of lambdas") {
     expectEvalCompileTime(
       """
           () {
             val unknown = { 42 }.runTimeOnly
-            val add = (a: Int, b: Int) a + b
+            val add = (a: Int, b: Int) { a + b }.inline
             val var1 = unknown()
             val var2 = add(1, 10)
 
@@ -77,12 +93,39 @@ class PartialEvaluationTest extends FunSuite {
       """,
       """
           (): Int {
-            val unknown = () 42
-            val add = (a: Int, b: Int): Int a + b
+            val unknown = (): Int 42
             val var1 = unknown()
             val var2 = 11
 
+            var1 + var2
+          }
+      """
+    )
+  }
+
+  test("does not get confused by reference-referencing references") {
+    expectEvalCompileTime(
+      """
+          () {
+            val unknown = { 42 }.runTimeOnly
+            val add = (a: Int, b: Int) a + b
+            val var1 = unknown()
+
+            val a = 10
+            val b = a
+            val c = b
+            val var2 = add(1, c)
+
             add(var1, var2)
+          }
+      """,
+      """
+          (): Int {
+            val unknown = (): Int 42
+            val var1 = unknown()
+            val var2 = 11
+
+            var1 + var2
           }
       """
     )
@@ -91,32 +134,64 @@ class PartialEvaluationTest extends FunSuite {
   test("evaluates some functions compile-time inside of runtime-only lambdas") {
     expectEvalCompileTime(
       """
-          () {
+          val fn = () {
             val unknown = { 42 }.runTimeOnly
             val add = (a: Int, b: Int) a + b
             val var1 = unknown()
             val var2 = add(1, 10)
 
             add(var1, var2)
-          }.runTimeOnly()()
+          }.runTimeOnly
+
+          fn()
       """,
       """
-          (): Int {
-            val unknown = () 42
-            val add = (a: Int, b: Int): Int a + b
+          val fn = (): Int {
+            val unknown = (): Int 42
             val var1 = unknown()
             val var2 = 11
 
-            add(var1, var2)
-          }()
+            var1 + var2
+          }
+
+          fn()
       """
     )
   }
 
-  ignore("partial evaluation of simple objects") {
+  test("partial evaluation of simple classes") {
+    // TODO: For side-effects this should preserve the `ageFn()` call, no?
     expectEvalCompileTime(
-      "val object = Object(unknown = () {}.runTimeOnly, answer = () 42); object.answer",
-      "42"
+      """
+        class Person {
+          def name: String
+          def age: Int
+        }
+
+        val ageFn = { 42 }.runTimeOnly
+
+        val ivan = Person.new(name = "Ivan", age = ageFn())
+        ivan.name
+      """,
+      "'Ivan'"
+    )
+
+    expectEvalCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+        }
+
+        val ageFn = { 42 }.runTimeOnly
+
+        val ivan = Person.new(name = "Ivan", age = ageFn())
+        ivan.age
+      """,
+      """
+        val ageFn = (): Int { 42 }
+        ageFn()
+      """
     )
   }
 

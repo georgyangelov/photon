@@ -59,4 +59,5 @@ case class FloatValue(value: scala.Double, location: Option[Location]) extends E
   override def evalType = None
   override def toUValue(core: Core) = ULiteral.Float(value, location)
   override def evaluate = this
+  override def finalEval = this
 }

@@ -36,6 +36,7 @@ class Core extends EValue {
   override def evalMayHaveSideEffects = false
   override def evalType = None
   override protected def evaluate: EValue = this
+  override def finalEval = this
   override def toUValue(core: Core) = this.referenceTo(this, location)
 
   lazy val globals = Globals.of(

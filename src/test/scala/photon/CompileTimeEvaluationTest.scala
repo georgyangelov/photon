@@ -252,7 +252,7 @@ class CompileTimeEvaluationTest extends FunSuite {
         val outer = (a:Int) {
           val inner = (
             val b = 11
-            val inner2 = { a + b }
+            val inner2 = { a + b }.runTimeOnly
             inner2
           )
 
