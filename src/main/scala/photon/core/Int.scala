@@ -1,7 +1,7 @@
 package photon.core
 
-import photon.core.operations.CallValue
-import photon.{Arguments, EValue, Location, ULiteral}
+import photon.{Arguments, DefaultMethod, EValue, Location, ULiteral, MethodType}
+import photon.ArgumentExtensions._
 
 object IntType extends StandardType {
   override val typ = TypeRoot
@@ -9,12 +9,11 @@ object IntType extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "answer" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "answer" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
 
-      override def typeCheck(args: Arguments[EValue]) = Int
-
-      override def call(args: Arguments[EValue], location: Option[Location]) =
+      override def run(args: Arguments[EValue], location: Option[Location]) =
         IntValue(42, location)
     }
   )
@@ -26,61 +25,61 @@ object Int extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
-    "+" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "+" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Int
+      override def run(args: Arguments[EValue], location: Option[Location]): EValue = {
+        val self = args.selfEval[IntValue]
+        val other = args.getEval[IntValue](1, "other")
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalCheck[IntValue]
-        val other = args.get(1, "other").evalCheck[IntValue]
-
-        if (self.isDefined && other.isDefined) {
-          IntValue(self.get.value + other.get.value, location)
-        } else {
-          CallValue("+", args, location)
-        }
+        IntValue(self.value + other.value, location)
       }
     },
 
-    "-" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "-" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Int
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[IntValue]
-        val other = args.get(1, "other").evalAssert[IntValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[IntValue]
+        val other = args.getEval[IntValue](1, "other")
 
         IntValue(self.value - other.value, location)
       }
     },
 
-    "*" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "*" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Int
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[IntValue]
-        val other = args.get(1, "other").evalAssert[IntValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[IntValue]
+        val other = args.getEval[IntValue](1, "other")
 
         IntValue(self.value * other.value, location)
       }
     },
 
-    "==" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "==" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Bool
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Bool
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[IntValue]
-        val other = args.get(1, "other").evalAssert[IntValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[IntValue]
+        val other = args.getEval[IntValue](1, "other")
 
         BoolValue(self.value == other.value, location)
       }

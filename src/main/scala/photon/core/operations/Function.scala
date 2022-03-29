@@ -1,8 +1,9 @@
 package photon.core.operations
 
-import photon.core.{Core, InlinePreference, Method, MethodRunMode, StandardType, Type, TypeRoot, UnknownValue}
+import photon.ArgumentExtensions._
+import photon.core.{Core, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, URename}
-import photon.{Arguments, EValue, EValueContext, EvalMode, Location, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
+import photon.{Arguments, CannotCallCompileTimeMethodInRunTimeMethod, CannotCallRunTimeMethodInCompileTimeMethod, CompileTimeOnlyMethod, DelayCall, EValue, EValueContext, EvalMode, InlinePreference, Location, Method, MethodRunMode, MethodType, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
 
 object FunctionDef extends StandardType {
   override val typ = TypeRoot
@@ -45,7 +46,7 @@ case class FunctionDefValue(fn: photon.UFunction, scope: Scope, location: Option
 
   private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
     val partialScope = scope.newChild(eparams.map { param =>
-      Variable(fn.nameMap(param.name), UnknownValue(param.typ.evalAssert[Type], param.location))
+      Variable(fn.nameMap(param.name), UnknownValue(param.typ.assertType, param.location))
     })
     val ebody = context.toEValue(fn.body, partialScope)
 
@@ -60,13 +61,18 @@ object FunctionRootType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "call" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) = FunctionRoot
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
         if (args.positional.nonEmpty) {
           throw EvalError("Function type parameters must be named", location)
         }
 
+        MethodType.of(
+          args.named.toSeq.map { case (name, _) => name -> TypeRoot },
+          FunctionRoot
+        )
+      }
+
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
         val returnType = args.named.getOrElse(
           "returns",
           throw EvalError("Function type must have a `returns` argument", location)
@@ -101,8 +107,6 @@ case class FunctionT(
   override def typ = FunctionRoot
   override val location = None
 
-  private[this] val self = this
-
   override def finalEval = FunctionT(
     params.map(p => EParameter(p.name, p.typ.finalEval, p.location)),
     returnType.finalEval,
@@ -111,91 +115,180 @@ case class FunctionT(
   )
 
   override val methods = Map(
-    "returnType" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) = TypeRoot
-      override def call(args: Arguments[EValue], location: Option[Location]) = returnType
+    "returnType" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, TypeRoot)
+
+      override def run(args: Arguments[EValue], location: Option[Location]) = returnType
     },
 
-    "runTimeOnly" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) =
-        FunctionT(params, returnType, MethodRunMode.RunTimeOnly, inlinePreference)
+    "runTimeOnly" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq.empty,
+          FunctionT(params, returnType, MethodRunMode.RunTimeOnly, inlinePreference)
+        )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val newType = FunctionT(params, returnType, MethodRunMode.RunTimeOnly, inlinePreference)
-        val fn = args.self.evalAssert[FunctionValue]
+        val fn = args.selfEval[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
     },
 
-    "compileTimeOnly" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) =
-        FunctionT(params, returnType, MethodRunMode.CompileTimeOnly, inlinePreference)
+    "compileTimeOnly" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq.empty,
+          FunctionT(params, returnType, MethodRunMode.CompileTimeOnly, inlinePreference)
+        )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val newType = FunctionT(params, returnType, MethodRunMode.CompileTimeOnly, inlinePreference)
-        val fn = args.self.evalAssert[FunctionValue]
+        val fn = args.selfEval[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
     },
 
-    "inline" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) =
-        FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
+    "inline" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq.empty,
+          FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
+        )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val newType = FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
-        val fn = args.self.evalAssert[FunctionValue]
+        val fn = args.selfEval[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
     },
 
-    "noInline" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) =
-        FunctionT(params, returnType, runMode, InlinePreference.NoInline)
+    "noInline" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq.empty,
+          FunctionT(params, returnType, runMode, InlinePreference.NoInline)
+        )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val newType = FunctionT(params, returnType, runMode, InlinePreference.NoInline)
-        val fn = args.self.evalAssert[FunctionValue]
+        val fn = args.selfEval[FunctionValue]
 
         FunctionValue(newType, fn.nameMap, fn.body, fn.scope, location)
       }
     },
 
     "call" -> new Method {
-      // TODO: Add traits to the type itself
-      override val runMode = self.runMode
-      override def typeCheck(args: Arguments[EValue]) = returnType.evalAssert[Type]
-      override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
-        val partialSelf = args.self.evaluated match {
-          case letValue: LetValue => letValue.partialValue
-          case innerValue => PartialValue(innerValue, Seq.empty)
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          params.map(param => param.name -> param.typ),
+          returnType.assertType
+        )
+
+      private def shouldRunFully(evalMode: EvalMode) = evalMode match {
+        case EvalMode.RunTime => runMode match {
+          case MethodRunMode.CompileTimeOnly => throw CannotCallCompileTimeMethodInRunTimeMethod
+          case MethodRunMode.Default => true
+          case MethodRunMode.PreferRunTime => true
+          case MethodRunMode.RunTimeOnly => true
         }
 
-        // TODO: This is incorrect, it will not always have the function value known
-        val fn = partialSelf.value.evalAssert[FunctionValue]
+        case EvalMode.CompileTimeOnly => runMode match {
+          case MethodRunMode.CompileTimeOnly => true
+          case MethodRunMode.Default => true
+          case MethodRunMode.PreferRunTime => true
+          case MethodRunMode.RunTimeOnly => throw CannotCallRunTimeMethodInCompileTimeMethod
+        }
 
-        // TODO: Also check if it CAN be evaluated (i.e. if the values are "real")?
-        // TODO: This check should be done in CallValue#evaluate
-//        if (fn.typ.runMode)
-//        if (!fn.typ.traits.contains(MethodTrait.CompileTime)) {
-//          return CallValue("call", args, location)
-//        }
+        case EvalMode.Partial => runMode match {
+          case MethodRunMode.CompileTimeOnly => true
+          case MethodRunMode.Default =>
+            inlinePreference match {
+              case InlinePreference.ForceInline => false
+              case InlinePreference.Default => throw DelayCall
+              case InlinePreference.NoInline => throw DelayCall
+            }
 
-        // TODO: Better arg check + do it in the typeCheck method
-        if (args.positional.size + args.named.size != params.size) {
+          case MethodRunMode.PreferRunTime => throw DelayCall
+          case MethodRunMode.RunTimeOnly => throw DelayCall
+        }
+
+        case EvalMode.PartialRunTimeOnly |
+             EvalMode.PartialPreferRunTime => runMode match {
+          case MethodRunMode.CompileTimeOnly => true
+          case MethodRunMode.Default => throw DelayCall
+          case MethodRunMode.PreferRunTime => throw DelayCall
+          case MethodRunMode.RunTimeOnly => throw DelayCall
+        }
+      }
+
+      private def forcedEvalMode(evalMode: EvalMode) = evalMode match {
+        case EvalMode.RunTime => EvalMode.RunTime
+        case EvalMode.CompileTimeOnly |
+             EvalMode.Partial |
+             EvalMode.PartialRunTimeOnly |
+             EvalMode.PartialPreferRunTime => EvalMode.CompileTimeOnly
+      }
+
+      override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
+        val shouldRunFully = this.shouldRunFully(EValue.context.evalMode)
+
+        if (shouldRunFully) {
+          // We should execute the function fully, nothing left for later
+
+          val context = EValueContext(
+            interpreter = EValue.context.interpreter,
+            evalMode = forcedEvalMode(EValue.context.evalMode)
+          )
+
+          EValue.withContext(context) {
+            val fn = args.selfEval[FunctionValue]
+            val self = PartialValue(fn, Seq.empty)
+            val bodyWrappedInLets = buildCodeForExecution(fn, self, args, location)
+
+            val result = bodyWrappedInLets.evaluated
+            if (result.isOperation) {
+              throw EvalError(s"Could not fully evaluate function $fn", location)
+            }
+
+            result
+          }
+        } else {
+          // We're asked to inline the function, if possible
+
+          val partialSelf = args.self.evaluated match {
+            case letValue: LetValue => letValue.partialValue
+            case value if value.isOperation => throw DelayCall
+            case value => PartialValue(value, Seq.empty)
+          }
+
+          val fn = partialSelf.value match {
+            case value: FunctionValue => value
+            case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
+          }
+
+          val bodyWrappedInLets = buildCodeForExecution(fn, partialSelf, args, location)
+
+          bodyWrappedInLets.evaluated
+        }
+      }
+
+      private def buildCodeForExecution(
+        fn: FunctionValue,
+        self: PartialValue,
+        args: Arguments[EValue],
+        location: Option[Location]
+      ) = {
+        // TODO: Better arg check + do it in Call#evaluate
+        if (args.count != params.size) {
           throw EvalError("Wrong number of arguments for this function", location)
         }
 
         val paramNames = params.map(_.name)
-
         val matchedArguments = matchArguments(paramNames, args)
 
         val localVariables = matchedArguments.map { case name -> value =>
@@ -214,7 +307,7 @@ case class FunctionT(
         val renamedUBody = URename.rename(fn.body, renames)
         val ebody = EValue.context.toEValue(renamedUBody, scope)
 
-        val bodyWrappedInLets = partialSelf
+        val bodyWrappedInLets = self
           .addInnerVariables(
             // TODO: Preserve order of definition so that latter variables can use prior ones
             localVariables
@@ -224,7 +317,7 @@ case class FunctionT(
           .replaceWith(ebody)
           .wrapBack
 
-        bodyWrappedInLets.evaluated
+        bodyWrappedInLets
       }
     }
   )
@@ -288,7 +381,7 @@ case class FunctionValue(
 
   override def finalEval = {
     val partialScope = scope.newChild(typ.params.map { param =>
-      Variable(nameMap(param.name), UnknownValue(param.typ.evalAssert[Type], param.location))
+      Variable(nameMap(param.name), UnknownValue(param.typ.assertType, param.location))
     })
 
     val partialContext = EValue.context.copy(evalMode = EvalMode.Partial(typ.runMode))

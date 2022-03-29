@@ -3,7 +3,8 @@ package photon.core
 import photon.frontend.{ASTValue, Parser, StaticScope}
 import photon.frontend.macros.ClassMacros
 import photon.interpreter.EvalError
-import photon.{Arguments, EValue, Location, Scope, UOperation, Variable, VariableName}
+import photon.{Arguments, EValue, Location, Method, MethodType, Scope, UOperation, Variable, VariableName}
+import photon.ArgumentExtensions._
 
 object CoreType extends StandardType {
   override val typ = TypeRoot
@@ -11,11 +12,22 @@ object CoreType extends StandardType {
   override val location = None
   override val methods = Map(
     "typeCheck" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-      override def typeCheck(args: Arguments[EValue]) = args.positional(1).evalAssert[Type]
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        val valueArg = args.get(0, "value")
+        val typeArg = args.getEval(1, "type")
+
+        MethodType.of(
+          Seq(
+            "value" -> valueArg.evalType.getOrElse(valueArg.typ),
+            "type" -> TypeRoot
+          ),
+          typeArg
+        )
+      }
+
       override def call(args: Arguments[EValue], location: Option[Location]) = {
         val value = args.positional.head
-        val typ = args.positional(1).evalAssert[Type]
+        val typ = args.getEval[Type](1, "type")
         val valueTyp = value.evalType.getOrElse(value.typ)
 
         if (valueTyp != typ) {

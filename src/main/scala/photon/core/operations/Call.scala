@@ -1,8 +1,8 @@
 package photon.core.operations
 
-import photon.core.{Core, MethodRunMode, StandardType, StaticType, TypeRoot}
+import photon.core.{Core, StandardType, StaticType, TypeRoot}
 import photon.interpreter.EvalError
-import photon.{Arguments, EValue, EvalMode, Location, UOperation}
+import photon.{Arguments, CannotCallCompileTimeMethodInRunTimeMethod, CannotCallRunTimeMethodInCompileTimeMethod, DelayCall, EValue, EvalMode, Location, MethodType, UOperation}
 
 object Call extends StandardType {
   override val typ = TypeRoot
@@ -23,15 +23,32 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
   override def evalMayHaveSideEffects = true
 
   override def evalType = {
-    method.typeCheck(args) match {
+    method.specialize(args, location).returnType match {
       // TODO: Verify that it can actually be called?
-      case StaticType => Some(evaluated.typ)
+      case StaticType => Some(evaluated(EvalMode.CompileTimeOnly).typ)
       case typ => Some(typ)
     }
   }
 
   override protected def evaluate: EValue = {
-    method.call(args, location)
+    // TODO
+    val typeCheckedArgs = args
+
+    try {
+      method.call(typeCheckedArgs, location)
+    } catch {
+      case DelayCall =>
+        // TODO: This should be correct, right? Or not? What about self-references here?
+        val evaluatedArgs = typeCheckedArgs.map(_.evaluated)
+
+        CallValue(name, evaluatedArgs, location)
+
+      case CannotCallCompileTimeMethodInRunTimeMethod =>
+        throw EvalError(s"Cannot call compile-time-only method $name inside of runtime-only method", location)
+
+      case CannotCallRunTimeMethodInCompileTimeMethod =>
+        throw EvalError(s"Cannot call run-time-only method $name inside of compile-time-only method", location)
+    }
 
 //    EValue.context.evalMode match {
 //      case EvalMode.CompileTime =>

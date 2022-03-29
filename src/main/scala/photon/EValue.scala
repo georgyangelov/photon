@@ -1,14 +1,26 @@
 package photon
 
 import photon.interpreter.{EvalError, Interpreter}
-import photon.core.{Core, MethodRunMode, Type}
+import photon.core.{Core, Type}
 
 import scala.reflect.ClassTag
 
 sealed trait EvalMode
 object EvalMode {
-  object CompileTime extends EvalMode
-  case class Partial(runMode: MethodRunMode) extends EvalMode
+  // Running code during runtime
+  case object RunTime extends EvalMode
+
+  // Running compile-time-only code
+  case object CompileTimeOnly extends EvalMode
+
+  // Partially evaluating code in a default function
+  case object Partial extends EvalMode
+
+  // Partially evaluating code in a runtime-only function
+  case object PartialRunTimeOnly extends EvalMode
+
+  // Partially evaluating code in a prefer-runtime function
+  case object PartialPreferRunTime extends EvalMode
 }
 
 object EValue {
@@ -51,7 +63,9 @@ trait EValue {
 //  def evaluated = evaluate(evalMode)
 //  lazy val evaluated: EValue = evaluate
   def evaluated = evaluate
-  // TODO: Add EvalMode here as argument (or EValueContext)
+  def evaluated(evalMode: EvalMode) =
+    EValue.withContext(EValue.context.copy(evalMode = evalMode)) { evaluate }
+
   protected def evaluate: EValue
 
   // TODO: Better name? Finalize? Compile? Optimize?
@@ -60,29 +74,15 @@ trait EValue {
   def evalType: Option[Type]
   def evalMayHaveSideEffects: Boolean
 
-  def evalCheck[T <: EValue](implicit tag: ClassTag[T]): Option[T] = {
-    val context = EValueContext(
-      interpreter = EValue.context.interpreter,
-      evalMode = EvalMode.CompileTime
-    )
-
-    EValue.withContext(context) {
-      this.evaluate match {
-        case value: T => Some(value)
-        case _ => None
-      }
-    }
-  }
-
-  def evalAssert[T <: EValue](implicit tag: ClassTag[T]) =
-    evalCheck[T](tag) match {
-      case Some(value) => value
-      case _ => throw EvalError(s"Invalid value type $this, expected a $tag value", location)
+  def assertType =
+    this.evaluated(EvalMode.CompileTimeOnly) match {
+      case value: Type => value
+      case _ => throw EvalError(s"Invalid value $this, expected a Type", location)
     }
 
-  def assert[T <: EValue](implicit tag: ClassTag[T]) =
-    this match {
+  def assertSpecificType[T <: Type](implicit tag: ClassTag[T]) =
+    this.evaluated(EvalMode.CompileTimeOnly) match {
       case value: T => value
-      case _ => throw EvalError(s"Invalid value type $this, expected a $tag value", location)
+      case _ => throw EvalError(s"Invalid value $this, expected a $tag value", location)
     }
 }

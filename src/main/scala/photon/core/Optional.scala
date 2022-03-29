@@ -1,7 +1,8 @@
 package photon.core
 
 import photon.core.operations.CallValue
-import photon.{Arguments, EValue, Location}
+import photon.{Arguments, CompileTimeOnlyMethod, DefaultMethod, EValue, Location}
+import photon.ArgumentExtensions._
 
 object OptionalRootType extends StandardType {
   override val location = None
@@ -9,10 +10,9 @@ object OptionalRootType extends StandardType {
   override def typ = TypeRoot
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "call" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
+    "call" -> new CompileTimeOnlyMethod {
       override def typeCheck(args: Arguments[EValue]) = Optional(args.positional.head, None).typ
-      override def call(args: Arguments[EValue], location: Option[Location]) =
+      override def run(args: Arguments[EValue], location: Option[Location]) =
         Optional(args.positional.head, location)
     }
   )
@@ -31,18 +31,21 @@ case class OptionalT(optional: Optional) extends StandardType {
   override val location = optional.location
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "empty" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "empty" -> new DefaultMethod {
       override def typeCheck(args: Arguments[EValue]) = optional
-      override def call(args: Arguments[EValue], location: Option[Location]) =
+      override def run(args: Arguments[EValue], location: Option[Location]) =
         OptionalValue(optional, None, location)
     },
 
-    "of" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "of" -> new DefaultMethod {
       override def typeCheck(args: Arguments[EValue]) = optional
-      override def call(args: Arguments[EValue], location: Option[Location]) =
-        OptionalValue(optional, Some(args.positional.head), location)
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        // Intentionally not using getEval as we want to evaluate this so that methods
+        // can be called on it later, potentially unwrapping (inlining) the value wherever used
+        val value = args.get(1, "value").evaluated
+
+        OptionalValue(optional, Some(value), location)
+      }
     }
   )
 }
@@ -59,10 +62,9 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
   override def finalEval = Optional(innerType.finalEval, location)
 
   override val methods = Map(
-    "getAssert" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "assert" -> new DefaultMethod {
       override def typeCheck(args: Arguments[EValue]) = ???
-      override def call(args: Arguments[EValue], location: Option[Location]) = ???
+      override def run(args: Arguments[EValue], location: Option[Location]) = ???
     }
   )
 }

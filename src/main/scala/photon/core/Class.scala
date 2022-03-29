@@ -1,8 +1,9 @@
 package photon.core
+import photon.ArgumentExtensions._
 import photon.core.operations.FunctionValue
 import photon.interpreter.EvalError
 import photon.lib.Lazy
-import photon.{Arguments, EValue, Location}
+import photon.{Arguments, EValue, EvalMode, Location, Method, MethodType}
 
 object ClassBuilderRoot extends StandardType {
   override def typ = TypeRoot
@@ -10,14 +11,19 @@ object ClassBuilderRoot extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "define" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-
-      override def typeCheck(args: Arguments[EValue]) = photon.core.String
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq(
+            "name" -> String,
+            "def" -> StaticType
+          ),
+          String
+        )
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[ClassBuilder]
-        val name = args.positional.head.evalAssert[StringValue]
-        val definition = args.positional(1)
+        val self = args.selfEval[ClassBuilder]
+        val name = args.getEval[StringValue](1, "name")
+        val definition = args.getEval[EValue](2, "def")
 
         self.definitions.addOne(ClassDefinition(name.value, definition, location))
 
@@ -26,12 +32,11 @@ object ClassBuilderRoot extends StandardType {
     },
 
     "classType" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
-
-      override def typeCheck(args: Arguments[EValue]) = TypeRoot
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, TypeRoot)
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[ClassBuilder]
+        val self = args.selfEval[ClassBuilder]
 
         self.classRef.evaluated
       }
@@ -64,24 +69,34 @@ object ClassRootType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "new" -> new Method {
-      override val runMode = MethodRunMode.CompileTimeOnly
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        if (args.count == 2) {
+          MethodType.of(
+            Seq(
+              "name" -> String,
+              // TODO: (builder: ClassBuilder): Void
+              "builder" -> StaticType
+            ),
+            StaticType
+          )
+        } else {
+          MethodType.of(
+            Seq("builder" -> StaticType),
+            StaticType
+          )
+        }
+      }
 
-      // TODO: CompileTimeOnlyMethod class which does not have separate typeCheck and call?
-      // TODO: Location for the typeCheck method
-      override def typeCheck(args: Arguments[EValue]) = StaticType
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = buildClass(args, location)
-
-      def buildClass(args: Arguments[EValue], location: Option[Location]) = {
-        Lazy.selfReferencing[Class]((self) => {
+      override def call(args: Arguments[EValue], location: Option[Location]) = {
+        Lazy.selfReferencing[Class](self => {
           val (name, builderFn) =
-            if (args.positional.size == 2) {
+            if (args.count == 2) {
               (
-                Some(args.positional.head.evalAssert[StringValue]),
-                args.positional(1).evaluated
+                Some(args.getEval[StringValue](1, "name")),
+                args.getEval[EValue](2, "builder")
               )
             } else {
-              (None, args.positional.head.evaluated)
+              (None, args.getEval[EValue](1, "builder"))
             }
 
           val builder = new ClassBuilder(name.map(_.value), LazyValue(self, location), location)
@@ -119,16 +134,17 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
 
   override val methods = Map(
     "new" -> new Method {
-      override val runMode = MethodRunMode.Default
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          klass.definitions
+            .filter(d => d.value.evalType.getOrElse(d.value.typ) == TypeRoot)
+            .map(d => d.name -> d.value.assertType),
 
-      // TODO: Verify property types
-      override def typeCheck(args: Arguments[EValue]) = klass
+          klass
+        )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        // TODO: Verify properties
-
+      override def call(args: Arguments[EValue], location: Option[Location]) =
         Object(klass, args.named, location)
-      }
     }
   )
 }
@@ -161,30 +177,32 @@ case class Class(
   override val methods = definitions.map(methodForDefinition).toMap
   private def methodForDefinition(definition: ClassDefinition): (String, Method) = {
     definition.name -> new Method {
-      override val runMode = MethodRunMode.Default
-      override def typeCheck(args: Arguments[EValue]) = {
-        definition.value.evaluated match {
-          case typ: Type => typ
-          case fn: FunctionValue => fn.typ.returnType.evalAssert[Type]
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        definition.value.evaluated(EvalMode.CompileTimeOnly) match {
+          case typ: Type => MethodType.of(Seq.empty, typ)
+          case fn: FunctionValue => MethodType.of(
+            fn.typ.params
+              .map(param => param.name -> param.typ.assertType),
+            fn.typ.returnType.assertType
+          )
           case _ => throw EvalError(s"Invalid definition type $this, expected a type or a function", location)
         }
-      }
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[Object]
+        val self = args.selfEval[Object]
 
+        // TODO: This should set the EvalMode
         definition.value.evaluated match {
           case _: Type =>
             val value = self.properties.get(definition.name)
 
             value match {
+              // TODO: This may call evaluated multiple times
               case Some(value) => value.evaluated
               case None => throw EvalError("There's no such property on the class instance", location)
             }
 
           case fn: FunctionValue =>
-            val self = args.self.evalAssert[Object]
-
             val needsSelfArgument = fn.nameMap.contains("self")
             val hasSelfInArguments = args.named.contains("self")
 

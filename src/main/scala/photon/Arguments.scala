@@ -3,11 +3,15 @@ package photon
 import photon.core.operations.EParameter
 import photon.interpreter.EvalError
 
+import scala.reflect.ClassTag
+
 case class Arguments[+T](
   self: T,
   positional: Seq[T],
   named: Map[String, T]
 ) {
+  def count = positional.size + named.size
+
   def changeSelf[R >: T](value: R) = Arguments[R](value, positional, named)
 
   def map[R](f: T => R) = Arguments(
@@ -47,6 +51,31 @@ case class Arguments[+T](
   //      this.asInstanceOf[Arguments[Value]]
   //    )
   //  )
+}
+
+object ArgumentExtensions {
+  implicit class GetEval(self: Arguments[EValue]) {
+    def selfEval[T <: EValue](implicit tag: ClassTag[T]) = getEval[T](0, "self")(tag)
+
+    def getEval[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
+      self.get(index, name).evaluated match {
+        case value: T => value
+        case value =>
+          if (value.isOperation) {
+            // TODO: We probably don't need this if all values respect the EvalMode
+            EValue.context.evalMode match {
+              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
+              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
+              case EvalMode.Partial |
+                   EvalMode.PartialRunTimeOnly |
+                   EvalMode.PartialPreferRunTime => throw DelayCall
+            }
+          } else {
+            // TODO: Do I need this? Won't the typechecks handle this already?
+            throw EvalError(s"Invalid value type $self, expected a $tag value", None)
+          }
+      }
+  }
 }
 
 object Arguments {

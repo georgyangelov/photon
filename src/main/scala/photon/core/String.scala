@@ -1,6 +1,7 @@
 package photon.core
 
-import photon.{Arguments, EValue, Location, ULiteral}
+import photon.{Arguments, DefaultMethod, EValue, Location, ULiteral}
+import photon.ArgumentExtensions._
 
 object StringType extends StandardType {
   override val typ = TypeRoot
@@ -16,14 +17,12 @@ object String extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
-    "size" -> new Method {
-      override val runMode = MethodRunMode.Default
-
+    "size" -> new DefaultMethod {
       // TODO: Actually type check arguments
       override def typeCheck(args: Arguments[EValue]) = Int
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[StringValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[StringValue]
 
         IntValue(self.value.length, location)
       }

@@ -18,12 +18,17 @@ case class ReferenceValue(variable: Variable, location: Option[Location]) extend
   override def evalMayHaveSideEffects = false
   override def evalType = Some(variable.value.evalType.getOrElse(variable.value.typ))
   override def toUValue(core: Core) = UOperation.Reference(variable.name, location)
+
+  // TODO: Cache result of this based on evalMode
   override protected def evaluate: EValue =
     EValue.context.evalMode match {
-      case EvalMode.CompileTime => variable.value.evaluated
+      case EvalMode.CompileTimeOnly |
+           EvalMode.RunTime => variable.value.evaluated
 
       // If it's in a partial mode => it's not required (yet)
-      case EvalMode.Partial(_) => this
+      case EvalMode.Partial |
+           EvalMode.PartialPreferRunTime |
+           EvalMode.PartialRunTimeOnly => this
     }
 
   override def finalEval = this

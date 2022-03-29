@@ -1,6 +1,7 @@
 package photon.core
 
-import photon.{Arguments, EValue, Location, ULiteral}
+import photon.{Arguments, DefaultMethod, EValue, Location, MethodType, ULiteral}
+import photon.ArgumentExtensions._
 
 object FloatType extends StandardType {
   override val typ = TypeRoot
@@ -8,10 +9,9 @@ object FloatType extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "from" -> new Method {
-      override val runMode = MethodRunMode.Default
-      override def typeCheck(args: Arguments[EValue]) = ???
-      override def call(args: Arguments[EValue], location: Option[Location]) = ???
+    "from" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = ???
+      override def run(args: Arguments[EValue], location: Option[Location]) = ???
     }
   )
 }
@@ -22,29 +22,31 @@ object Float extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
-    "+" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "+" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType(
+          Seq("other" -> Float),
+          Float
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Float
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[FloatValue]
-        val other = args.get(1, "other").evalAssert[FloatValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[FloatValue]
+        val other = args.getEval[FloatValue](1, "other")
 
         FloatValue(self.value + other.value, location)
       }
     },
 
-    "-" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "-" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType(
+          Seq("other" -> Float),
+          Float
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Float
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[FloatValue]
-        val other = args.get(1, "other").evalAssert[FloatValue]
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[FloatValue]
+        val other = args.getEval[FloatValue](1, "other")
 
         FloatValue(self.value - other.value, location)
       }

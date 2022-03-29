@@ -1,7 +1,9 @@
 package photon.core
 
 import photon.interpreter.EvalError
-import photon.{Arguments, EValue, Location, ULiteral}
+import photon.{Arguments, DefaultMethod, EValue, Location, MethodType, ULiteral}
+import photon.ArgumentExtensions._
+import photon.core.operations.{CallValue, FunctionT}
 
 object BoolType extends StandardType {
   override val typ = TypeRoot
@@ -21,47 +23,72 @@ object Bool extends StandardType {
 
   override val methods = Map(
     // TODO: Short-circuiting
-    "and" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "and" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType(
+          Seq("other" -> Bool),
+          Bool
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(arguments: Arguments[EValue]) = Bool
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[BoolValue]
-        val other = args.get(1, "other").evalAssert[BoolValue]
+      override def run(args: Arguments[EValue], location: Option[Location]): EValue = {
+        val self = args.selfEval[BoolValue]
+        val other = args.getEval[BoolValue](1, "other")
 
         BoolValue(self.value && other.value, location)
       }
-    },
+     },
 
-    "or" -> new Method {
-      override val runMode = MethodRunMode.Default
+    // TODO: Short-circuiting
+    "or" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType(
+          Seq("other" -> Bool),
+          Bool
+        )
 
-      // TODO: Actually type check arguments
-      override def typeCheck(arguments: Arguments[EValue]) = Bool
-
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.self.evalAssert[BoolValue]
-        val other = args.get(1, "other").evalAssert[BoolValue]
+      override def run(args: Arguments[EValue], location: Option[Location]): EValue = {
+        val self = args.selfEval[BoolValue]
+        val other = args.getEval[BoolValue](1, "other")
 
         BoolValue(self.value || other.value, location)
       }
     },
 
-    "ifElse" -> new Method {
-      override val runMode = MethodRunMode.Default
+    "ifElse" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        // TODO: Adequate error messages for evalAssert
+        val thenFn = args.positional.head
+        val thenFnType = thenFn.evalType.getOrElse(thenFn.typ).assertSpecificType[FunctionT]
+        val thenReturnType = thenFnType.returnType.assertType
 
-      // TODO: Extract a common type, or check to see if the two types are equal
-      override def typeCheck(arguments: Arguments[EValue]) = {
-        val first = arguments.positional.head
+        val elseFn = args.positional.head
+        val elseFnType = elseFn.evalType.getOrElse(elseFn.typ).assertSpecificType[FunctionT]
+        val elseReturnType = elseFnType.returnType.assertType
 
-        first.evalType.getOrElse(first.typ)
+        // TODO: Union interface?
+        if (thenReturnType != elseReturnType) {
+          throw EvalError("Cannot have different types returned from if", location)
+        }
+
+        MethodType(
+          // TODO: Verify no arguments
+          Seq(
+            "then" -> thenFn,
+            "else" -> elseFn
+          ),
+          thenReturnType
+        )
       }
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
-        // TODO: Make this a normal assert so that it can be partially evaluated
-        val condition = args.self.evalAssert[BoolValue].value
+      // TODO: Extract a common type, or check to see if the two types are equal
+//      override def typeCheck(arguments: Arguments[EValue]) = {
+//        val first = arguments.positional.head
+//
+//        first.evalType.getOrElse(first.typ)
+//      }
+
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val condition = args.selfEval[BoolValue].value
 
         val fnToCall = if (condition) {
           args.positional.head
@@ -69,13 +96,12 @@ object Bool extends StandardType {
           args.positional(1)
         }
 
-//        CallValue("call", Arguments.empty(fnToCall), location)
+        CallValue("call", Arguments.empty(fnToCall), location).evaluated
 
-        // TODO: Can this be `evalType`?
-        fnToCall.evaluated.typ
-          .method("call")
-          .getOrElse { throw EvalError("Functions given to ifElse must be callable", location) }
-          .call(Arguments.empty(fnToCall), location)
+//        fnToCall.evalType.getOrElse(fnToCall.typ)
+//          .method("call")
+//          .getOrElse { throw EvalError("Functions given to ifElse must be callable", location) }
+//          .call(Arguments.empty(fnToCall), location)
       }
     }
   )

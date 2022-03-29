@@ -23,7 +23,7 @@ class Interpreter {
   def evaluate(value: UValue): EValue = {
     val context = EValueContext(
       interpreter = this,
-      evalMode = EvalMode.CompileTime
+      evalMode = EvalMode.Partial
     )
 
     val evalue = toEValue(value, core.rootScope)

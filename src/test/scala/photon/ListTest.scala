@@ -1,7 +1,7 @@
 package photon
 
 import org.scalatest.FunSuite
-import photon.TestHelpers.expectEval
+import photon.TestHelpers._
 
 class ListTest extends FunSuite {
   test("supports construction with List.of") {
@@ -25,6 +25,32 @@ class ListTest extends FunSuite {
       "0"
     )
   }
+
+  test("evaluates unused list items") {
+    expectEvalCompileTime(
+      """
+        List.of(
+          1, 2, 3,
+          (answer: Int) { answer + 1 }(41)
+        )
+      """,
+      "List.of(1, 2, 3, 42)"
+    )
+
+    expectFailCompileTime(
+      """
+        val list = List.of(
+          1, 2, 3,
+          (s: String) { s }(42)
+        )
+
+        list.get(0)
+      """,
+      "???"
+    )
+  }
+
+  ignore("does not support self-referencing lists") {}
 
   ignore("supports map") {
     expectEval(
