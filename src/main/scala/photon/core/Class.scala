@@ -3,14 +3,14 @@ import photon.ArgumentExtensions._
 import photon.core.operations.FunctionValue
 import photon.interpreter.EvalError
 import photon.lib.Lazy
-import photon.{Arguments, EValue, EvalMode, Location, Method, MethodType}
+import photon.{Arguments, CompileTimeOnlyMethod, DefaultMethod, EValue, EvalMode, Location, Method, MethodType}
 
 object ClassBuilderRoot extends StandardType {
   override def typ = TypeRoot
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
-    "define" -> new Method {
+    "define" -> new CompileTimeOnlyMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) =
         MethodType.of(
           Seq(
@@ -20,7 +20,7 @@ object ClassBuilderRoot extends StandardType {
           String
         )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.selfEval[ClassBuilder]
         val name = args.getEval[StringValue](1, "name")
         val definition = args.getEval[EValue](2, "def")
@@ -31,27 +31,28 @@ object ClassBuilderRoot extends StandardType {
       }
     },
 
-    "classType" -> new Method {
+    "selfType" -> new CompileTimeOnlyMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) =
         MethodType.of(Seq.empty, TypeRoot)
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.selfEval[ClassBuilder]
 
-        self.classRef.evaluated
+        self.ref.evaluated
       }
     }
   )
 }
 
 class ClassBuilder(
-  val className: Option[String],
-  val classRef: EValue,
+  val name: Option[String],
+  val ref: EValue,
   val location: Option[Location]
 ) extends EValue {
   val definitions = Seq.newBuilder[ClassDefinition]
 
-  def build: Class = Class(className, definitions.result, location)
+  def buildClass: Class = Class(name, definitions.result, location)
+  def buildInterface: Interface = Interface(name, definitions.result, location)
 
   override def evalMayHaveSideEffects = false
   override def typ = ClassBuilderRoot
@@ -68,7 +69,7 @@ object ClassRootType extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "new" -> new Method {
+    "new" -> new CompileTimeOnlyMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) = {
         if (args.count == 2) {
           MethodType.of(
@@ -87,7 +88,7 @@ object ClassRootType extends StandardType {
         }
       }
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         Lazy.selfReferencing[Class](self => {
           val (name, builderFn) =
             if (args.count == 2) {
@@ -111,7 +112,7 @@ object ClassRootType extends StandardType {
             location
           )
 
-          builder.build
+          builder.buildClass
         }).resolve
       }
     }
@@ -133,17 +134,18 @@ case class ClassT(klass: photon.core.Class) extends StandardType {
   override def toUValue(core: Core) = inconvertible
 
   override val methods = Map(
-    "new" -> new Method {
+    "new" -> new DefaultMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) =
         MethodType.of(
           klass.definitions
+            // TODO: This is not correct as a check for types
             .filter(d => d.value.evalType.getOrElse(d.value.typ) == TypeRoot)
             .map(d => d.name -> d.value.assertType),
 
           klass
         )
 
-      override def call(args: Arguments[EValue], location: Option[Location]) =
+      override def run(args: Arguments[EValue], location: Option[Location]) =
         Object(klass, args.named, location)
     }
   )
@@ -176,6 +178,7 @@ case class Class(
 
   override val methods = definitions.map(methodForDefinition).toMap
   private def methodForDefinition(definition: ClassDefinition): (String, Method) = {
+    // TODO: RunMode of method
     definition.name -> new Method {
       override def specialize(args: Arguments[EValue], location: Option[Location]) =
         definition.value.evaluated(EvalMode.CompileTimeOnly) match {

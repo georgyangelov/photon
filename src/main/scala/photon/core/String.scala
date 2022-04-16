@@ -1,6 +1,6 @@
 package photon.core
 
-import photon.{Arguments, DefaultMethod, EValue, Location, ULiteral}
+import photon.{Arguments, DefaultMethod, EValue, Location, MethodType, ULiteral}
 import photon.ArgumentExtensions._
 
 object StringType extends StandardType {
@@ -18,8 +18,8 @@ object String extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "size" -> new DefaultMethod {
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Int
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.selfEval[StringValue]

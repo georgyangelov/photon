@@ -1,5 +1,7 @@
 package photon
 
+import photon.Arguments.{named, positional}
+import photon.core.UnknownValue
 import photon.core.operations.EParameter
 import photon.interpreter.EvalError
 
@@ -19,6 +21,16 @@ case class Arguments[+T](
     positional.map(f),
     named.view.mapValues(f).toMap
   )
+
+  def mapWithNames[R >: T](names: Seq[String])(f: (String, T) => R) = {
+    val positionalNames = names.filterNot(named.contains)
+
+    Arguments(
+      self,
+      positionalNames.zip(positional).map { case (name, value) => f(name, value) },
+      named.map { case (name, value) => name -> f(name, value) }
+    )
+  }
 
   def forall(f: T => Boolean) = f(self) && positional.forall(f) && named.view.values.forall(f)
 
@@ -46,6 +58,42 @@ case class Arguments[+T](
     )
   }
 
+  def matchWithNamesUnordered(paramNames: Seq[String]): Seq[(String, T)] = {
+    val positionalNames = paramNames.filterNot(named.contains)
+
+    val positionalParams = positionalNames.zip(positional)
+    val namedParams = named.toSeq
+
+    positionalParams ++ namedParams
+  }
+
+  def matchWith[T1](params: Seq[(String, T1)]): Seq[(String, (T, T1))] = {
+    val (positionalParams, namedParams) = params.partition { case (name, _) => named.contains(name) }
+
+    val positionalWithT1 = positionalParams
+      .zip(positional)
+      .map { case ((name, t1), value) => (name, (value, t1)) }
+
+    val namedWithT1 = namedParams
+      .map { case (name, t1) => (name, (named(name), t1)) }
+
+    positionalWithT1 ++ namedWithT1
+  }
+
+//  def matchInOrder(paramNames: Seq[String]): Seq[(String, EValue)] = {
+//
+//
+//    paramNames.map { name =>  }
+//
+//
+//    val positionalNames = paramNames.filterNot(named.contains)
+//
+//
+//    val positionalParams = positionalNames.zip(positional)
+//    val namedParams = paramNames named.toSeq
+//
+//  }
+
   //  override def toString = Unparser.unparse(
   //    ValueToAST.transformForInspection(
   //      this.asInstanceOf[Arguments[Value]]
@@ -60,6 +108,7 @@ object ArgumentExtensions {
     def getEval[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
       self.get(index, name).evaluated match {
         case value: T => value
+        case UnknownValue(_, _) => throw DelayCall
         case value =>
           if (value.isOperation) {
             // TODO: We probably don't need this if all values respect the EvalMode
@@ -72,7 +121,28 @@ object ArgumentExtensions {
             }
           } else {
             // TODO: Do I need this? Won't the typechecks handle this already?
-            throw EvalError(s"Invalid value type $self, expected a $tag value", None)
+            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
+          }
+      }
+
+    def selfEvalInlined[T <: EValue](implicit tag: ClassTag[T]) = getEvalInlined[T](0, "self")(tag)
+
+    def getEvalInlined[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
+      self.get(index, name).evaluated.inlinedValue match {
+        case value: T => value
+        case UnknownValue(_, _) => throw DelayCall
+        case value =>
+          if (value.isOperation) {
+            EValue.context.evalMode match {
+              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
+              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
+              case EvalMode.Partial |
+                   EvalMode.PartialRunTimeOnly |
+                   EvalMode.PartialPreferRunTime => throw DelayCall
+            }
+          } else {
+            // TODO: Do I need this? Won't the typechecks handle this already?
+            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
           }
       }
   }

@@ -6,9 +6,12 @@ import photon.TestHelpers._
 
 class CompileTimeEvaluationTest extends FunSuite {
   test("supports closures") {
+//    expectEvalCompileTime("val a = 1; val fn = (b:Int):Int a + b; fn(41)", "42")
+//    expectEvalCompileTime("val a = 1; val fn = (b:Int):Int a + b; fn.call(41)", "42")
+  }
+
+  test("inlines unnamed inline functions") {
     expectEvalCompileTime("(a: Int) { (b:Int) { a + b } }(1)(41)", "42")
-    expectEvalCompileTime("val a = 1; val fn = (b:Int):Int a + b; fn(41)", "42")
-    expectEvalCompileTime("val a = 1; val fn = (b:Int):Int a + b; fn.call(41)", "42")
   }
 
 //  TODO: Enable this to test
@@ -24,10 +27,9 @@ class CompileTimeEvaluationTest extends FunSuite {
     expectEvalCompileTime("'test'", "'test'")
   }
 
-  test("supports compile-time let") {
+  test("inlines dummy lets") {
     expectEvalCompileTime("val a = 42; a", "42")
     expectEvalCompileTime("val a = 42; val b = a; b", "42")
-    expectEvalCompileTime("val a = 41; val b = 1; a + b", "42")
   }
 
   test("can add numbers compile-time") {
@@ -35,7 +37,41 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("can call compile-time functions") {
-    expectEvalCompileTime("val add = (a:Int, b:Int) { a + b }; add(1, 41)", "42")
+    expectEvalCompileTime("val add = (a:Int, b:Int) { a + b }.compileTimeOnly; add(1, 41)", "42")
+  }
+
+  test("can inline functions") {
+    expectEvalCompileTime("val add = (a:Int, b:Int) { a + b }.inline; add(1, 41)", "42")
+    expectEvalCompileTime(
+      """
+      val add = (a:Int, b:Int) { a + b }.inline
+      val add1 = add
+      val add2 = add1
+
+      add2(1, 41)
+      """,
+      "42"
+    )
+    expectEvalCompileTime(
+      """
+      val add = (a:Int, b:Int) { a + b }.inline
+      val add1 = add
+
+      (val add2 = add1; add2)(1, 41)
+      """,
+      "42"
+    )
+  }
+
+  test("can constant-fold addition") {
+    expectEvalCompileTime("val a = 1; val b = 1 + a; val c = a; a + b + c", "4")
+  }
+
+  test("does not try to inline into + if it can't evaluate it fully") {
+    expectEvalCompileTime(
+      "val a = 1; val b = { 42 }.runTimeOnly.call; a + b",
+      "val a = 1; val b = (): Int { 42 }(); a + b"
+    )
   }
 
   test("does not evaluate runtime-only functions during compile-time") {

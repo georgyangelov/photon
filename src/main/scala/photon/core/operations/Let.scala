@@ -1,7 +1,7 @@
 package photon.core.operations
 
 import photon.core.{Core, StandardType, TypeRoot}
-import photon.{EValue, Location, UOperation, Variable, VariableName}
+import photon.{EValue, Location, PartialValue, UOperation, Variable, VariableName}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -27,14 +27,13 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
     val evalue = value.evaluated
     val ebody = body.evaluated
 
-    if (ebody.unboundNames.contains(name)) {
-      LetValue(name, evalue, ebody, location)
-    } else if (!ENABLE_SIDE_EFFECT_CHECK) {
-      BlockValue(Seq(evalue, ebody), location)
-    } else if (evalue.evalMayHaveSideEffects) {
-      BlockValue(Seq(evalue, ebody), location)
-    } else {
-      ebody
+    // Inline if the body is a direct reference to this let value
+    ebody match {
+      case ref: ReferenceValue if ref.variable.name == name => evalue
+      case _ if ebody.unboundNames.contains(name) => LetValue(name, evalue, ebody, location)
+      case _ if !ENABLE_SIDE_EFFECT_CHECK || evalue.evalMayHaveSideEffects =>
+        BlockValue(Seq(evalue, ebody), location)
+      case _ => ebody
     }
   }
 
@@ -57,30 +56,10 @@ case class LetValue(name: VariableName, value: EValue, body: EValue, location: O
 
   override def toUValue(core: Core) = UOperation.Let(name, value.toUValue(core), body.toUValue(core), location)
 
-  def partialValue: PartialValue = partialValue(Seq.newBuilder)
-
-  @tailrec
-  private def partialValue(variables: mutable.Builder[Variable, Seq[Variable]]): PartialValue = {
-    variables.addOne(Variable(name, value))
-
-    body match {
-      case let: LetValue => let.partialValue(variables)
-      case _ => PartialValue(body, variables.result)
-    }
-  }
-}
-
-case class PartialValue(value: EValue, variables: Seq[Variable]) {
-  def replaceWith(newValue: EValue) = PartialValue(newValue, variables)
-  def addOuterVariables(additionalVars: Seq[Variable]) = PartialValue(value, additionalVars ++ variables)
-  def addInnerVariables(additionalVars: Seq[Variable]) = PartialValue(value, variables ++ additionalVars)
-
-  def wrapBack: EValue =
-    variables.foldRight(value) { case (Variable(name, varValue), innerValue) =>
-      if (innerValue.unboundNames.contains(name)) {
-        LetValue(name, varValue, innerValue, varValue.location)
-      } else {
-        innerValue
-      }
-    }
+  override def partialValue(followReferences: Boolean): PartialValue =
+    body.partialValue(followReferences).withOuterVariable(Variable(name, value))
+//    body match {
+//      case reference: ReferenceValue => reference.partialValue(followReferences)
+//      case _ => body.partialValue(followReferences).withOuterVariable(Variable(name, value))
+//    }
 }

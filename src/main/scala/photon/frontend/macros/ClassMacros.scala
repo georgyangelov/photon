@@ -45,6 +45,47 @@ object ClassMacros {
     )
   }
 
+  def interfaceMacro(parser: Parser, location: Location): ASTValue = {
+    val name = parser.readToken(TokenType.Name, "Expected a name after interface")
+    val builderFn = parser.parseAST[ASTValue.Function]
+
+    val builderFnWithSelfArg =
+      ASTValue.Function(
+        params = Seq(
+          ASTParameter("self",
+            Some(ASTValue.NameReference("ClassBuilder", Some(location))),
+            Some(location)
+          )
+        ),
+        body = builderFn.body,
+
+        // TODO: NothingType
+        returnType = None,
+
+        location = builderFn.location
+      )
+
+    val classDefLocation = location.extendWith(parser.lastLocation)
+    val block = parser.parseRestOfBlock()
+    val letLocation = location.extendWith(parser.lastLocation)
+
+    ASTValue.Let(
+      name.string,
+      ASTValue.Call(
+        ASTValue.NameReference("Interface", Some(location)),
+        "new",
+        ASTArguments.positional(Seq(
+          ASTValue.String(name.string, Some(name.location)),
+          builderFnWithSelfArg
+        )),
+        mayBeVarCall = false,
+        Some(classDefLocation)
+      ),
+      block,
+      Some(letLocation)
+    )
+  }
+
   def defMacro(parser: Parser, location: Location): ASTValue = {
     val name = parser.readToken(TokenType.Name, "Expected a name after def")
 
@@ -85,16 +126,16 @@ object ClassMacros {
   }
 
   private def addSelfAndTypeToFn(fn: ASTValue.Function, returnType: Option[ASTValue]) = {
-    val classTypeCall = ASTValue.Call(
+    val selfTypeCall = ASTValue.Call(
       ASTValue.NameReference("self", fn.location),
-      "classType",
+      "selfType",
       ASTArguments.empty,
       mayBeVarCall = false,
       fn.location
     )
 
     ASTValue.Function(
-      params = Seq(ASTParameter("self", Some(classTypeCall), fn.location)) ++ fn.params,
+      params = Seq(ASTParameter("self", Some(selfTypeCall), fn.location)) ++ fn.params,
       body = fn.body,
       returnType = returnType.orElse(fn.returnType),
       location = fn.location

@@ -1,8 +1,8 @@
 package photon.core.operations
 
-import photon.core.{Core, StandardType, StaticType, TypeRoot}
+import photon._
+import photon.core._
 import photon.interpreter.EvalError
-import photon.{Arguments, CannotCallCompileTimeMethodInRunTimeMethod, CannotCallRunTimeMethodInCompileTimeMethod, DelayCall, EValue, EvalMode, Location, MethodType, UOperation}
 
 object Call extends StandardType {
   override val typ = TypeRoot
@@ -30,9 +30,27 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
     }
   }
 
+  // TODO: Are we safe from double-wrapping?
+  private def typeCheck(value: EValue, typ: EValue): EValue = {
+    CallValue(
+      "typeCheck",
+      Arguments.positional(
+        EValue.context.core,
+        Seq(value, typ)
+      ),
+      value.location
+    )
+  }
+
   override protected def evaluate: EValue = {
-    // TODO
-    val typeCheckedArgs = args
+    // TODO: Check that all arguments are present
+    val methodType = method.specialize(args, location)
+    val paramNames = methodType.argTypes.map(_._1)
+    val typesByName = methodType.argTypes.toMap
+
+    val typeCheckedArgs = args.mapWithNames(paramNames) { (argName, value) =>
+      EValue.context.core.typeCheck(value, typesByName(argName).assertType, location)
+    }
 
     try {
       method.call(typeCheckedArgs, location)
@@ -49,41 +67,6 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
       case CannotCallRunTimeMethodInCompileTimeMethod =>
         throw EvalError(s"Cannot call run-time-only method $name inside of compile-time-only method", location)
     }
-
-//    EValue.context.evalMode match {
-//      case EvalMode.CompileTime =>
-//        if (method.runMode == MethodRunMode.RunTimeOnly) {
-//          return this
-//        }
-//
-//        method.call(args, location)
-//
-//      // This shouldn't really happen, right? Maybe functions on classes since they won't be eliminated
-//      // TODO: Figure this out
-//      case EvalMode.Partial(MethodRunMode.CompileTimeOnly) =>
-//        if (method.runMode == MethodRunMode.RunTimeOnly) {
-//          throw EvalError("Cannot evaluate runtime-only function inside compile-time-only function", location)
-//        }
-//
-//        method.call(args, location)
-//
-//      case EvalMode.Partial(MethodRunMode.Default)
-//         | EvalMode.Partial(MethodRunMode.PreferRunTime)
-//         | EvalMode.Partial(MethodRunMode.RunTimeOnly) =>
-//        if (method.runMode == MethodRunMode.CompileTimeOnly) {
-//          return compileTimeOnlyResult(method.call(args, location))
-//        }
-//
-//        this
-//    }
-  }
-
-  private def compileTimeOnlyResult(value: EValue): EValue = {
-    if (value.isOperation) {
-      throw EvalError(s"Could not evaluate compile-time-only method $name on ${args.self.inspect}", location)
-    }
-
-    value
   }
 
   override def finalEval = CallValue(
@@ -91,8 +74,6 @@ case class CallValue(name: String, args: Arguments[EValue], location: Option[Loc
     args.map(_.finalEval),
     location
   )
-
-//  private lazy val argTypes = args.map { arg => arg.evalType.getOrElse(arg.typ) }
 
   private lazy val method = {
     val evalType = args.self.evalType

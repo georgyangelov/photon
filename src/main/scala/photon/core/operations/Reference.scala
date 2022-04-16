@@ -1,7 +1,7 @@
 package photon.core.operations
 
 import photon.core.{Core, StandardType, TypeRoot}
-import photon.{EValue, EvalMode, Location, UOperation, Variable}
+import photon.{EValue, EvalMode, Location, PartialValue, UOperation, Variable}
 
 object Reference extends StandardType {
   override val typ = TypeRoot
@@ -19,7 +19,6 @@ case class ReferenceValue(variable: Variable, location: Option[Location]) extend
   override def evalType = Some(variable.value.evalType.getOrElse(variable.value.typ))
   override def toUValue(core: Core) = UOperation.Reference(variable.name, location)
 
-  // TODO: Cache result of this based on evalMode
   override protected def evaluate: EValue =
     EValue.context.evalMode match {
       case EvalMode.CompileTimeOnly |
@@ -32,4 +31,12 @@ case class ReferenceValue(variable: Variable, location: Option[Location]) extend
     }
 
   override def finalEval = this
+  override def partialValue(followReferences: Boolean) =
+    if (followReferences) {
+      variable.value.evaluated.partialValue(followReferences)
+    } else {
+      PartialValue(this, Seq.empty)
+    }
+
+  override def inlinedValue = variable.value.evaluated.inlinedValue
 }

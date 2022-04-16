@@ -18,4 +18,5 @@ case class LazyValue(lazyValue: photon.lib.Lazy[EValue], location: Option[Locati
   override def toUValue(core: Core) = inconvertible
   override def evaluate = lazyValue.resolve.evaluated
   override def finalEval = lazyValue.resolve.finalEval
+  override def partialValue(followReferences: Boolean) = lazyValue.resolve.partialValue(followReferences)
 }

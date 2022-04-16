@@ -3,7 +3,7 @@ package photon.core
 import photon.frontend.{ASTValue, Parser, StaticScope}
 import photon.frontend.macros.ClassMacros
 import photon.interpreter.EvalError
-import photon.{Arguments, EValue, Location, Method, MethodType, Scope, UOperation, Variable, VariableName}
+import photon.{Arguments, CompileTimeOnlyMethod, EValue, EvalMode, Location, MethodType, Scope, UOperation, Variable, VariableName}
 import photon.ArgumentExtensions._
 
 object CoreType extends StandardType {
@@ -11,10 +11,10 @@ object CoreType extends StandardType {
   override def unboundNames = Set.empty
   override val location = None
   override val methods = Map(
-    "typeCheck" -> new Method {
+    "typeCheck" -> new CompileTimeOnlyMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) = {
-        val valueArg = args.get(0, "value")
-        val typeArg = args.getEval(1, "type")
+        val valueArg = args.get(1, "value")
+        val typeArg = args.get(2, "type").assertType
 
         MethodType.of(
           Seq(
@@ -25,16 +25,11 @@ object CoreType extends StandardType {
         )
       }
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val value = args.positional.head
-        val typ = args.getEval[Type](1, "type")
-        val valueTyp = value.evalType.getOrElse(value.typ)
+        val typ = args.get(1, "type").assertType
 
-        if (valueTyp != typ) {
-          throw EvalError(s"Invalid value ${value.inspect}: ${valueTyp.inspect} for type ${typ.inspect}", location)
-        }
-
-        value.evaluated
+        EValue.context.core.typeCheck(value, typ, location).evaluated
       }
     }
   )
@@ -54,6 +49,7 @@ class Core extends EValue {
   lazy val globals = Globals.of(
     "Core" -> this,
     "Type" -> TypeRoot,
+    "Static" -> StaticType,
     "Bool" -> photon.core.Bool,
     "Int" -> photon.core.Int,
     "Float" -> photon.core.Float,
@@ -61,6 +57,7 @@ class Core extends EValue {
     "List" -> photon.core.List,
     "Function" -> photon.core.operations.FunctionRoot,
     "Class" -> photon.core.ClassRoot,
+    "Interface" -> photon.core.InterfaceRoot,
     "ClassBuilder" -> photon.core.ClassBuilderRoot,
     "Optional" -> photon.core.OptionalRoot
   )
@@ -70,6 +67,7 @@ class Core extends EValue {
 
   val macros = Map[String, (Parser, Location) => ASTValue](
     "class" -> ClassMacros.classMacro,
+    "interface" -> ClassMacros.interfaceMacro,
     "def" -> ClassMacros.defMacro
   )
 
@@ -78,6 +76,20 @@ class Core extends EValue {
 
   def referenceTo(value: EValue, location: Option[Location]) =
     globals.referenceTo(value, location)
+
+  def typeCheck(value: EValue, typ: Type, location: Option[Location]): EValue = {
+    val valueTyp = value.evalType.getOrElse(value.typ)
+
+    if (typ == StaticType) {
+      return value
+    }
+
+    if (valueTyp != typ) {
+      throw EvalError(s"Invalid value ${value.inspect}: ${valueTyp.inspect} for type ${typ.inspect}", location)
+    }
+
+    value
+  }
 }
 
 object Globals {

@@ -1,5 +1,6 @@
 package photon
 
+import photon.core.operations.LetValue
 import photon.interpreter.{EvalError, Interpreter}
 import photon.core.{Core, Type}
 
@@ -59,7 +60,7 @@ trait EValue {
   protected def inconvertible =
     throw EvalError(s"Cannot convert value of class ${this.getClass.getName} to UValue", location)
 
-  // TODO: Cache based on EvalMode? Or cache just in Reference
+  // TODO: Cache based on EvalMode. Otherwise we may end up calling side-effectful functions more than once
 //  def evaluated = evaluate(evalMode)
 //  lazy val evaluated: EValue = evaluate
   def evaluated = evaluate
@@ -70,6 +71,9 @@ trait EValue {
 
   // TODO: Better name? Finalize? Compile? Optimize?
   def finalEval: EValue
+
+  def partialValue(followReferences: Boolean): PartialValue = PartialValue(this, Seq.empty)
+  def inlinedValue: EValue = this
 
   def evalType: Option[Type]
   def evalMayHaveSideEffects: Boolean
@@ -84,5 +88,21 @@ trait EValue {
     this.evaluated(EvalMode.CompileTimeOnly) match {
       case value: T => value
       case _ => throw EvalError(s"Invalid value $this, expected a $tag value", location)
+    }
+}
+
+case class PartialValue(value: EValue, variables: Seq[Variable]) {
+  def replaceWith(newValue: EValue) = PartialValue(newValue, variables)
+  def addOuterVariables(additionalVars: Seq[Variable]) = PartialValue(value, additionalVars ++ variables)
+  def addInnerVariables(additionalVars: Seq[Variable]) = PartialValue(value, variables ++ additionalVars)
+  def withOuterVariable(variable: Variable) = PartialValue(value, variables :+ variable)
+
+  def wrapBack: EValue =
+    variables.foldRight(value) { case (Variable(name, varValue), innerValue) =>
+      if (innerValue.unboundNames.contains(name)) {
+        LetValue(name, varValue, innerValue, varValue.location)
+      } else {
+        innerValue
+      }
     }
 }

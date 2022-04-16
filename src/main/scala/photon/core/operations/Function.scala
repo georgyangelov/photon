@@ -3,7 +3,7 @@ package photon.core.operations
 import photon.ArgumentExtensions._
 import photon.core.{Core, StandardType, Type, TypeRoot, UnknownValue}
 import photon.interpreter.{EvalError, URename}
-import photon.{Arguments, CannotCallCompileTimeMethodInRunTimeMethod, CannotCallRunTimeMethodInCompileTimeMethod, CompileTimeOnlyMethod, DelayCall, EValue, EValueContext, EvalMode, InlinePreference, Location, Method, MethodRunMode, MethodType, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
+import photon.{Arguments, CannotCallCompileTimeMethodInRunTimeMethod, CannotCallRunTimeMethodInCompileTimeMethod, CompileTimeOnlyMethod, DelayCall, EValue, EValueContext, EvalMode, InlinePreference, Location, Method, MethodRunMode, MethodType, PartialValue, Scope, UFunction, UOperation, UParameter, UValue, Variable, VariableName}
 
 object FunctionDef extends StandardType {
   override val typ = TypeRoot
@@ -60,7 +60,7 @@ object FunctionRootType extends StandardType {
   override val location = None
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "call" -> new Method {
+    "call" -> new CompileTimeOnlyMethod {
       override def specialize(args: Arguments[EValue], location: Option[Location]) = {
         if (args.positional.nonEmpty) {
           throw EvalError("Function type parameters must be named", location)
@@ -72,7 +72,7 @@ object FunctionRootType extends StandardType {
         )
       }
 
-      override def call(args: Arguments[EValue], location: Option[Location]) = {
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         val returnType = args.named.getOrElse(
           "returns",
           throw EvalError("Function type must have a `returns` argument", location)
@@ -96,6 +96,13 @@ object FunctionRoot extends StandardType {
   override val location = None
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map.empty
+}
+
+sealed trait FunctionEvalRequest
+object FunctionEvalRequest {
+  case object ForceEval extends FunctionEvalRequest
+  case object InlineIfPossible extends FunctionEvalRequest
+  case object InlineIfDefinedInline extends FunctionEvalRequest
 }
 
 case class FunctionT(
@@ -189,27 +196,27 @@ case class FunctionT(
           returnType.assertType
         )
 
-      private def shouldRunFully(evalMode: EvalMode) = evalMode match {
+      private def evalRequest(evalMode: EvalMode) = evalMode match {
         case EvalMode.RunTime => runMode match {
           case MethodRunMode.CompileTimeOnly => throw CannotCallCompileTimeMethodInRunTimeMethod
-          case MethodRunMode.Default => true
-          case MethodRunMode.PreferRunTime => true
-          case MethodRunMode.RunTimeOnly => true
+          case MethodRunMode.Default => FunctionEvalRequest.ForceEval
+          case MethodRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
+          case MethodRunMode.RunTimeOnly => FunctionEvalRequest.ForceEval
         }
 
         case EvalMode.CompileTimeOnly => runMode match {
-          case MethodRunMode.CompileTimeOnly => true
-          case MethodRunMode.Default => true
-          case MethodRunMode.PreferRunTime => true
+          case MethodRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
+          case MethodRunMode.Default => FunctionEvalRequest.ForceEval
+          case MethodRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
           case MethodRunMode.RunTimeOnly => throw CannotCallRunTimeMethodInCompileTimeMethod
         }
 
         case EvalMode.Partial => runMode match {
-          case MethodRunMode.CompileTimeOnly => true
+          case MethodRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
           case MethodRunMode.Default =>
             inlinePreference match {
-              case InlinePreference.ForceInline => false
-              case InlinePreference.Default => throw DelayCall
+              case InlinePreference.ForceInline => FunctionEvalRequest.InlineIfPossible
+              case InlinePreference.Default => FunctionEvalRequest.InlineIfDefinedInline
               case InlinePreference.NoInline => throw DelayCall
             }
 
@@ -219,7 +226,7 @@ case class FunctionT(
 
         case EvalMode.PartialRunTimeOnly |
              EvalMode.PartialPreferRunTime => runMode match {
-          case MethodRunMode.CompileTimeOnly => true
+          case MethodRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
           case MethodRunMode.Default => throw DelayCall
           case MethodRunMode.PreferRunTime => throw DelayCall
           case MethodRunMode.RunTimeOnly => throw DelayCall
@@ -235,45 +242,44 @@ case class FunctionT(
       }
 
       override def call(args: Arguments[EValue], location: Option[Location]): EValue = {
-        val shouldRunFully = this.shouldRunFully(EValue.context.evalMode)
+        val evalRequest = this.evalRequest(EValue.context.evalMode)
 
-        if (shouldRunFully) {
-          // We should execute the function fully, nothing left for later
+        evalRequest match {
+          case FunctionEvalRequest.ForceEval =>
+            // We should execute the function fully, nothing left for later
 
-          val context = EValueContext(
-            interpreter = EValue.context.interpreter,
-            evalMode = forcedEvalMode(EValue.context.evalMode)
-          )
+            val context = EValueContext(
+              interpreter = EValue.context.interpreter,
+              evalMode = forcedEvalMode(EValue.context.evalMode)
+            )
 
-          EValue.withContext(context) {
-            val fn = args.selfEval[FunctionValue]
-            val self = PartialValue(fn, Seq.empty)
-            val bodyWrappedInLets = buildCodeForExecution(fn, self, args, location)
+            EValue.withContext(context) {
+              val fn = args.selfEval[FunctionValue]
+              val self = PartialValue(fn, Seq.empty)
 
-            val result = bodyWrappedInLets.evaluated
-            if (result.isOperation) {
-              throw EvalError(s"Could not fully evaluate function $fn", location)
+              // TODO: To avoid infinite recursion, this should check that the args can be fully evaluated first
+              val bodyWrappedInLets = buildCodeForExecution(fn, self, args, location)
+
+              val result = bodyWrappedInLets.evaluated
+              if (result.isOperation) {
+                throw EvalError(s"Could not fully evaluate function $fn", location)
+              }
+
+              result
             }
 
-            result
-          }
-        } else {
-          // We're asked to inline the function, if possible
+          case _ =>
+            val partialSelf = args.self.evaluated.partialValue(
+              followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
+            )
+            val fn = partialSelf.value match {
+              case fn: FunctionValue => fn
+              case value if value.isOperation => throw DelayCall
+              case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
+            }
 
-          val partialSelf = args.self.evaluated match {
-            case letValue: LetValue => letValue.partialValue
-            case value if value.isOperation => throw DelayCall
-            case value => PartialValue(value, Seq.empty)
-          }
-
-          val fn = partialSelf.value match {
-            case value: FunctionValue => value
-            case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
-          }
-
-          val bodyWrappedInLets = buildCodeForExecution(fn, partialSelf, args, location)
-
-          bodyWrappedInLets.evaluated
+            val bodyWrappedInLets = buildCodeForExecution(fn, partialSelf, args, location)
+            bodyWrappedInLets.evaluated
         }
       }
 
@@ -289,7 +295,7 @@ case class FunctionT(
         }
 
         val paramNames = params.map(_.name)
-        val matchedArguments = matchArguments(paramNames, args)
+        val matchedArguments = args.matchWithNamesUnordered(paramNames)
 
         val localVariables = matchedArguments.map { case name -> value =>
           value match {
@@ -321,27 +327,6 @@ case class FunctionT(
       }
     }
   )
-
-  private def matchArguments(paramNames: Seq[String], args: Arguments[EValue]): Seq[(String, EValue)] = {
-    val positionalNames = paramNames.filterNot(args.named.contains)
-
-    val positionalParams = positionalNames.zip(args.positional)
-    val namedParams = args.named.toSeq
-
-    positionalParams ++ namedParams
-
-//    val namedParams = namesOfnamedParams.map { name =>
-//      // TODO: This should use the name of the actual parameter always, it should not try to rename it.
-//      //       This means parameters may have an "external" name and an "internal" name, probably something
-//      //       like `sendEmail = (to as address, subject) { # This uses address and not to }; sendEmail(to = 'email@example.com')`
-//      args.named.get(name) match {
-//        case Some(value) => (name, value)
-//        case None => throw EvalError(s"Argument $name not specified in method call", location)
-//      }
-//    }
-
-
-  }
 
   // TODO: Add reference to FunctionRoot?
   override def unboundNames = params.flatMap(_.typ.unboundNames).toSet
@@ -379,12 +364,21 @@ case class FunctionValue(
   override def evalMayHaveSideEffects = false
   override protected def evaluate: EValue = this
 
-  override def finalEval = {
+  override def finalEval: FunctionValue = {
     val partialScope = scope.newChild(typ.params.map { param =>
       Variable(nameMap(param.name), UnknownValue(param.typ.assertType, param.location))
     })
 
-    val partialContext = EValue.context.copy(evalMode = EvalMode.Partial(typ.runMode))
+    val evalMode = typ.runMode match {
+      // TODO: Do I need to partially evaluate this at all?
+      case MethodRunMode.CompileTimeOnly => return this
+
+      case MethodRunMode.Default => EvalMode.Partial
+      case MethodRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
+      case MethodRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
+    }
+
+    val partialContext = EValue.context.copy(evalMode = evalMode)
     val ebody = EValue.withContext(partialContext) {
       partialContext.toEValue(body, partialScope).evaluated.finalEval
     }

@@ -30,8 +30,8 @@ object Float extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[FloatValue]
-        val other = args.getEval[FloatValue](1, "other")
+        val self = args.selfEvalInlined[FloatValue]
+        val other = args.getEvalInlined[FloatValue](1, "other")
 
         FloatValue(self.value + other.value, location)
       }
@@ -45,8 +45,8 @@ object Float extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[FloatValue]
-        val other = args.getEval[FloatValue](1, "other")
+        val self = args.selfEvalInlined[FloatValue]
+        val other = args.getEvalInlined[FloatValue](1, "other")
 
         FloatValue(self.value - other.value, location)
       }

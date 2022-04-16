@@ -2,7 +2,7 @@ package photon.core
 
 import photon.core.operations.CallValue
 import photon.interpreter.EvalError
-import photon.{Arguments, DefaultMethod, EValue, Location}
+import photon.{Arguments, DefaultMethod, EValue, Location, MethodType}
 import photon.lib.ScalaExtensions._
 import photon.ArgumentExtensions._
 
@@ -13,7 +13,15 @@ object ListType extends StandardType {
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "of" -> new DefaultMethod {
-      override def typeCheck(args: Arguments[EValue]) = List
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        val firstType = args.positional.head.evalType.getOrElse(args.positional.head.typ)
+
+        MethodType.of(
+          args.positional.zipWithIndex.map { case (_, index) => s"item${index + 1}" -> firstType },
+          List
+        )
+      }
+
       override def run(args: Arguments[EValue], location: Option[Location]) = {
         if (args.named.nonEmpty) {
           throw EvalError("Cannot call List.of with named arguments", location)
@@ -24,7 +32,9 @@ object ListType extends StandardType {
     },
 
     "empty" -> new DefaultMethod {
-      override def typeCheck(args: Arguments[EValue]) = List
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, List)
+
       override def run(args: Arguments[EValue], location: Option[Location]) =
         ListValue(Seq.empty, location)
     }
@@ -38,8 +48,9 @@ object List extends StandardType {
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
     "size" -> new DefaultMethod {
-      // TODO: Actually type check arguments
-      override def typeCheck(args: Arguments[EValue]) = Int
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
+
       override def run(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.selfEval[ListValue]
 
@@ -49,7 +60,8 @@ object List extends StandardType {
 
     "get" -> new DefaultMethod {
       // TODO: Actual type here
-      override def typeCheck(args: Arguments[EValue]) = Int
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
         val self = args.selfEval[ListValue]

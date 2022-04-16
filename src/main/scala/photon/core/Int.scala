@@ -33,8 +33,8 @@ object Int extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]): EValue = {
-        val self = args.selfEval[IntValue]
-        val other = args.getEval[IntValue](1, "other")
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
         IntValue(self.value + other.value, location)
       }
@@ -48,8 +48,8 @@ object Int extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[IntValue]
-        val other = args.getEval[IntValue](1, "other")
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
         IntValue(self.value - other.value, location)
       }
@@ -63,8 +63,8 @@ object Int extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[IntValue]
-        val other = args.getEval[IntValue](1, "other")
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
         IntValue(self.value * other.value, location)
       }
@@ -78,8 +78,8 @@ object Int extends StandardType {
         )
 
       override def run(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[IntValue]
-        val other = args.getEval[IntValue](1, "other")
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
         BoolValue(self.value == other.value, location)
       }

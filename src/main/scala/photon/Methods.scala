@@ -21,7 +21,7 @@ object InlinePreference {
   object NoInline    extends InlinePreference
 }
 
-sealed abstract class MethodCallThrowable extends ControlThrowable
+sealed trait MethodCallThrowable extends ControlThrowable
 case object CannotCallRunTimeMethodInCompileTimeMethod extends MethodCallThrowable
 case object CannotCallCompileTimeMethodInRunTimeMethod extends MethodCallThrowable
 case object DelayCall                                  extends MethodCallThrowable

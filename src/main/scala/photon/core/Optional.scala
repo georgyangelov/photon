@@ -10,11 +10,11 @@ object OptionalRootType extends StandardType {
   override def typ = TypeRoot
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "call" -> new CompileTimeOnlyMethod {
-      override def typeCheck(args: Arguments[EValue]) = Optional(args.positional.head, None).typ
-      override def run(args: Arguments[EValue], location: Option[Location]) =
-        Optional(args.positional.head, location)
-    }
+//    "call" -> new CompileTimeOnlyMethod {
+//      override def typeCheck(args: Arguments[EValue]) = Optional(args.positional.head, None).typ
+//      override def run(args: Arguments[EValue], location: Option[Location]) =
+//        Optional(args.positional.head, location)
+//    }
   )
 }
 object OptionalRoot extends StandardType {
@@ -31,22 +31,22 @@ case class OptionalT(optional: Optional) extends StandardType {
   override val location = optional.location
   override def toUValue(core: Core) = inconvertible
   override val methods = Map(
-    "empty" -> new DefaultMethod {
-      override def typeCheck(args: Arguments[EValue]) = optional
-      override def run(args: Arguments[EValue], location: Option[Location]) =
-        OptionalValue(optional, None, location)
-    },
-
-    "of" -> new DefaultMethod {
-      override def typeCheck(args: Arguments[EValue]) = optional
-      override def run(args: Arguments[EValue], location: Option[Location]) = {
-        // Intentionally not using getEval as we want to evaluate this so that methods
-        // can be called on it later, potentially unwrapping (inlining) the value wherever used
-        val value = args.get(1, "value").evaluated
-
-        OptionalValue(optional, Some(value), location)
-      }
-    }
+//    "empty" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = optional
+//      override def run(args: Arguments[EValue], location: Option[Location]) =
+//        OptionalValue(optional, None, location)
+//    },
+//
+//    "of" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = optional
+//      override def run(args: Arguments[EValue], location: Option[Location]) = {
+//        // Intentionally not using getEval as we want to evaluate this so that methods
+//        // can be called on it later, potentially unwrapping (inlining) the value wherever used
+//        val value = args.get(1, "value").evaluated
+//
+//        OptionalValue(optional, Some(value), location)
+//      }
+//    }
   )
 }
 case class Optional(innerType: EValue, location: Option[Location]) extends StandardType {
@@ -62,10 +62,10 @@ case class Optional(innerType: EValue, location: Option[Location]) extends Stand
   override def finalEval = Optional(innerType.finalEval, location)
 
   override val methods = Map(
-    "assert" -> new DefaultMethod {
-      override def typeCheck(args: Arguments[EValue]) = ???
-      override def run(args: Arguments[EValue], location: Option[Location]) = ???
-    }
+//    "assert" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = ???
+//      override def run(args: Arguments[EValue], location: Option[Location]) = ???
+//    }
   )
 }
 
