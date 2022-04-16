@@ -1,4 +1,4 @@
-package photon
+package photon.base
 
 class PhotonError(
   message: String,

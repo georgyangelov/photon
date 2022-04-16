@@ -1,4 +1,4 @@
-package photon
+package photon.base
 
 object Location {
   def beginningOfFile(fileName: String): Location =

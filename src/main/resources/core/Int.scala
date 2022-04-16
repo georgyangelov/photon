@@ -1,128 +1,98 @@
 package photon.core
 
-import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
-import photon.core.Conversions._
-import photon.interpreter.CallContext
+import photon.{Arguments, DefaultMethod, EValue, Location, ULiteral, MethodType}
+import photon.ArgumentExtensions._
 
-object IntParams {
-  val FirstParam: Parameter = Parameter(0, "first")
-  val SecondParam: Parameter = Parameter(1, "second")
-}
+object IntType extends StandardType {
+  override val typ = TypeRoot
+  override def unboundNames = Set.empty
+  override val location = None
+  override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+    "answer" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
 
-import IntParams._
-
-object IntTypeType extends New.TypeObject {
-  override val typeObject = TypeType
-  override val instanceMethods = Map(
-    "answer" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "answer",
-        arguments = Seq.empty,
-        returns = IntType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Int(42, location)
+      override def run(args: Arguments[EValue], location: Option[Location]) =
+        IntValue(42, location)
     }
   )
 }
 
-object IntType extends New.TypeObject {
-  override val typeObject = IntTypeType
+object Int extends StandardType {
+  override val typ = IntType
+  override def unboundNames = Set.empty
+  override val location = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+  override val methods = Map(
+    "+" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-  override val instanceMethods = Map(
-    "+" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "+",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
+      override def run(args: Arguments[EValue], location: Option[Location]): EValue = {
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
-
-        PureValue.Int(a + b, location)
+        IntValue(self.value + other.value, location)
       }
     },
 
-    "-" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "-",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
+    "-" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
-        PureValue.Int(a - b, location)
+        IntValue(self.value - other.value, location)
       }
     },
 
-    "*" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "*",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = IntType
-      )
+    "*" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Int
+        )
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getInt(SecondParam)
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
-        PureValue.Int(a * b, location)
+        IntValue(self.value * other.value, location)
       }
     },
 
-//    "/" -> new New.StandardMethod {
-//      override val name = "/"
-//      override val arguments = Seq(
-//        ArgumentType("other", FloatType)
-//      )
-//      override val returns = FloatType
-//
-//      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//        val a = args.getInt(FirstParam)
-//        val b = args.getFloat(SecondParam)
-//
-//        PureValue.Float(a / b, location)
-//      }
-//    },
+    "==" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(
+          Seq("other" -> Int),
+          Bool
+        )
 
-    "==" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "==",
-        arguments = Seq(
-          ArgumentType("other", IntType)
-        ),
-        returns = BoolType
-      )
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEvalInlined[IntValue]
+        val other = args.getEvalInlined[IntValue](1, "other")
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val a = args.getInt(FirstParam)
-        val b = args.getFloat(SecondParam)
-
-        PureValue.Boolean(a == b, location)
+        BoolValue(self.value == other.value, location)
       }
-    },
-
-    "toBool" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "toBool",
-        arguments = Seq.empty,
-        returns = BoolType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Boolean(value = true, location)
     }
   )
+}
+
+case class IntValue(value: scala.Int, location: Option[Location]) extends EValue {
+  override val typ = Int
+  override def unboundNames = Set.empty
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override def toUValue(core: Core) = ULiteral.Int(value, location)
+  override def evaluate = this
+  override def finalEval = this
 }

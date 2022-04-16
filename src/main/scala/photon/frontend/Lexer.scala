@@ -1,7 +1,8 @@
 package photon.frontend
 
+import photon.base._
+import photon.frontend
 import photon.lib.PushbackStringReader
-import photon.{Location, PhotonError, frontend}
 
 import java.io._
 import scala.util.control.Breaks._

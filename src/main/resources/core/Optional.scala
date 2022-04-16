@@ -1,100 +1,93 @@
 package photon.core
 
-import photon.{AnyType, ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType}
-import photon.interpreter.{CallContext, EvalError}
-import photon.core.Conversions._
+import photon.core.operations.CallValue
+import photon.{Arguments, CompileTimeOnlyMethod, DefaultMethod, EValue, Location}
+import photon.ArgumentExtensions._
 
-// Optional.$type
-object OptionalObjectType extends New.TypeObject {
-  override val typeObject = TypeType
-
-  override val instanceMethods = Map(
-    // Optional(_)
-    // TODO: Results of this should get memoized so that the type references are the same
-    "call" -> new New.CompileTimeOnlyMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "call",
-        arguments = Seq(
-          ArgumentType("innerType", TypeType)
-        ),
-        returns = AnyType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Native(OptionalType(args.getNative[New.TypeObject](Parameter(1, "innerType"))), location)
-    }
+object OptionalRootType extends StandardType {
+  override val location = None
+  override def unboundNames = Set.empty
+  override def typ = TypeRoot
+  override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+//    "call" -> new CompileTimeOnlyMethod {
+//      override def typeCheck(args: Arguments[EValue]) = Optional(args.positional.head, None).typ
+//      override def run(args: Arguments[EValue], location: Option[Location]) =
+//        Optional(args.positional.head, location)
+//    }
   )
 }
-// Optional
-object OptionalObject extends New.NativeObject(OptionalObjectType)
+object OptionalRoot extends StandardType {
+  override def typ = OptionalRootType
+  override def unboundNames = Set.empty
+  override val location = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+  override val methods = Map.empty
+}
 
-case class OptionalType(innerType: New.TypeObject) extends New.TypeObject {
-  val self = this
+case class OptionalT(optional: Optional) extends StandardType {
+  override def typ = TypeRoot
+  override def unboundNames = Set.empty
+  override val location = optional.location
+  override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+//    "empty" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = optional
+//      override def run(args: Arguments[EValue], location: Option[Location]) =
+//        OptionalValue(optional, None, location)
+//    },
+//
+//    "of" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = optional
+//      override def run(args: Arguments[EValue], location: Option[Location]) = {
+//        // Intentionally not using getEval as we want to evaluate this so that methods
+//        // can be called on it later, potentially unwrapping (inlining) the value wherever used
+//        val value = args.get(1, "value").evaluated
+//
+//        OptionalValue(optional, Some(value), location)
+//      }
+//    }
+  )
+}
+case class Optional(innerType: EValue, location: Option[Location]) extends StandardType {
+  override lazy val typ = OptionalT(this)
+  override def unboundNames = innerType.unboundNames
+  override def toUValue(core: Core) =
+    CallValue(
+      "call",
+      Arguments.positional(OptionalRoot, Seq(innerType)),
+      location
+    ).toUValue(core)
 
-  override val typeObject: New.TypeObject = new New.TypeObject {
-    override val typeObject = TypeType
-    override val instanceMethods = Map(
-      "of" -> new New.StandardMethod {
-        override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-          name = "of",
-          arguments = Seq(ArgumentType("value", innerType)),
-          returns = self
-        )
+  override def finalEval = Optional(innerType.finalEval, location)
 
-        override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-          PureValue.Native(
-            new OptionalInstance(self, Some(args.get(Parameter(1, "value")))),
-            location
-          )
-        }
-      },
-
-      "none" -> new New.StandardMethod {
-        override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-          name = "none",
-          arguments = Seq.empty,
-          returns = self
-        )
-
-        override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-          PureValue.Native(
-            new OptionalInstance(self, None),
-            location
-          )
-        }
-      }
-    )
-  }
-
-  override val instanceMethods = Map(
-    "present?" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "present?",
-        arguments = Seq.empty,
-        returns = BoolType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val optional = args.getNativeSelf[OptionalInstance]
-
-        PureValue.Boolean(optional.value.isDefined, location)
-      }
-    },
-
-    "get" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "get",
-        arguments = Seq.empty,
-        returns = innerType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val optional = args.getNativeSelf[OptionalInstance]
-
-        optional.value.getOrElse { throw EvalError("Tried to unwrap an empty optional", location) }
-      }
-    }
+  override val methods = Map(
+//    "assert" -> new DefaultMethod {
+//      override def typeCheck(args: Arguments[EValue]) = ???
+//      override def run(args: Arguments[EValue], location: Option[Location]) = ???
+//    }
   )
 }
 
-class OptionalInstance(typeObject: OptionalType, val value: Option[RealValue]) extends New.NativeObject(typeObject)
+case class OptionalValue(typ: Optional, innerValue: Option[EValue], location: Option[Location]) extends EValue {
+  override def evalType = None
+  override def unboundNames = innerValue.map(_.unboundNames).getOrElse(Set.empty)
+  override def evalMayHaveSideEffects = false
+  override def toUValue(core: Core) =
+    if (innerValue.isDefined) {
+      CallValue(
+        "of",
+        Arguments.positional(typ, Seq(innerValue.get)),
+        location
+      ).toUValue(core)
+    } else {
+      CallValue(
+        "empty",
+        Arguments.empty(typ),
+        location
+      ).toUValue(core)
+    }
+
+  override protected def evaluate: EValue = this
+  override def finalEval = this
+}

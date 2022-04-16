@@ -1,154 +1,84 @@
 package photon.core
-import photon.interpreter.{CallContext, EvalError}
-import photon.{ArgumentType, Arguments, Location, MethodType, New, PureValue, RealValue, TypeType, Value}
-import photon.core.Conversions._
 
-object ListTypeType extends New.TypeObject {
-  override val typeObject = TypeType
+import photon.core.operations.CallValue
+import photon.interpreter.EvalError
+import photon.{Arguments, DefaultMethod, EValue, Location, MethodType}
+import photon.lib.ScalaExtensions._
+import photon.ArgumentExtensions._
 
-  override val instanceMethods = Map(
-    "of" -> new New.StandardMethod {
-      override def methodType(argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "of",
-        // TODO: Varargs
-        arguments = Seq.empty,
-        returns = ListType
-      )
+object ListType extends StandardType {
+  override val typ = TypeRoot
+  override def unboundNames = Set.empty
+  override val location = None
+  override def toUValue(core: Core) = inconvertible
+  override val methods = Map(
+    "of" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        val firstType = args.positional.head.evalType.getOrElse(args.positional.head.typ)
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
+        MethodType.of(
+          args.positional.zipWithIndex.map { case (_, index) => s"item${index + 1}" -> firstType },
+          List
+        )
+      }
+
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
         if (args.named.nonEmpty) {
           throw EvalError("Cannot call List.of with named arguments", location)
         }
 
-        PureValue.Native(List(args.positional), location)
+        ListValue(args.positional.map(_.evaluated), location)
       }
     },
 
-    "empty" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "empty",
-        arguments = Seq.empty,
-        returns = ListType
-      )
+    "empty" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, List)
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Native(List(Seq.empty), location)
+      override def run(args: Arguments[EValue], location: Option[Location]) =
+        ListValue(Seq.empty, location)
     }
   )
 }
 
-object ListType extends New.TypeObject {
-  override val typeObject = ListTypeType
+object List extends StandardType {
+  override val typ = ListType
+  override def unboundNames = Set.empty
+  override val location = None
+  override def toUValue(core: Core) = core.referenceTo(this, location)
+  override val methods = Map(
+    "size" -> new DefaultMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
 
-  val instanceMethods = Map(
-    "size" -> new New.StandardMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "size",
-        arguments = Seq.empty,
-        returns = IntType
-      )
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[ListValue]
 
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-        PureValue.Int(args.getNativeSelf[List].values.length, location)
+        IntValue(self.values.length, location)
+      }
     },
 
-//    TODO: Implement these
-//    "get" -> ???,
-//    "map" -> ???,
-//    "reduce" -> ???
+    "get" -> new DefaultMethod {
+      // TODO: Actual type here
+      override def specialize(args: Arguments[EValue], location: Option[Location]) =
+        MethodType.of(Seq.empty, Int)
+
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val self = args.selfEval[ListValue]
+        val index = args.getEval[IntValue](1, "index").value
+
+        self.values(index)
+      }
+    }
   )
 }
 
-case class List(values: Seq[Value]) extends New.NativeObject(ListType)
-
-
-//object ListRoot extends NativeObject(CoreTypes.Type, Map(
-//  "of" -> new {} with PureMethod {
-//    // TODO: Support partial evaluation
-//    // TODO: This needs to be partial only? So that any values that are references are kept as
-//    //       references if needed to be converted to ASTValue
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//      if (args.named.nonEmpty) {
-//        throw EvalError("Cannot call List.of with named arguments", location)
-//      }
-//
-//      PureValue.Native(List(args.positional), location)
-//    }
-//  },
-//
-//  "empty" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Native(List(Seq.empty), location)
-//  }
-//)) with Type {
-//  override def methodTypes = Seq.empty
-//}
-//
-//// TODO: Make this a persistent structure
-//case class List(values: Seq[Value]) extends NativeObject(CoreTypes.List, Map(
-//  "size" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      PureValue.Int(values.length, location)
-//  },
-//
-//  "get" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//      values(args.getInt(Parameter(1, "index")))
-//  },
-//
-//  // TODO: Make it work in partial context, executing only on some of the elements
-//  "map" -> new {} with PureMethod {
-//    // This will only get called when all of the values inside are fully known
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//      val fn = args.getFunction(Parameter(1, "fn"))
-//      val fnCall = Core.nativeValueFor(fn)
-//        .method("call", location)
-//        .getOrElse { throw EvalError("Cannot invoke 'call' on the fn passed", location) }
-//
-//      val list = List(values.map { value => {
-//        // Using this for the identity fn
-//        val realValue = value.realValue
-//          .getOrElse { throw EvalError("List#map called on non-fully known list", location) }
-//
-//        fnCall.call(
-//          context,
-//          Arguments.positional(Seq(realValue)),
-//          location
-//        )
-//      }})
-//
-//      PureValue.Native(list, location)
-//    }
-//  },
-//
-//  "reduce" -> new {} with PureMethod {
-//    override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-//      val initialValue = args.get(Parameter(1, "initialValue"))
-//      val fn = args.getFunction(Parameter(2, "fn"))
-//
-//      val fnCall = Core.nativeValueFor(fn)
-//        .method("call", location)
-//        .getOrElse { throw EvalError("Cannot invoke 'call' on the fn passed", location) }
-//
-//      val initial = initialValue.realValue
-//        .getOrElse { throw EvalError("List#reduce called with unknown initial value", location) }
-//
-//      val result = values.foldLeft[Value](initial) { (accumulator, value) =>
-//        // TODO: Support partial evaluation and remove these
-//        val realAccumulator = accumulator.realValue
-//          .getOrElse { throw EvalError("Accumulator is not real", location) }
-//
-//        val realValue = value.realValue
-//          .getOrElse { throw EvalError("List#reduce called on non-fully known list", location) }
-//
-//        fnCall.call(
-//          context,
-//          Arguments.positional(Seq(realAccumulator, realValue)),
-//          location
-//        )
-//      }
-//
-//      result
-//    }
-//  }
-//))
+case class ListValue(values: Seq[EValue], location: Option[Location]) extends EValue {
+  override val typ = List
+  override def unboundNames = values.map(_.unboundNames).unionSets
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override def toUValue(core: Core) = CallValue("of", Arguments.positional(List, values), location).toUValue(core)
+  override def evaluate = this
+  override def finalEval = ListValue(values.map(_.finalEval), location)
+}

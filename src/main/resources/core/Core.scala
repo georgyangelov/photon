@@ -1,125 +1,110 @@
 package photon.core
 
-import photon.{AnyType, ArgumentType, Arguments, FunctionTrait, Location, MethodType, New, PureValue, RealValue, Scope, TypeType, Variable, VariableName}
-import photon.interpreter.{CallContext, Unbinder}
+import photon.frontend.{ASTValue, Parser, StaticScope}
+import photon.frontend.macros.ClassMacros
+import photon.interpreter.EvalError
+import photon.{Arguments, CompileTimeOnlyMethod, EValue, EvalMode, Location, MethodType, Scope, UOperation, Variable, VariableName}
+import photon.ArgumentExtensions._
 
-import scala.collection.mutable
-import photon.core.Conversions._
-import photon.frontend.{ASTValue, Parser, StaticScope, ValueToAST}
+object CoreType extends StandardType {
+  override val typ = TypeRoot
+  override def unboundNames = Set.empty
+  override val location = None
+  override val methods = Map(
+    "typeCheck" -> new CompileTimeOnlyMethod {
+      override def specialize(args: Arguments[EValue], location: Option[Location]) = {
+        val valueArg = args.get(1, "value")
+        val typeArg = args.get(2, "type").assertType
 
-object CoreParams {
-  val Self = Parameter(0, "self")
-
-  val DefineMacroName = Parameter(1, "name")
-  val DefineMacroLambda = Parameter(2, "lambda")
-
-  val TypeCheckValue = Parameter(1, "value")
-  val TypeCheckType = Parameter(2, "type")
-}
-
-object CoreType extends New.TypeObject {
-  override val typeObject = TypeType
-
-  override val instanceMethods = Map(
-    "defineMacro" -> new New.CompileTimeOnlyMethod {
-      override def methodType(_argTypes: Arguments[New.TypeObject]) = MethodType(
-        name = "defineMacro",
-        arguments = Seq(
-          ArgumentType("name", StringType),
-          ArgumentType("handler", FunctionType(
-            Set(FunctionTrait.Partial),
-            Seq(ArgumentType("parser", ParserType)),
-            AnyType
-          )),
-        ),
-        // TODO
-        returns = AnyType
-      )
-
-      override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) = {
-        val self = args.getNativeSelf[Core]
-
-        self.defineMacro(
-          args.getString(CoreParams.DefineMacroName),
-          // TODO: Support more value types as macro handlers (e.g. Structs or Natives)
-          args.getFunction(CoreParams.DefineMacroLambda)
+        MethodType.of(
+          Seq(
+            "value" -> valueArg.evalType.getOrElse(valueArg.typ),
+            "type" -> TypeRoot
+          ),
+          typeArg
         )
-
-        PureValue.Nothing(location)
       }
-    },
 
-    //    "typeCheck" -> TypeCheckMethod(this)
-  )
-}
+      override def run(args: Arguments[EValue], location: Option[Location]) = {
+        val value = args.positional.head
+        val typ = args.get(1, "type").assertType
 
-class Core extends {
-  override val typeObject = CoreType
-  override val instanceMethods: Map[String, NativeMethod] = Map.empty
-} with New.TypeObject {
-  val macros: mutable.TreeMap[String, RealValue] = mutable.TreeMap.empty
-
-  val objectRootVar = new Variable(new VariableName("Object"), Some(ObjectType.toValue))
-
-  val rootScope: Scope = Scope.newRoot(Seq(
-    // TODO: Core should have a type
-    new Variable(new VariableName("Core"),     Some(this.toValue)),
-    new Variable(new VariableName("Type"),     Some(TypeType.toValue)),
-    objectRootVar,
-    new Variable(new VariableName("Int"),      Some(IntType.toValue)),
-    new Variable(new VariableName("Float"),    Some(FloatType.toValue)),
-    new Variable(new VariableName("String"),   Some(StringType.toValue)),
-    new Variable(new VariableName("List"),     Some(ListType.toValue)),
-    new Variable(new VariableName("Function"), Some(FunctionTypeType.toValue)),
-    new Variable(new VariableName("Class"),    Some(PureValue.Native(ClassObject, None))),
-    new Variable(new VariableName("Optional"), Some(PureValue.Native(OptionalObject, None)))
-  ))
-
-  val staticRootScope = StaticScope.fromScope(rootScope)
-  val unbinder = new Unbinder(this)
-
-  def macroHandler(context: CallContext, name: String, parser: Parser): Option[ASTValue] = {
-    macros.get(name) match {
-      case Some(handler) =>
-        val parserValue = PureValue.Native(ParserObject(parser), None)
-
-        val valueResult = context.callOrThrowError(
-          handler,
-          "call",
-          Arguments(Some(handler), Seq(parserValue), Map.empty),
-          // TODO: better location here
-          handler.location
-        )
-
-        val unboundResult = unbinder.unbind(valueResult, rootScope)
-
-        // TODO: Normalize `name` so it doesn't have any symbols not allowed in variable names
-        // TODO: Make the name completely unique, right now it's predictable
-        // TODO: Can the names from one call of a macro collide with another one? Maybe we need
-        //       the objectids as part of the rename?
-        val astResult = ValueToAST.transformRenamingAll(unboundResult, name)
-
-        Some(astResult)
-
-      case None => None
+        EValue.context.core.typeCheck(value, typ, location).evaluated
+      }
     }
-  }
-
-  def defineMacro(name: String, handler: RealValue): Unit =
-    macros.addOne(name, handler)
+  )
+  override def toUValue(core: Core) = inconvertible
 }
 
-//private case class TypeCheckMethod(private val core: Core) extends NativeMethod {
-//  override val traits = Set(FunctionTrait.CompileTime, FunctionTrait.Partial)
-//
-//  override def call(context: CallContext, args: Arguments[RealValue], location: Option[Location]) =
-//    partialCall(context, args.asInstanceOf[Arguments[Value]], location)
-//
-//  override def partialCall(context: CallContext, args: Arguments[Value], location: Option[Location]) = {
-//    ???
-////    val value = args.get(Parameter(1, "value"))
-////    val typeValue = args.get(Parameter(2, "type")).realValue
-////
-////    if (value.realValue)
-//  }
-//}
+class Core extends EValue {
+  override val typ = CoreType
+  override def unboundNames = Set.empty
+  override val location = None
+  override def evalMayHaveSideEffects = false
+  override def evalType = None
+  override protected def evaluate: EValue = this
+  override def finalEval = this
+  override def toUValue(core: Core) = this.referenceTo(this, location)
+
+  lazy val globals = Globals.of(
+    "Core" -> this,
+    "Type" -> TypeRoot,
+    "Static" -> StaticType,
+    "Bool" -> photon.core.Bool,
+    "Int" -> photon.core.Int,
+    "Float" -> photon.core.Float,
+    "String" -> photon.core.String,
+    "List" -> photon.core.List,
+    "Function" -> photon.core.operations.FunctionRoot,
+    "Class" -> photon.core.ClassRoot,
+    "Interface" -> photon.core.InterfaceRoot,
+    "ClassBuilder" -> photon.core.ClassBuilderRoot,
+    "Optional" -> photon.core.OptionalRoot
+  )
+
+  lazy val rootScope = Scope.newRoot(globals.names)
+  lazy val staticRootScope = StaticScope.fromScope(rootScope)
+
+  val macros = Map[String, (Parser, Location) => ASTValue](
+    "class" -> ClassMacros.classMacro,
+    "interface" -> ClassMacros.interfaceMacro,
+    "def" -> ClassMacros.defMacro
+  )
+
+  def applyMacro(name: String, parser: Parser, location: Location): Option[ASTValue] =
+    macros.get(name).map(_.apply(parser, location))
+
+  def referenceTo(value: EValue, location: Option[Location]) =
+    globals.referenceTo(value, location)
+
+  def typeCheck(value: EValue, typ: Type, location: Option[Location]): EValue = {
+    val valueTyp = value.evalType.getOrElse(value.typ)
+
+    if (typ == StaticType) {
+      return value
+    }
+
+    if (valueTyp != typ) {
+      throw EvalError(s"Invalid value ${value.inspect}: ${valueTyp.inspect} for type ${typ.inspect}", location)
+    }
+
+    value
+  }
+}
+
+object Globals {
+  def of(vars: (String, EValue)*) = {
+    new Globals(vars.map { case (name, value) => Variable(new VariableName(name), value) })
+  }
+}
+
+class Globals(val names: Seq[Variable]) {
+  def referenceTo(value: EValue, location: Option[Location]) = {
+    val name = names
+      .find { case Variable(_, evalue) => evalue == value }
+      .getOrElse { throw EvalError(s"Cannot find a name for $value", location) }
+      .name
+
+    UOperation.Reference(name, location)
+  }
+}
