@@ -1,7 +1,7 @@
 package photon.frontend
 
+import photon.base._
 import photon.lib.LookAheadReader
-import photon.{Location, PhotonError}
 
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
@@ -289,7 +289,7 @@ class Parser(
       case TokenType.NewLine => false
 
       // This is intentionally false, because it is ambiguous:
-      // (thisIsAfunction)(42)
+      // (thisIsAFunction)(42)
       // (function.call + something)(42)
       // (argument) (42 + argument)
       case TokenType.OpenParen => false

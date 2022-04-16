@@ -44,16 +44,16 @@ object Unparser {
         blockString
       }
 
-    case _ => throw new Exception(s"Cannot unparse value ${value.inspectAST}")
+    case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
   }
 
-//  def unparse(block: ASTBlock): String = {
-//    val lastIndex = block.values.size - 1
-//
-//    block.values.zipWithIndex.map { case (value, index) =>
-//      unparse(value, expectSingleValue = index != lastIndex)
-//    }.mkString("; ")
-//  }
+  //  def unparse(block: ASTBlock): String = {
+  //    val lastIndex = block.values.size - 1
+  //
+  //    block.values.zipWithIndex.map { case (value, index) =>
+  //      unparse(value, expectSingleValue = index != lastIndex)
+  //    }.mkString("; ")
+  //  }
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {

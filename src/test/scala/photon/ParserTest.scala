@@ -7,7 +7,7 @@ class ParserTest extends FunSuite {
   def parse(code: String): String = {
     new Parser(new Lexer("<testing>", code), Parser.BlankMacroHandler)
       .parseAll()
-      .map(_.inspectAST)
+      .map(_.inspect)
       .mkString(" ")
   }
 
@@ -218,7 +218,7 @@ class ParserTest extends FunSuite {
   }
 
   test("nested lambda calls") {
-    assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] (lambda [(param b)] (+ a b))) 1) 41)");
+    assert(parse("(a) { (b) { a + b } }(1)(41)") == "(call (call (lambda [(param a)] (lambda [(param b)] (+ a b))) 1) 41)")
   }
 
   test("named arguments") {
