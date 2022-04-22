@@ -1,9 +1,4 @@
-package photon
-
-import photon.Arguments.{named, positional}
-import photon.core.UnknownValue
-import photon.core.operations.EParameter
-import photon.interpreter.EvalError
+package photon.base
 
 import scala.reflect.ClassTag
 
@@ -47,16 +42,16 @@ case class Arguments[+T](
     }
   }
 
-  def toPositional(params: Seq[EParameter]) = {
-    // TODO: Optional parameters?
-    val namedParamsInOrder = params.drop(positional.length)
-      .map { param => named.get(param.name) }
-
-    Arguments.positional(
-      self,
-      positional ++ namedParamsInOrder
-    )
-  }
+//  def toPositional(params: Seq[EParameter]) = {
+//    // TODO: Optional parameters?
+//    val namedParamsInOrder = params.drop(positional.length)
+//      .map { param => named.get(param.name) }
+//
+//    Arguments.positional(
+//      self,
+//      positional ++ namedParamsInOrder
+//    )
+//  }
 
   def matchWithNamesUnordered(paramNames: Seq[String]): Seq[(String, T)] = {
     val positionalNames = paramNames.filterNot(named.contains)
@@ -101,52 +96,52 @@ case class Arguments[+T](
   //  )
 }
 
-object ArgumentExtensions {
-  implicit class GetEval(self: Arguments[EValue]) {
-    def selfEval[T <: EValue](implicit tag: ClassTag[T]) = getEval[T](0, "self")(tag)
-
-    def getEval[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
-      self.get(index, name).evaluated match {
-        case value: T => value
-        case UnknownValue(_, _) => throw DelayCall
-        case value =>
-          if (value.isOperation) {
-            // TODO: We probably don't need this if all values respect the EvalMode
-            EValue.context.evalMode match {
-              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
-              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
-              case EvalMode.Partial |
-                   EvalMode.PartialRunTimeOnly |
-                   EvalMode.PartialPreferRunTime => throw DelayCall
-            }
-          } else {
-            // TODO: Do I need this? Won't the typechecks handle this already?
-            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
-          }
-      }
-
-    def selfEvalInlined[T <: EValue](implicit tag: ClassTag[T]) = getEvalInlined[T](0, "self")(tag)
-
-    def getEvalInlined[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
-      self.get(index, name).evaluated.inlinedValue match {
-        case value: T => value
-        case UnknownValue(_, _) => throw DelayCall
-        case value =>
-          if (value.isOperation) {
-            EValue.context.evalMode match {
-              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
-              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
-              case EvalMode.Partial |
-                   EvalMode.PartialRunTimeOnly |
-                   EvalMode.PartialPreferRunTime => throw DelayCall
-            }
-          } else {
-            // TODO: Do I need this? Won't the typechecks handle this already?
-            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
-          }
-      }
-  }
-}
+//object ArgumentExtensions {
+//  implicit class GetEval(self: Arguments[EValue]) {
+//    def selfEval[T <: EValue](implicit tag: ClassTag[T]) = getEval[T](0, "self")(tag)
+//
+//    def getEval[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
+//      self.get(index, name).evaluated match {
+//        case value: T => value
+//        case UnknownValue(_, _) => throw DelayCall
+//        case value =>
+//          if (value.isOperation) {
+//            // TODO: We probably don't need this if all values respect the EvalMode
+//            EValue.context.evalMode match {
+//              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
+//              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
+//              case EvalMode.Partial |
+//                   EvalMode.PartialRunTimeOnly |
+//                   EvalMode.PartialPreferRunTime => throw DelayCall
+//            }
+//          } else {
+//            // TODO: Do I need this? Won't the typechecks handle this already?
+//            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
+//          }
+//      }
+//
+//    def selfEvalInlined[T <: EValue](implicit tag: ClassTag[T]) = getEvalInlined[T](0, "self")(tag)
+//
+//    def getEvalInlined[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
+//      self.get(index, name).evaluated.inlinedValue match {
+//        case value: T => value
+//        case UnknownValue(_, _) => throw DelayCall
+//        case value =>
+//          if (value.isOperation) {
+//            EValue.context.evalMode match {
+//              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
+//              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
+//              case EvalMode.Partial |
+//                   EvalMode.PartialRunTimeOnly |
+//                   EvalMode.PartialPreferRunTime => throw DelayCall
+//            }
+//          } else {
+//            // TODO: Do I need this? Won't the typechecks handle this already?
+//            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
+//          }
+//      }
+//  }
+//}
 
 object Arguments {
   def empty[T](self: T): Arguments[T] = Arguments(self, Seq.empty, Map.empty)
