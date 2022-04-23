@@ -357,7 +357,9 @@ class Parser(
     // name(a)
     target match {
       case ASTValue.NameReference(name, targetLocation) =>
-        if (!requireCallParens && !currentExpressionMayEnd) {
+        val isDefinitelyACall = token.tokenType == TokenType.OpenParen
+
+        if (!currentExpressionMayEnd && (!requireCallParens || isDefinitelyACall)) {
           val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = true)
 
           return Some(ASTValue.Call(
@@ -548,7 +550,7 @@ class Parser(
           val typeValue = if (token.tokenType == TokenType.Colon) {
             read() // :
 
-            Some(parseExpression(requireCallParens = false, hasLowerPriorityTarget = false))
+            Some(parseArgumentTypePattern())
           } else {
             None
           }
@@ -565,6 +567,21 @@ class Parser(
     read() // )
 
     parameters.result
+  }
+
+  private def parseArgumentTypePattern(): ASTPattern = {
+    if (token.tokenType == TokenType.Val) {
+      read() // val
+
+      if (token.tokenType != TokenType.Name) parseError("Expected name after `val` in pattern")
+      val name = read() // name
+
+      ASTPattern.Val(name.string)
+    } else {
+      val value = parseExpression(requireCallParens = true, hasLowerPriorityTarget = false)
+
+      ASTPattern.SpecificValue(value)
+    }
   }
 
   private def parseBlock() = {

@@ -261,6 +261,15 @@ class ParserTest extends FunSuite {
     assert(parse("(a: List(Int), b: Map(String, List(Int))) 42") == "(lambda [(param a (List self Int)) (param b (Map self String (List self Int)))] 42)")
   }
 
+  test("requires parentheses on types of parameters") {
+    assertThrows[ParseError] { parse("(param1: fn arg1, b: Int) 42") }
+  }
+
+  test("patterns in parameter types") {
+    assert(parse("(a: val AT) 42") == "(lambda [(param a (val AT))] 42)")
+    assert(parse("(a: val AT, b: AT) 42") == "(lambda [(param a (val AT)) (param b AT)] 42)")
+  }
+
   test("type annotations on function return type") {
     assert(parse("(a: Int): Int { a + 1 }") == "(lambda [(param a Int)] Int (+ a 1))")
     assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int (+ a 1))")
@@ -268,7 +277,7 @@ class ParserTest extends FunSuite {
 
   test("type annotations on val") {
     assert(parse("val a: Int = 42; a") == "(let a (typeCheck Core 42 Int) a)")
-    assert(parse("val a: Stream(Int) = 42; a") == "(let a (typeCheck Core 42 (call Stream Int)) a)")
+    assert(parse("val a: Stream(Int) = 42; a") == "(let a (typeCheck Core 42 (Stream self Int)) a)")
   }
 
   test("parentheses for blocks") {

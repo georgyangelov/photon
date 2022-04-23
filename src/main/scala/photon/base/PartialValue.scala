@@ -6,12 +6,12 @@ case class PartialValue(value: EValue, variables: Seq[Variable]) {
   def addInnerVariables(additionalVars: Seq[Variable]) = PartialValue(value, variables ++ additionalVars)
   def withOuterVariable(variable: Variable) = PartialValue(value, variables :+ variable)
 
-  def wrapBack: EValue =
-    variables.foldRight(value) { case (Variable(name, varValue), innerValue) =>
-      if (innerValue.unboundNames.contains(name)) {
-        LetValue(name, varValue, innerValue, varValue.location)
-      } else {
-        innerValue
-      }
-    }
+  def wrapBack: EValue = ???
+//    variables.foldRight(value) { case (Variable(name, varValue), innerValue) =>
+//      if (innerValue.unboundNames.contains(name)) {
+//        LetValue(name, varValue, innerValue, varValue.location)
+//      } else {
+//        innerValue
+//      }
+//    }
 }

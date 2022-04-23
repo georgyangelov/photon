@@ -47,18 +47,17 @@ object Unparser {
     case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
   }
 
-  //  def unparse(block: ASTBlock): String = {
-  //    val lastIndex = block.values.size - 1
-  //
-  //    block.values.zipWithIndex.map { case (value, index) =>
-  //      unparse(value, expectSingleValue = index != lastIndex)
-  //    }.mkString("; ")
-  //  }
-
   def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case ASTParameter(name, Some(typeValue), _) => s"$name: ${unparse(typeValue, expectSingleValue = false)}"
+      case ASTParameter(name, Some(pattern), _) => s"$name: ${unparse(pattern)}"
       case ASTParameter(name, None, _) => name
+    }
+  }
+
+  def unparse(pattern: ASTPattern): String = {
+    pattern match {
+      case ASTPattern.SpecificValue(value) => unparse(value)
+      case ASTPattern.Val(name) => s"val $name"
     }
   }
 

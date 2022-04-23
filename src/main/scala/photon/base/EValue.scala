@@ -1,5 +1,7 @@
 package photon.base
 
+import photon.frontend.UValue
+
 import scala.reflect.ClassTag
 
 sealed trait EvalMode
@@ -46,7 +48,7 @@ object EValue {
 }
 
 trait EValue {
-  def inspect: String = toUValue(EValue.context.core).toString
+//  def inspect: String = toUValue(EValue.context.core).toString
 
   /**
    * The location of the current value in the originally-parsed source code.
@@ -73,7 +75,7 @@ trait EValue {
   /**
    * Converts EValue to UValue so that it can be further converted back to AST.
    */
-  def toUValue(core: Core): UValue
+//  def toUValue(core: Core): UValue
 
   /**
    * Can the evaluation of this value cause side-effects?
@@ -106,7 +108,7 @@ trait EValue {
    *
    * This method uses EValue.context.evalMode to look for the current EvalMode.
    */
-  def evaluated = {
+  def evaluated: EValue = {
     val context = EValue.context
 
     context.cache.evaluate(this, context.evalMode)
@@ -115,7 +117,7 @@ trait EValue {
   /**
    * Same as `evaluated`, but sets the EvalMode in the current context first.
    */
-  def evaluated(mode: EvalMode) =
+  def evaluated(mode: EvalMode): EValue =
     EValue.withContext(EValue.context.copy(evalMode = mode)) { evaluated }
 
   /**

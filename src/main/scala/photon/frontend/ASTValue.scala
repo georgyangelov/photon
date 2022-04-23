@@ -88,7 +88,21 @@ object ASTValue {
   }
 }
 
-case class ASTParameter(name: String, typeValue: Option[ASTValue], location: Option[Location])
+sealed trait ASTPattern {
+  def inspect: String
+}
+
+object ASTPattern {
+  case class SpecificValue(value: ASTValue) extends ASTPattern {
+    override def inspect: String = value.inspect
+  }
+
+  case class Val(name: String) extends ASTPattern {
+    override def inspect: String = s"(val $name)"
+  }
+}
+
+case class ASTParameter(name: String, typePattern: Option[ASTPattern], location: Option[Location])
 
 case class ASTArguments(positional: Seq[ASTValue], named: Map[String, ASTValue])
 object ASTArguments {
