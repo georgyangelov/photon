@@ -1,6 +1,5 @@
 package photon.base
 
-trait EValue
 trait Type
 
 object MethodType {
