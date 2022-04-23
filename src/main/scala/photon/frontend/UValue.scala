@@ -72,14 +72,32 @@ object UOperation {
   }
 }
 
+sealed trait UPattern {
+  val unboundNames: Set[VariableName]
+  val definitions: Set[String]
+}
+object UPattern {
+  case class SpecificValue(value: UValue) extends UPattern {
+    override val unboundNames = value.unboundNames
+    override val definitions = Set.empty
+  }
+
+  case class Val(name: String) extends UPattern {
+    override val unboundNames = Set.empty
+    override val definitions = Set(name)
+  }
+}
+
 class UFunction(
   val params: Seq[UParameter],
   val nameMap: Map[String, VariableName],
   val body: UValue,
   val returnType: Option[UValue]
 ) {
-  val unboundNames = body.unboundNames -- nameMap.values
+  val unboundNames = params.map(_.unboundNames).unionSets ++ body.unboundNames -- nameMap.values
 }
 
 // TODO: Type here should be optional as it may rely on the usage
-case class UParameter(name: String, typ: UValue, location: Option[Location])
+case class UParameter(name: String, typ: UPattern, location: Option[Location]) {
+  val unboundNames = typ.unboundNames
+}
