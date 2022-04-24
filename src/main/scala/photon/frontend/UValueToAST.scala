@@ -73,8 +73,6 @@ object UValueToAST {
       val astTarget = transform(arguments.self, varNames, renameAllPrefix, forInspection)
       val astArguments = ASTArguments(
         positional = arguments.positional.map(transform(_, varNames, renameAllPrefix, forInspection)),
-
-        // TODO: Support renames of function parameters
         named = arguments.named.view.mapValues(transform(_, varNames, renameAllPrefix, forInspection)).toMap
       )
 
