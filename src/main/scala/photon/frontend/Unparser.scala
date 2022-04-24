@@ -49,8 +49,10 @@ object Unparser {
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case ASTParameter(name, Some(pattern), _) => s"$name: ${unparse(pattern)}"
-      case ASTParameter(name, None, _) => name
+      case ASTParameter(outName, inName, Some(pattern), _) if outName == inName => s"$outName: ${unparse(pattern)}"
+      case ASTParameter(outName, inName, Some(pattern), _) => s"$outName as $inName: ${unparse(pattern)}"
+      case ASTParameter(outName, inName, None, _) if outName == inName => outName
+      case ASTParameter(outName, inName, None, _) => s"$outName as $inName"
     }
   }
 
@@ -63,7 +65,7 @@ object Unparser {
 
   def unparse(arguments: ASTArguments): String = {
     val positionalArguments = arguments.positional.map(unparse(_, expectSingleValue = false))
-    val namedArguments = arguments.named.map { case (name, value) => s"${name} = ${unparse(value, expectSingleValue = false)}" }
+    val namedArguments = arguments.named.map { case (name, value) => s"$name = ${unparse(value, expectSingleValue = false)}" }
 
     (positionalArguments ++ namedArguments).mkString(", ")
   }

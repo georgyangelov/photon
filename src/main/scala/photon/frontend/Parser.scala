@@ -545,8 +545,17 @@ class Parser(
         while (true) {
           if (token.tokenType != TokenType.Name) parseError("Expected Name")
 
-          val name = read().string
+          val outName = read().string
           val startLocation = lastLocation
+
+          val inName = if (token.tokenType == TokenType.Name && token.string == "as") {
+            read() // as
+
+            if (token.tokenType != TokenType.Name) parseError("Expected name")
+
+            read().string
+          } else outName
+
           val typeValue = if (token.tokenType == TokenType.Colon) {
             read() // :
 
@@ -555,7 +564,9 @@ class Parser(
             None
           }
 
-          parameters.addOne(ASTParameter(name, typeValue, Some(lastLocation.extendWith(startLocation))))
+          parameters.addOne(
+            ASTParameter(outName, inName, typeValue, Some(lastLocation.extendWith(startLocation)))
+          )
 
           if (token.tokenType != TokenType.Comma) break
           read() // ,

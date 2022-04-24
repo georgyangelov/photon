@@ -98,6 +98,6 @@ class UFunction(
 }
 
 // TODO: Type here should be optional as it may rely on the usage
-case class UParameter(name: String, typ: UPattern, location: Option[Location]) {
+case class UParameter(outName: String, inName: String, typ: UPattern, location: Option[Location]) {
   val unboundNames = typ.unboundNames
 }

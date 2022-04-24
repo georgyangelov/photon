@@ -270,6 +270,10 @@ class ParserTest extends FunSuite {
     assert(parse("(a: val AT, b: AT) 42") == "(lambda [(param a (val AT)) (param b AT)] 42)")
   }
 
+  test("parameters with external and internal names") {
+    assert(parse("(for as name: String, aged as age: Int) 42") == "(lambda [(param for name String) (param aged age Int)] 42)")
+  }
+
   test("type annotations on function return type") {
     assert(parse("(a: Int): Int { a + 1 }") == "(lambda [(param a Int)] Int (+ a 1))")
     assert(parse("(a: Int): Int a + 1") == "(lambda [(param a Int)] Int (+ a 1))")

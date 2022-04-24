@@ -47,7 +47,7 @@ object UValueToAST {
             // If there is another `let` with this name externally, but it is not
             // used in this let's body or value, then we want to reuse the name,
             // shadowing the old one.
-            value.unboundNames.map(_.originalName)
+            value.unboundNames.map(name => varNames.getOrElse(name, name.originalName))
           )
       }
 
@@ -67,7 +67,7 @@ object UValueToAST {
       )
 
     case UOperation.Function(fn, location) =>
-      transformFn(fn, varNames, location, forInspection)
+      transformFn(fn, varNames, renameAllPrefix, location, forInspection)
 
     case UOperation.Call(name, arguments, location) =>
       val astTarget = transform(arguments.self, varNames, renameAllPrefix, forInspection)
@@ -125,22 +125,29 @@ object UValueToAST {
   private def transformFn(
     fn: UFunction,
     varNames: Map[VariableName, String],
+    renameAllPrefix: Option[String],
     location: Option[Location],
     forInspection: Boolean
-  ) =
-    ASTValue.Function(
-      params = fn.params.map { param =>
-        ASTParameter(
-          // TODO: Support renames of function parameters
-          param.name,
-          // TODO: Is this correct that the rename prefix is empty?
-          Some(param.typ).map(transform(_, varNames, None, forInspection)),
-          location
-        )
-      },
-      // TODO: Is this correct that the rename prefix is empty?
-      body = transform(fn.body, varNames, None, forInspection),
-      returnType = fn.returnType.map(transform(_, varNames, None, forInspection)),
-      location
-    )
+  ) = {
+    val unboundNames = fn.unboundNames.map(name => varNames.getOrElse(name, name.originalName))
+    val params = fn.params.map { param =>
+      // TODO: This is not exactly the reverse of ASTToUValue in that names are not taken
+      //       one by one, but at the same time. It shouldn't have any practical issues for now
+      //       but keep this in mind. It may have issues with parameters that have the same name,
+      //       but this shouldn't happen anyway.
+      val newInName = renameAllPrefix match {
+        case Some(prefix) => s"$prefix$$${param.inName}"
+        case None => uniqueName(param.inName, unboundNames)
+      }
+
+      val typePattern = transform(param.typ, varNames, renameAllPrefix, forInspection)
+
+      ASTParameter(param.outName, newInName, Some(typePattern), param.location)
+    }
+
+    val body = transform(fn.body, varNames, renameAllPrefix, forInspection)
+    val returnType = fn.returnType.map(transform(_, varNames, renameAllPrefix, forInspection))
+
+    ASTValue.Function(params, body, returnType, location)
+  }
 }

@@ -49,8 +49,17 @@ object ASTValue {
     override def inspect = {
       val bodyAST = body.inspect
       val paramsAST = params.map {
-        case ASTParameter(name, Some(typeValue), _) => s"(param $name ${typeValue.inspect})"
-        case ASTParameter(name, None, _) => s"(param $name)"
+        case ASTParameter(outName, inName, Some(typeValue), _) =>
+          if (outName == inName)
+            s"(param $outName ${typeValue.inspect})"
+          else
+            s"(param $outName $inName ${typeValue.inspect})"
+
+        case ASTParameter(outName, inName, None, _) =>
+          if (outName == inName)
+            s"(param $outName)"
+          else
+            s"(param $outName $inName)"
       }.mkString(" ")
 
       val returnTypeAST = returnType.map { t => s"$t " }.getOrElse("")
@@ -102,7 +111,12 @@ object ASTPattern {
   }
 }
 
-case class ASTParameter(name: String, typePattern: Option[ASTPattern], location: Option[Location])
+case class ASTParameter(
+  outName: String,
+  inName: String,
+  typePattern: Option[ASTPattern],
+  location: Option[Location]
+)
 
 case class ASTArguments(positional: Seq[ASTValue], named: Map[String, ASTValue])
 object ASTArguments {

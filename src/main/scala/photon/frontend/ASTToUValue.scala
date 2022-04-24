@@ -87,11 +87,11 @@ object ASTToUValue {
       val upattern = param.typePattern.map(transform(_, paramScope)).getOrElse {
         throw EvalError("Function parameter types have to be defined explicitly for now", param.location)
       }
-      val uparam = UParameter(param.name, upattern, param.location)
+      val uparam = UParameter(param.outName, param.inName, upattern, param.location)
 
       uparams.addOne(uparam)
 
-      val paramNames = Map(param.name -> new VariableName(param.name)) ++
+      val paramNames = Map(param.inName -> new VariableName(param.inName)) ++
         upattern.definitions.map(name => name -> new VariableName(name))
 
       names.addAll(paramNames)
