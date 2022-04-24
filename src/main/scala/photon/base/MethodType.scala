@@ -1,20 +1,26 @@
 package photon.base
 
-trait Type
+import scala.reflect.ClassTag
 
-object MethodType {
-  def of(args: Seq[(String, Pattern)], returnType: EValue) = MethodType(args, returnType)
+object MethodSignature {
+  def of(args: Seq[(String, Pattern)], returnType: EValue) = MethodSignature(args, returnType)
 }
 
-case class MethodType(
+case class MethodSignature(
   argTypes: Seq[(String, Pattern)],
   returnType: EValue
 ) {
-  def specialize(args: Arguments[EValue]): SpecializedMethodType = ???
+  def specialize(args: Arguments[EValue]): MethodType = ???
 }
 
-case class SpecializedMethodType(
+case class MethodType(
   bindings: Seq[(String, EValue)],
   argTypes: Seq[(String, Type)],
   returnType: Type
-)
+) {
+  def selfEval[T <: EValue](implicit tag: ClassTag[T]): T = ???
+  def getEval[T <: EValue](name: String)(implicit tag: ClassTag[T]): T = ???
+
+  def selfEvalInlined[T <: EValue](implicit tag: ClassTag[T]): T = ???
+  def getEvalInlined[T <: EValue](name: String)(implicit tag: ClassTag[T]): T = ???
+}

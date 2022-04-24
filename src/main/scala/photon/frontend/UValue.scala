@@ -8,7 +8,7 @@ sealed trait UValue {
   val location: Option[Location]
   val unboundNames: Set[VariableName]
 
-//  override def toString = Unparser.unparse(ValueToAST.transform(this))
+  override def toString = Unparser.unparse(UValueToAST.transform(this))
 }
 
 object ULiteral {

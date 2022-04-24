@@ -12,6 +12,10 @@ object Pattern {
     override def bindings = Seq(name)
   }
 
+  case class Glob() extends Pattern {
+    override def bindings = Seq()
+  }
+
   // TODO: Support named arguments
 //  case class Call(target: EValue, name: String, arguments: Arguments[Pattern]) extends Pattern {
 //    override def bindings = (arguments.positional ++ arguments.named.values).flatMap(_.bindings)
