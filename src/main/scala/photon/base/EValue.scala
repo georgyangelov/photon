@@ -1,6 +1,7 @@
 package photon.base
 
-import photon.frontend.UValue
+import photon.Core
+import photon.frontend.{UPattern, UValue}
 
 import scala.reflect.ClassTag
 
@@ -29,6 +30,7 @@ case class EValueContext(
 ) {
   def core = interpreter.core
   def toEValue(uvalue: UValue, scope: Scope) = interpreter.toEValue(uvalue, scope)
+  def toEPattern(uvalue: UPattern, scope: Scope) = interpreter.toEPattern(uvalue, scope)
 }
 
 object EValue {
@@ -48,7 +50,7 @@ object EValue {
 }
 
 trait EValue {
-//  def inspect: String = toUValue(EValue.context.core).toString
+  def inspect: String = toUValue(EValue.context.core).toString
 
   /**
    * The location of the current value in the originally-parsed source code.
@@ -75,7 +77,9 @@ trait EValue {
   /**
    * Converts EValue to UValue so that it can be further converted back to AST.
    */
-//  def toUValue(core: Core): UValue
+  def toUValue(core: Core): UValue
+  protected def inconvertible =
+    throw EvalError(s"Cannot convert value of class ${this.getClass.getName} to UValue", location)
 
   /**
    * Can the evaluation of this value cause side-effects?
@@ -128,6 +132,17 @@ trait EValue {
    * the context.
    */
   protected[base] def evaluate(mode: EvalMode): EValue
+
+  /**
+   * Returns the inner real value even if it's wrapped in Let expressions.
+   * Remembers the Let expressions it depends on and is able to wrap them back.
+   *
+   * This is typically used if some method needs to be able to inspect the value
+   * even if it's not fully known.
+   *
+   * @param followReferences Whether to follow any references
+   */
+  def partialValue(followReferences: Boolean): PartialValue = PartialValue(this, Seq.empty)
 
   /**
    * Tries to evaluate the value fully (evaluates it in CompileTimeOnly mode)

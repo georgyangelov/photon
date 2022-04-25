@@ -1,6 +1,11 @@
 package photon.base
 
+import photon.Core
+import photon.frontend._
+
 class Interpreter {
-  def core: Any = ???
-  def toEValue(uvalue: Any, scope: Scope): Any = ???
+  val core = new Core
+
+  def toEValue(uvalue: UValue, scope: Scope): EValue = ???
+  def toEPattern(upattern: UPattern, scope: Scope): Pattern = ???
 }

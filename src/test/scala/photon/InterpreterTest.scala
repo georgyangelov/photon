@@ -1,41 +1,40 @@
 package photon
 
 import org.scalatest._
-
-import photon.TestHelpers._
+import photon.support.TestHelpers._
 
 class InterpreterTest extends FunSuite {
   test("can eval simple values") {
-    expectEvalCompileTime("42", "42")
+    expectCompileTime("42", "42")
   }
 
   test("can call native methods") {
-    expectEvalCompileTime("1 + 41", "42")
-    expectEvalCompileTime("1 + 40 + 1 + 1 - 1", "42")
+    expectCompileTime("1 + 41", "42")
+    expectCompileTime("1 + 40 + 1 + 1 - 1", "42")
   }
 
   test("can call lambdas") {
-    expectEvalCompileTime("():Int{ 42 }()", "42")
-    expectEvalCompileTime("():Int{ 42 }.call", "42")
-    expectEvalCompileTime("(a:Int):Int{ a + 41 }(1)", "42")
-    expectEvalCompileTime("(a:Int):Int{ a + 41 }.call 1", "42")
+    expectCompileTime("():Int{ 42 }()", "42")
+    expectCompileTime("():Int{ 42 }.call", "42")
+    expectCompileTime("(a:Int):Int{ a + 41 }(1)", "42")
+    expectCompileTime("(a:Int):Int{ a + 41 }.call 1", "42")
   }
 
   test("assignment") {
-    expectEvalCompileTime("val answer = 42; answer", "42")
+    expectCompileTime("val answer = 42; answer", "42")
   }
 
   test("return type inference") {
-    expectEvalCompileTime("(a: Int) { a + 41 }.call 1", "42")
-    expectEvalCompileTime("(a: Int) { a + 41 }.returnType", "Int")
+    expectCompileTime("(a: Int) { a + 41 }.call 1", "42")
+    expectCompileTime("(a: Int) { a + 41 }.returnType", "Int")
   }
 
   test("closures") {
-    expectEvalCompileTime("(a:Int){ (b:Int){ a + b } }(1)(41)", "42")
+    expectCompileTime("(a:Int){ (b:Int){ a + b } }(1)(41)", "42")
   }
 
   test("higher-order function types") {
-    expectEvalCompileTime(
+    expectCompileTime(
       """
         val IntFn = Function(a = Int, returns = Int)
 
@@ -47,26 +46,26 @@ class InterpreterTest extends FunSuite {
   }
 
   test("higher-order functions") {
-    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
-    expectEvalCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
+    expectCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
+    expectCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
   }
 
   ignore("simple macros") {
-    expectEvalCompileTime(
+    expectCompileTime(
       "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); #e + 1 })",
       "val unknown = ():Int{}.runTimeOnly; add_one unknown()",
 
       "val unknown = ():Int{}; unknown() + 1"
     )
 
-    expectEvalCompileTime(
+    expectCompileTime(
       "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); #e + 1 })",
       "(a:Int):Int{ add_one(a + 2) }",
 
       "(a:Int):Int{ a + 2 + 1 }"
     )
 
-    expectEvalCompileTime(
+    expectCompileTime(
       "Core.defineMacro('add_one', (parser: Parser): Any { val e = parser.parseNext(); 42 })",
       "(a:Int):Int{ add_one(a + 2) }",
 
@@ -75,9 +74,9 @@ class InterpreterTest extends FunSuite {
   }
 
   test("named arguments") {
-    expectEvalCompileTime("(a:Int):Int { 41 + a }(a = 1)", "42")
-    expectEvalCompileTime("(a:Int, b:Int):Int { 41 - a + b }(1, b = 2)", "42")
-    expectEvalCompileTime("(a:Int, b:Int, c:Int):Int { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
+    expectCompileTime("(a:Int):Int { 41 + a }(a = 1)", "42")
+    expectCompileTime("(a:Int, b:Int):Int { 41 - a + b }(1, b = 2)", "42")
+    expectCompileTime("(a:Int, b:Int, c:Int):Int { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
   }
 
   ignore("runtime-only functions") {
@@ -103,11 +102,11 @@ class InterpreterTest extends FunSuite {
 //  }
 
 //  test("ref objects") {
-//    expectEvalCompileTime("a = Ref(42); a.get", "a = Ref(42); a.get")
-//    expectEvalCompileTime("a = Ref(1); a.set(42); a.get", "42")
+//    expectCompileTime("a = Ref(42); a.get", "a = Ref(42); a.get")
+//    expectCompileTime("a = Ref(1); a.set(42); a.get", "42")
 //  }
 
   test("binding to variable names in functions") {
-    expectEvalCompileTime("val factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
+    expectCompileTime("val factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 }

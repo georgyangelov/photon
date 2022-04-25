@@ -16,7 +16,7 @@ object Let extends StandardType {
 
 case class LetValue(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
   override def isOperation = true
-  override val typ = Block
+  override val typ = Let
   override def unboundNames = value.unboundNames ++ body.unboundNames - name
   override def evalMayHaveSideEffects = value.evalMayHaveSideEffects || body.evalMayHaveSideEffects
   override def evalType = Some(body.evalType.getOrElse(body.typ))

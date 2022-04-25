@@ -18,6 +18,8 @@ case class MethodType(
   argTypes: Seq[(String, Type)],
   returnType: Type
 ) {
+  def self: EValue = ???
+
   def selfEval[T <: EValue](implicit tag: ClassTag[T]): T = ???
   def getEval[T <: EValue](name: String)(implicit tag: ClassTag[T]): T = ???
 
