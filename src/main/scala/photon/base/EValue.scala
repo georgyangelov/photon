@@ -47,6 +47,9 @@ object EValue {
       _current.set(old)
     }
   }
+
+  // TODO: Custom `$equals` method in objects
+  def equals(a: EValue, b: EValue): Boolean = ???
 }
 
 trait EValue {

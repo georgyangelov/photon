@@ -85,7 +85,7 @@ object $Function extends Type {
       // handle patterns like this
       "call" -> new CompileTimeOnlyMethod {
         override val signature: MethodSignature = ???
-        override def apply(args: MethodType, location: Option[Location]): EValue = ???
+        override def apply(args: CallSpec, location: Option[Location]): EValue = ???
       }
     )
   }
@@ -117,7 +117,7 @@ case class $FunctionT(
         $FunctionT(params, returnType, FunctionRunMode.RunTimeOnly, inlinePreference)
       )
 
-      override def apply(args: MethodType, location: Option[Location]) = {
+      override def apply(args: CallSpec, location: Option[Location]) = {
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
@@ -131,7 +131,7 @@ case class $FunctionT(
         $FunctionT(params, returnType, FunctionRunMode.CompileTimeOnly, inlinePreference)
       )
 
-      override def apply(args: MethodType, location: Option[Location]) = {
+      override def apply(args: CallSpec, location: Option[Location]) = {
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
@@ -145,7 +145,7 @@ case class $FunctionT(
         $FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
       )
 
-      override def apply(args: MethodType, location: Option[Location]) = {
+      override def apply(args: CallSpec, location: Option[Location]) = {
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
@@ -159,7 +159,7 @@ case class $FunctionT(
         $FunctionT(params, returnType, runMode, InlinePreference.NoInline)
       )
 
-      override def apply(args: MethodType, location: Option[Location]) = {
+      override def apply(args: CallSpec, location: Option[Location]) = {
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
@@ -173,7 +173,7 @@ case class $FunctionT(
         returnType
       )
 
-      override def call(args: MethodType, location: Option[Location]) = {
+      override def call(args: CallSpec, location: Option[Location]) = {
         val evalRequest = this.evalRequest(EValue.context.evalMode)
 
         evalRequest match {
@@ -262,7 +262,7 @@ case class $FunctionT(
       private def buildCodeForExecution(
         fn: FunctionValue,
         self: PartialValue,
-        args: MethodType,
+        args: CallSpec,
         location: Option[Location]
       ): EValue = ???
     }

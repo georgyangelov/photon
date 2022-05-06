@@ -10,12 +10,13 @@ case class MethodSignature(
   argTypes: Seq[(String, Pattern)],
   returnType: EValue
 ) {
-  def specialize(args: Arguments[EValue]): MethodType = ???
+  def specialize(args: Arguments[EValue]): CallSpec = ???
 }
 
-case class MethodType(
+case class CallSpec(
+  args: Arguments[EValue],
   bindings: Seq[(String, EValue)],
-  argTypes: Seq[(String, Type)],
+//  argTypes: Seq[(String, Type)],
   returnType: Type
 ) {
   def self: EValue = ???

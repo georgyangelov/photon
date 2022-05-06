@@ -10,7 +10,7 @@ object $Int extends Type {
     override val methods = Map(
       "answer" -> new DefaultMethod {
         override val signature = MethodSignature(Seq.empty, $Int)
-        override def apply(args: MethodType, location: Option[Location]) = $Int.Value(42, location)
+        override def apply(args: CallSpec, location: Option[Location]) = $Int.Value(42, location)
       }
     )
     override def toUValue(core: Core) = inconvertible
@@ -26,7 +26,7 @@ object $Int extends Type {
         $Int
       )
 
-      override def apply(args: MethodType, location: Option[Location]) = {
+      override def apply(args: CallSpec, location: Option[Location]) = {
         val self = args.selfEval[$Int.Value]
         val other = args.getEval[$Int.Value]("other")
 

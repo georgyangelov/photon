@@ -13,7 +13,7 @@ class Core extends RealEValue {
     override val methods = Map(
       "typeCheck" -> new CompileTimeOnlyMethod {
         override val signature: MethodSignature = ???
-        override def apply(args: MethodType, location: Option[Location]): EValue = ???
+        override def apply(args: CallSpec, location: Option[Location]): EValue = ???
       }
     )
 
