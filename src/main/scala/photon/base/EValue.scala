@@ -1,6 +1,7 @@
 package photon.base
 
 import photon.Core
+import photon.core.operations.$Call
 import photon.frontend.{UPattern, UValue}
 
 import scala.reflect.ClassTag
@@ -49,7 +50,8 @@ object EValue {
   }
 
   // TODO: Custom `$equals` method in objects
-  def equals(a: EValue, b: EValue): Boolean = ???
+  def equals(a: EValue, b: EValue, location: Option[Location]): EValue =
+    $Call.Value("==", Arguments.positional(a, Seq(b)), location).evaluated
 }
 
 trait EValue {
