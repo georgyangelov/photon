@@ -1,16 +1,32 @@
 package photon.base
 
+import photon.core.$Pattern
+
 import scala.reflect.ClassTag
 
 object MethodSignature {
-  def of(args: Seq[(String, Pattern)], returnType: EValue) = MethodSignature(args, returnType)
+  def any(returnType: EValue) = AnyMethodSignature(returnType)
+  def of(args: Seq[(String, $Pattern.Value)], returnType: EValue) = SpecificMethodSignature(args, returnType)
 }
 
-case class MethodSignature(
-  argTypes: Seq[(String, Pattern)],
+sealed trait MethodSignature {
+  def specialize(args: Arguments[EValue]): CallSpec
+}
+
+case class SpecificMethodSignature(
+  argTypes: Seq[(String, EValue)],
   returnType: EValue
-) {
+) extends MethodSignature {
   def specialize(args: Arguments[EValue]): CallSpec = ???
+}
+
+case class AnyMethodSignature(returnType: EValue) extends MethodSignature {
+  def specialize(args: Arguments[EValue]): CallSpec =
+    CallSpec(
+      args,
+      Seq.empty,
+      returnType.evaluated(EvalMode.CompileTimeOnly).assertType
+    )
 }
 
 case class CallSpec(

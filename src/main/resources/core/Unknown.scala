@@ -14,7 +14,6 @@ object Unknown extends StandardType {
 case class UnknownValue(etype: Type, location: Option[Location]) extends EValue {
   override def typ = Unknown
   override def unboundNames = Set.empty
-  override def evalMayHaveSideEffects = false
   override def evalType = Some(etype)
   override def toUValue(core: Core) = inconvertible
   override def evaluate = this

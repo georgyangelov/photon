@@ -31,7 +31,7 @@ case class EValueContext(
 ) {
   def core = interpreter.core
   def toEValue(uvalue: UValue, scope: Scope) = interpreter.toEValue(uvalue, scope)
-  def toEPattern(uvalue: UPattern, scope: Scope) = interpreter.toEPattern(uvalue, scope)
+  def toEValue(uvalue: UPattern, scope: Scope) = interpreter.toEValue(uvalue, scope)
 }
 
 object EValue {
@@ -51,7 +51,7 @@ object EValue {
 
   // TODO: Custom `$equals` method in objects
   def equals(a: EValue, b: EValue, location: Option[Location]): EValue =
-    $Call.Value("==", Arguments.positional(a, Seq(b)), location).evaluated
+    $Call.Value("==", Arguments.positional(a, Seq(b)), location)
 }
 
 trait EValue {
@@ -85,14 +85,6 @@ trait EValue {
   def toUValue(core: Core): UValue
   protected def inconvertible =
     throw EvalError(s"Cannot convert value of class ${this.getClass.getName} to UValue", location)
-
-  /**
-   * Can the evaluation of this value cause side-effects?
-   *
-   * It's fine to have this set as `true` even if side-effects may happen
-   * only in some cases.
-   */
-  def evalMayHaveSideEffects: Boolean
 
   /**
    * The type of the current value
@@ -180,7 +172,6 @@ trait EValue {
  */
 trait RealEValue extends EValue {
   override def realType = typ
-  override def evalMayHaveSideEffects = false
   override def evaluated: EValue = this
   override def evaluated(mode: EvalMode): EValue = this
   override def evaluate(mode: EvalMode): EValue = this

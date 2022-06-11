@@ -14,7 +14,6 @@ object $Reference extends Type {
     override def typ: Type = $Reference
     override def isOperation = true
     override def unboundNames = Set(name)
-    override def evalMayHaveSideEffects = false
     override def toUValue(core: Core) = UOperation.Reference(name, location)
     override def realType = value.realType
 

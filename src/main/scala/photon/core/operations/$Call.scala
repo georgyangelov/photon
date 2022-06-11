@@ -17,7 +17,6 @@ object $Call extends Type {
         args.positional.flatMap(_.unboundNames) ++
           args.named.values.flatMap(_.unboundNames)
 
-    override def evalMayHaveSideEffects = true
     override def toUValue(core: Core) = UOperation.Call(name, args.map(_.toUValue(core)), location)
 
     override def realType = {

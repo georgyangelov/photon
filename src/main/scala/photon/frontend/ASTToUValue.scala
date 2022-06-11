@@ -102,10 +102,11 @@ object ASTToUValue {
     (uparams.result, names.result, paramScope)
   }
 
-  def transform(ast: ASTPattern, scope: StaticScope): UPattern = {
+  def transform(ast: ASTValue.Pattern, scope: StaticScope): UPattern = {
     ast match {
-      case ASTPattern.SpecificValue(value) => UPattern.SpecificValue(transform(value, scope))
-      case ASTPattern.Val(name) => UPattern.Val(name)
+      case ASTValue.Pattern.SpecificValue(value, location) => UPattern.SpecificValue(transform(value, scope), location)
+      case ASTValue.Pattern.Binding(name, location) => UPattern.Binding(name, location)
+      ???
     }
   }
 }

@@ -65,26 +65,27 @@ object UOperation {
     arguments: Arguments[UValue],
     location: Option[Location]
   ) extends UValue {
-    override val unboundNames =
-      arguments.self.unboundNames ++
-        arguments.positional.map(_.unboundNames).unionSets ++
-        arguments.named.values.map(_.unboundNames).unionSets
+    override val unboundNames = arguments.values.flatMap(_.unboundNames).toSet
   }
 }
 
-sealed trait UPattern {
-  val unboundNames: Set[VariableName]
-  val definitions: Set[String]
+sealed trait UPattern extends UValue {
+  val definitions: Set[VariableName]
 }
 object UPattern {
-  case class SpecificValue(value: UValue) extends UPattern {
+  case class SpecificValue(value: UValue, location: Option[Location]) extends UPattern {
     override val unboundNames = value.unboundNames
     override val definitions = Set.empty
   }
 
-  case class Val(name: String) extends UPattern {
+  case class Binding(name: VariableName, location: Option[Location]) extends UPattern {
     override val unboundNames = Set.empty
     override val definitions = Set(name)
+  }
+
+  case class Call(name: String, args: Arguments[UValue], location: Option[Location]) extends UPattern {
+    override val unboundNames = args.values.flatMap(_.unboundNames).toSet
+    override val definitions = args.values.flatMap(_.unboundNames).toSet
   }
 }
 
@@ -94,7 +95,7 @@ class UFunction(
   val body: UValue,
   val returnType: Option[UValue]
 ) {
-  val unboundNames = params.map(_.unboundNames).unionSets ++ body.unboundNames -- nameMap.values
+  val unboundNames = params.flatMap(_.unboundNames).toSet ++ body.unboundNames -- nameMap.values
 }
 
 // TODO: Type here should be optional as it may rely on the usage

@@ -36,14 +36,13 @@ object $FunctionDef extends Type {
     override def typ: Type = $FunctionDef
     override def isOperation = true
     override def unboundNames = fn.unboundNames
-    override def evalMayHaveSideEffects = false
     override def toUValue(core: Core) = UOperation.Function(fn, location)
     override def realType = evaluated.typ
 
     override def evaluate(mode: EvalMode) = {
       val context = EValue.context
       val eParams = fn.params.map { param =>
-        val argType = context.toEPattern(param.typ, scope)
+        val argType = context.toEValue(param.typ, scope)
 
         EParameter(param.outName, param.inName, argType, location)
       }
@@ -59,8 +58,8 @@ object $FunctionDef extends Type {
 
     private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
       val paramVariables = eparams.map(param => {
-        val typ = param.pattern match {
-          case Pattern.SpecificValue(value) => value.assertType
+        val typ = param.typ match {
+          case $Pattern.SpecificValue(value, _) => value.assertType
           case _ => throw EvalError("Cannot infer the return type of a function using type vals", param.location)
         }
 
@@ -95,8 +94,8 @@ object $Function extends Type {
   override val methods = Map.empty
 }
 
-case class EParameter(outName: String, inName: String, pattern: Pattern, location: Option[Location]) {
-  def toUParameter(core: Core) = UParameter(outName, inName, pattern.toUPattern(core), location)
+case class EParameter(outName: String, inName: String, typ: $Pattern.Value, location: Option[Location]) {
+  def toUParameter(core: Core) = UParameter(outName, inName, typ.toUValue(core), location)
 }
 
 case class $FunctionT(
@@ -107,12 +106,11 @@ case class $FunctionT(
 ) extends Type {
   override def typ: Type = $Function
 
-  override def unboundNames: Set[VariableName] =
-    params.flatMap(_.pattern.unboundNames).toSet ++ typ.unboundNames
-  override def toUValue(core: Core): UValue = inconvertible
+  override def unboundNames = params.flatMap(_.typ.unboundNames).toSet ++ typ.unboundNames
+  override def toUValue(core: Core) = inconvertible
   override val methods = Map(
     "runTimeOnly" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature(
+      override val signature = MethodSignature.of(
         Seq.empty,
         $FunctionT(params, returnType, FunctionRunMode.RunTimeOnly, inlinePreference)
       )
@@ -126,7 +124,7 @@ case class $FunctionT(
     },
 
     "compileTimeOnly" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature(
+      override val signature = MethodSignature.of(
         Seq.empty,
         $FunctionT(params, returnType, FunctionRunMode.CompileTimeOnly, inlinePreference)
       )
@@ -140,7 +138,7 @@ case class $FunctionT(
     },
 
     "inline" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature(
+      override val signature = MethodSignature.of(
         Seq.empty,
         $FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
       )
@@ -154,7 +152,7 @@ case class $FunctionT(
     },
 
     "noInline" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature(
+      override val signature = MethodSignature.of(
         Seq.empty,
         $FunctionT(params, returnType, runMode, InlinePreference.NoInline)
       )
@@ -168,8 +166,8 @@ case class $FunctionT(
     },
 
     "call" -> new Method {
-      override val signature = MethodSignature(
-        params.map(param => param.outName -> param.pattern),
+      override val signature = MethodSignature.of(
+        params.map(param => param.outName -> param.typ),
         returnType
       )
 

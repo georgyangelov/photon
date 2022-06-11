@@ -16,7 +16,6 @@ object $Block extends Type {
     override def isOperation = true
     override def unboundNames = values.map(_.unboundNames).unionSets
     override def toUValue(core: Core) = UOperation.Block(values.map(_.toUValue(core)), location)
-    override def evalMayHaveSideEffects = values.exists(_.evalMayHaveSideEffects)
 
     override def realType =
       if (values.nonEmpty)
@@ -26,12 +25,7 @@ object $Block extends Type {
         throw EvalError("Empty blocks are not supported for now", location)
 
     override def evaluate(mode: EvalMode): EValue = {
-      val lastValueIndex = values.length - 1
-      val evalues = values
-        .map(_.evaluated)
-        .zipWithIndex
-        .filter { case (value, index) => index == lastValueIndex || value.evalMayHaveSideEffects }
-        .map(_._1)
+      val evalues = values.map(_.evaluated)
 
       if (evalues.length == 1) {
         evalues.head

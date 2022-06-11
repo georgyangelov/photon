@@ -9,7 +9,7 @@ object $Int extends Type {
     override def typ: Type = $Type
     override val methods = Map(
       "answer" -> new DefaultMethod {
-        override val signature = MethodSignature(Seq.empty, $Int)
+        override val signature = MethodSignature.of(Seq.empty, $Int)
         override def apply(args: CallSpec, location: Option[Location]) = $Int.Value(42, location)
       }
     )
@@ -21,8 +21,8 @@ object $Int extends Type {
 
   override val methods = Map(
     "+" -> new DefaultMethod {
-      override val signature = MethodSignature(
-        Seq("other" -> Pattern.SpecificValue($Int)),
+      override val signature = MethodSignature.of(
+        Seq("other" -> $Pattern.SpecificValue($Int, None)),
         $Int
       )
 

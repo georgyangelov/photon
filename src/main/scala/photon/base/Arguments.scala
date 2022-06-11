@@ -2,11 +2,33 @@ package photon.base
 
 import scala.reflect.ClassTag
 
+case class ArgumentsWithoutSelf[+T](positional: Seq[T], named: Map[String, T]) {
+  def argValues = positional ++ named.values
+}
+object ArgumentsWithoutSelf {
+  def empty[T]: ArgumentsWithoutSelf[T] = ArgumentsWithoutSelf(Seq.empty, Map.empty)
+
+  def positional[T](values: Seq[T]) =
+    ArgumentsWithoutSelf[T](
+      positional = values,
+      named = Map.empty
+    )
+
+  def named[T](values: Map[String, T]) =
+    ArgumentsWithoutSelf[T](
+      positional = Seq.empty,
+      named = values
+    )
+}
+
 case class Arguments[+T](
   self: T,
   positional: Seq[T],
   named: Map[String, T]
 ) {
+  def values = positional ++ named.values ++ Seq(self)
+  def argValues = positional ++ named.values
+
   def count = positional.size + named.size
 
   def changeSelf[R >: T](value: R) = Arguments[R](value, positional, named)

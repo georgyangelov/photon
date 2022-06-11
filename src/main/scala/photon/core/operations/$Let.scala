@@ -14,7 +14,6 @@ object $Let extends Type {
     override def typ: Type = $Let
     override def isOperation = true
     override def unboundNames = value.unboundNames ++ body.unboundNames - name
-    override def evalMayHaveSideEffects = value.evalMayHaveSideEffects || body.evalMayHaveSideEffects
     override def toUValue(core: Core) = UOperation.Let(name, value.toUValue(core), body.toUValue(core), location)
     override def realType = body.realType
 
@@ -26,8 +25,8 @@ object $Let extends Type {
         // Inline if the body is a direct reference to this let value
         case ref: $Reference.Value if ref.name == name => evalue
         case _ if ebody.unboundNames.contains(name) => $Let.Value(name, evalue, ebody, location)
-        case _ if evalue.evalMayHaveSideEffects => $Block.Value(Seq(evalue, ebody), location)
-        case _ => ebody
+        // TODO: Inline if there can be no side-effects
+        case _ => $Block.Value(Seq(evalue, ebody), location)
       }
     }
 

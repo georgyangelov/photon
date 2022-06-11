@@ -1,5 +1,7 @@
 package photon.frontend
 
+import photon.base.ArgumentsWithoutSelf
+
 object Unparser {
   def unparse(value: ASTValue): String = unparse(value, expectSingleValue = true)
 
@@ -44,23 +46,30 @@ object Unparser {
         blockString
       }
 
+    case ASTValue.Pattern.SpecificValue(value, _) => unparse(value)
+    case ASTValue.Pattern.Binding(name, _) => s"val $name"
+    case ASTValue.Pattern.Call(t, name, arguments, _, _) =>
+      val target = unparse(t, expectSingleValue = true)
+
+      s"${if (target == "self") "" else s"$target."}$name(${unparse(arguments)})"
+
     case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
   }
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case ASTParameter(outName, inName, Some(pattern), _) if outName == inName => s"$outName: ${unparse(pattern)}"
-      case ASTParameter(outName, inName, Some(pattern), _) => s"$outName as $inName: ${unparse(pattern)}"
+      case ASTParameter(outName, inName, Some(typ), _) if outName == inName => s"$outName: ${unparse(typ)}"
+      case ASTParameter(outName, inName, Some(typ), _) => s"$outName as $inName: ${unparse(typ)}"
       case ASTParameter(outName, inName, None, _) if outName == inName => outName
       case ASTParameter(outName, inName, None, _) => s"$outName as $inName"
     }
   }
 
-  def unparse(pattern: ASTPattern): String = {
-    pattern match {
-      case ASTPattern.SpecificValue(value) => unparse(value)
-      case ASTPattern.Val(name) => s"val $name"
-    }
+  def unparse(args: ArgumentsWithoutSelf[ASTValue]): String = {
+    val positionalArguments = args.positional.map(unparse(_, expectSingleValue = false))
+    val namedArguments = args.named.map { case (name, value) => s"$name = ${unparse(value, expectSingleValue = false)}" }
+
+    (positionalArguments ++ namedArguments).mkString(", ")
   }
 
   def unparse(arguments: ASTArguments): String = {

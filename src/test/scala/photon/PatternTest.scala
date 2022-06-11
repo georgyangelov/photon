@@ -6,13 +6,13 @@ import photon.core.$Int
 
 class PatternTest extends FunSuite {
   def expectMatch(pattern: Pattern, value: EValue, expected: PatternMatchResult) = {
-    val actual = pattern.matchValue(value)
+    val actual = pattern.matchValue(value, None)
 
     assert(actual.contains(expected))
   }
 
   def expectNoMatch(pattern: Pattern, value: EValue) = {
-    val actual = pattern.matchValue(value)
+    val actual = pattern.matchValue(value, None)
 
     assert(actual.isEmpty)
   }
@@ -21,7 +21,7 @@ class PatternTest extends FunSuite {
     expectMatch(
       Pattern.SpecificValue($Int.Value(42, None)),
       $Int.Value(42, None),
-      PatternMatch(Seq.empty)
+      PatternMatchResult(Seq.empty)
     )
   }
 }

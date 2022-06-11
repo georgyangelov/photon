@@ -76,7 +76,6 @@ trait EValue {
   def inlinedValue: EValue = this
 
   def evalType: Option[Type]
-  def evalMayHaveSideEffects: Boolean
 
   def assertType =
     this.evaluated(EvalMode.CompileTimeOnly) match {

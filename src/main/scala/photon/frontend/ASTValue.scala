@@ -1,6 +1,6 @@
 package photon.frontend
 
-import photon.base.Location
+import photon.base.{Arguments, ArgumentsWithoutSelf, Location}
 
 sealed abstract class ASTValue {
   def location: Option[Location]
@@ -95,26 +95,45 @@ object ASTValue {
   case class Let(name: java.lang.String, value: ASTValue, block: ASTValue, location: Option[Location]) extends ASTValue {
     override def inspect = s"(let $name ${value.inspect} ${block.inspect})"
   }
-}
 
-sealed trait ASTPattern {
-  def inspect: String
-}
-
-object ASTPattern {
-  case class SpecificValue(value: ASTValue) extends ASTPattern {
-    override def inspect: String = value.inspect
+  sealed trait Pattern extends ASTValue {
+    def inspect: java.lang.String
   }
+  object Pattern {
+    case class SpecificValue(value: ASTValue, location: Option[Location]) extends Pattern {
+      override def inspect = value.inspect
+    }
 
-  case class Val(name: String) extends ASTPattern {
-    override def inspect: String = s"(val $name)"
+    case class Binding(name: java.lang.String, location: Option[Location]) extends Pattern {
+      override def inspect = s"(val $name)"
+    }
+
+    case class Call(
+      target: ASTValue,
+      name: java.lang.String,
+      args: ArgumentsWithoutSelf[Pattern],
+      mayBeVarCall: scala.Boolean,
+      location: Option[Location]
+    ) extends Pattern {
+      override def inspect = {
+        val positionalArguments = args.positional.map(_.inspect)
+        val namedArguments = args.named.map { case (name, value) => s"(param $name ${value.inspect})" }
+        val argumentStrings = positionalArguments ++ namedArguments
+
+        if (argumentStrings.isEmpty) {
+          s"<$name ${target.inspect}>"
+        } else {
+          s"<$name ${target.inspect} ${argumentStrings.mkString(" ")}>"
+        }
+      }
+    }
   }
 }
 
 case class ASTParameter(
   outName: String,
   inName: String,
-  typePattern: Option[ASTPattern],
+  typePattern: Option[ASTValue.Pattern],
   location: Option[Location]
 )
 

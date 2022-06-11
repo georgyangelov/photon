@@ -25,8 +25,14 @@ class Core extends RealEValue {
   lazy val globals = Globals.of(
     "Core" -> this,
     "AnyStatic" -> $AnyStatic,
+    "Bool" -> $Bool,
+    "Float" -> $Float,
+    "Int" -> $Int,
+    "Optional" -> $Optional,
+    "Patten" -> $Pattern,
+    "String" -> $String,
     "Type" -> $Type,
-    "Int" -> $Int
+    "Unknown" -> $Unknown
   )
 
   val macros = Map[String, (Parser, Location) => ASTValue](
