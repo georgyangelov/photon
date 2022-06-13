@@ -10,7 +10,7 @@ object $Reference extends Type {
   override def toUValue(core: Core): UValue = inconvertible
   override val methods = Map.empty
 
-  case class Value(name: VariableName, value: EValue, location: Option[Location]) extends EValue {
+  case class Value(name: EVarName, value: EValue, location: Option[Location]) extends EValue {
     override def typ: Type = $Reference
     override def isOperation = true
     override def unboundNames = Set(name)

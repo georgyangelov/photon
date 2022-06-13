@@ -65,7 +65,7 @@ class Core extends RealEValue {
 
 object Globals {
   def of(vars: (String, EValue)*) = {
-    new Globals(vars.map { case (name, value) => Variable(new VariableName(name), value) })
+    new Globals(vars.map { case (name, value) => Variable(new EVarName(name), value) })
   }
 }
 

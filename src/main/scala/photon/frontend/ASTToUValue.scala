@@ -66,7 +66,7 @@ object ASTToUValue {
         }
 
       case ASTValue.Let(name, value, block, location) =>
-        val variable = new VariableName(name)
+        val variable = new VarName(name)
         val innerScope = scope.newChild(Map(name -> variable))
         val expression = transform(value, innerScope)
         val body = transform(block, innerScope)
@@ -78,35 +78,70 @@ object ASTToUValue {
   def transform(
     params: Seq[ASTParameter],
     scope: StaticScope
-  ): (Seq[UParameter], Map[String, VariableName], StaticScope) = {
+  ): (Seq[UParameter], Map[String, VarName], StaticScope) = {
     val uparams = Seq.newBuilder[UParameter]
-    val names = Map.newBuilder[String, VariableName]
-    var paramScope = scope
+    val names = Map.newBuilder[String, VarName]
+    var resultScope = scope
 
     params.foreach { param =>
-      val upattern = param.typePattern.map(transform(_, paramScope)).getOrElse {
+      val (upattern, newPatternScope) = param.typePattern.map(transform(_, resultScope)).getOrElse {
         throw EvalError("Function parameter types have to be defined explicitly for now", param.location)
       }
+
       val uparam = UParameter(param.outName, param.inName, upattern, param.location)
 
       uparams.addOne(uparam)
 
-      val paramNames = Map(param.inName -> new VariableName(param.inName)) ++
-        upattern.definitions.map(name => name -> new VariableName(name))
+      val paramNames = Map(param.inName -> new VarName(param.inName))
 
       names.addAll(paramNames)
 
-      paramScope = paramScope.newChild(paramNames)
+      resultScope = newPatternScope.newChild(paramNames)
     }
 
-    (uparams.result, names.result, paramScope)
+    (uparams.result, names.result, resultScope)
   }
 
-  def transform(ast: ASTValue.Pattern, scope: StaticScope): UPattern = {
+  def transform(ast: ASTValue.Pattern, scope: StaticScope): (UPattern, StaticScope) = {
     ast match {
-      case ASTValue.Pattern.SpecificValue(value, location) => UPattern.SpecificValue(transform(value, scope), location)
-      case ASTValue.Pattern.Binding(name, location) => UPattern.Binding(name, location)
-      ???
+      case ASTValue.Pattern.SpecificValue(value, location) =>
+        (UPattern.SpecificValue(transform(value, scope), location), scope)
+
+      case ASTValue.Pattern.Binding(name, location) =>
+        val varName = new VarName(name)
+
+        (UPattern.Binding(varName, location), scope.newChild(Map(name -> varName)))
+
+      case ASTValue.Pattern.Call(target, name, args, mayBeVarCall, location) =>
+        if (mayBeVarCall) {
+          scope.find(name) match {
+            case Some(value) =>
+              val utarget = UOperation.Reference(value, location)
+              val (uargs, resultScope) = transform(args, scope)
+
+              return (UPattern.Call(utarget, "call", uargs, location), resultScope)
+
+            case _ =>
+          }
+        }
+
+        val utarget = transform(target, scope)
+        val (uargs, resultScope) = transform(args, scope)
+
+        (UPattern.Call(utarget, name, uargs, location), resultScope)
     }
+  }
+
+  def transform(ast: ArgumentsWithoutSelf[ASTValue.Pattern], scope: StaticScope): (ArgumentsWithoutSelf[UPattern], StaticScope) = {
+    var resultScope = scope
+    val patterns = ast.map { pattern =>
+      val (resultPattern, newScope) = transform(pattern, resultScope)
+
+      resultScope = newScope
+
+      resultPattern
+    }
+
+    (patterns, resultScope)
   }
 }

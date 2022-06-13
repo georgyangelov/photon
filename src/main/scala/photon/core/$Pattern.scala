@@ -19,7 +19,7 @@ object $Pattern extends Type {
   )
 
   sealed trait Value extends EValue {
-    def bindings: Seq[VariableName]
+    def bindings: Seq[VarName]
     override def toUValue(core: Core): UPattern
   }
 
@@ -32,7 +32,7 @@ object $Pattern extends Type {
     override def evaluate(mode: EvalMode): EValue = this
   }
 
-  case class Binding(name: VariableName, location: Option[Location]) extends Value {
+  case class Binding(name: VarName, location: Option[Location]) extends Value {
     override def bindings = Seq(name)
     override def unboundNames = Set.empty
     override def toUValue(core: Core) = ???

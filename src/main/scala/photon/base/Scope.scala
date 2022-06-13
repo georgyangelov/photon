@@ -9,7 +9,7 @@ object Scope {
   }
 }
 
-case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) {
+case class Scope(parent: Option[Scope], variables: Map[EVarName, Variable]) {
   def newChild(variables: Seq[Variable]): Scope = {
     Scope(
       Some(this),
@@ -27,7 +27,7 @@ case class Scope(parent: Option[Scope], variables: Map[VariableName, Variable]) 
     }
   }
 
-  def find(name: VariableName): Option[Variable] = {
+  def find(name: EVarName): Option[Variable] = {
     variables.get(name) orElse { parent.flatMap(_.find(name)) }
   }
 }

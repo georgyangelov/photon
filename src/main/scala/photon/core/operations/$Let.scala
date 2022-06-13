@@ -10,7 +10,7 @@ object $Let extends Type {
   override def toUValue(core: Core): UValue = inconvertible
   override val methods = Map.empty
 
-  case class Value(name: VariableName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
+  case class Value(name: EVarName, value: EValue, body: EValue, location: Option[Location]) extends EValue {
     override def typ: Type = $Let
     override def isOperation = true
     override def unboundNames = value.unboundNames ++ body.unboundNames - name

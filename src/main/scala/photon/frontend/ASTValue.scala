@@ -1,6 +1,6 @@
 package photon.frontend
 
-import photon.base.{Arguments, ArgumentsWithoutSelf, Location}
+import photon.base.{ArgumentsWithoutSelf, Location}
 
 sealed abstract class ASTValue {
   def location: Option[Location]

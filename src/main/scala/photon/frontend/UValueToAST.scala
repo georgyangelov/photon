@@ -20,7 +20,7 @@ object UValueToAST {
 
   private def transform(
     value: UValue,
-    varNames: Map[VariableName, String],
+    varNames: Map[VarName, String],
     renameAllPrefix: Option[String],
     forInspection: Boolean
   ): ASTValue = value match {
@@ -110,19 +110,48 @@ object UValueToAST {
 
   private def transform(
     value: UPattern,
-    varNames: Map[VariableName, String],
+    varNames: Map[VarName, String],
     renameAllPrefix: Option[String],
     forInspection: Boolean
-  ): ASTPattern = value match {
-    case UPattern.SpecificValue(value) => ASTPattern.SpecificValue(
-      transform(value, varNames, renameAllPrefix, forInspection)
+  ): ASTValue.Pattern = value match {
+    case UPattern.SpecificValue(value, location) => ASTValue.Pattern.SpecificValue(
+      transform(value, varNames, renameAllPrefix, forInspection),
+      location
     )
-    case UPattern.Val(name) => ASTPattern.Val(name)
+    case UPattern.Binding(name, location) => ASTValue.Pattern.Binding(
+      varNames.getOrElse(name, name.originalName),
+      location
+    )
+
+    case UPattern.Call(target, name, args, location) =>
+      val astTarget = transform(target, varNames, renameAllPrefix, forInspection)
+      val astArguments = args.map(transform(_, varNames, renameAllPrefix, forInspection))
+
+      astTarget match {
+        case ASTValue.NameReference(targetName, _) if name == "call" =>
+          ASTValue.Pattern.Call(
+            ASTValue.NameReference("self", location),
+            targetName,
+            astArguments,
+            mayBeVarCall = true,
+            location
+          )
+
+        case _ =>
+          ASTValue.Pattern.Call(
+            astTarget,
+            name,
+            astArguments,
+            mayBeVarCall = false,
+            location
+          )
+      }
   }
 
+  // TODO: Need to have extensive testing on this around the pattern unboundNames and renaming
   private def transformFn(
     fn: UFunction,
-    varNames: Map[VariableName, String],
+    varNames: Map[VarName, String],
     renameAllPrefix: Option[String],
     location: Option[Location],
     forInspection: Boolean
@@ -138,7 +167,12 @@ object UValueToAST {
         case None => uniqueName(param.inName, unboundNames)
       }
 
-      val typePattern = transform(param.typ, varNames, renameAllPrefix, forInspection)
+      val typePatternDefNames = param.typ.definitions
+        // TODO: `renameAllPrefix` should be supported here, HOWEVER it should also use `uniqueName`
+        //       as prefixed names can still collide with each other.
+        .map(name => name -> uniqueName(name.originalName, unboundNames))
+
+      val typePattern = transform(param.typ, varNames ++ typePatternDefNames, renameAllPrefix, forInspection)
 
       ASTParameter(param.outName, newInName, Some(typePattern), param.location)
     }

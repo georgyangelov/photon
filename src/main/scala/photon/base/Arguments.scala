@@ -4,6 +4,11 @@ import scala.reflect.ClassTag
 
 case class ArgumentsWithoutSelf[+T](positional: Seq[T], named: Map[String, T]) {
   def argValues = positional ++ named.values
+
+  def map[R](f: T => R) = ArgumentsWithoutSelf(
+    positional.map(f),
+    named.view.mapValues(f).toMap
+  )
 }
 object ArgumentsWithoutSelf {
   def empty[T]: ArgumentsWithoutSelf[T] = ArgumentsWithoutSelf(Seq.empty, Map.empty)

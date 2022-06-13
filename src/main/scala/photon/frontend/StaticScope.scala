@@ -1,20 +1,20 @@
 package photon.frontend
 
-import photon.base.{Scope, VariableName}
+import photon.base.{Scope, VarName}
 
 sealed trait StaticScope {
   def root: StaticScope.Root
-  def find(name: String): Option[VariableName]
+  def find(name: String): Option[VarName]
 
-  def newChild(variables: Map[String, VariableName]): StaticScope = {
+  def newChild(variables: Map[String, VarName]): StaticScope = {
     StaticScope.Child(root, this, variables)
   }
 }
 
 object StaticScope {
-  case class Root(variables: Map[String, VariableName]) extends StaticScope {
+  case class Root(variables: Map[String, VarName]) extends StaticScope {
     override def root: Root = this
-    override def find(name: String): Option[VariableName] = variables.get(name)
+    override def find(name: String): Option[VarName] = variables.get(name)
 
     override def toString: String = {
       val names = variables.view
@@ -28,9 +28,9 @@ object StaticScope {
   case class Child(
     root: StaticScope.Root,
     parent: StaticScope,
-    variables: Map[String, VariableName]
+    variables: Map[String, VarName]
   ) extends StaticScope {
-    override def find(name: String): Option[VariableName] = variables.get(name) orElse { parent.find(name) }
+    override def find(name: String): Option[VarName] = variables.get(name) orElse { parent.find(name) }
 
     override def toString: String = {
       val names = variables.view
@@ -41,7 +41,7 @@ object StaticScope {
     }
   }
 
-  def newRoot(variables: Seq[VariableName]): StaticScope.Root =
+  def newRoot(variables: Seq[VarName]): StaticScope.Root =
     StaticScope.Root(
       variables.map { variable => (variable.originalName, variable) }.toMap
     )

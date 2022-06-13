@@ -77,7 +77,7 @@ trait EValue {
    * For example, classes, lists, functions, etc. should provide this and
    * pass through to inner values.
    */
-  def unboundNames: Set[VariableName]
+  def unboundNames: Set[VarName]
 
   /**
    * Converts EValue to UValue so that it can be further converted back to AST.
