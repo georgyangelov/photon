@@ -100,7 +100,8 @@ object ASTValue {
     def inspect: java.lang.String
   }
   object Pattern {
-    case class SpecificValue(value: ASTValue, location: Option[Location]) extends Pattern {
+    case class SpecificValue(value: ASTValue) extends Pattern {
+      override def location = value.location
       override def inspect = value.inspect
     }
 

@@ -72,7 +72,8 @@ sealed trait UPattern extends UValue {
   val definitions: Set[VarName]
 }
 object UPattern {
-  case class SpecificValue(value: UValue, location: Option[Location]) extends UPattern {
+  case class SpecificValue(value: UValue) extends UPattern {
+    override val location = value.location
     override val definitions = Set.empty
     override val unboundNames = value.unboundNames
   }

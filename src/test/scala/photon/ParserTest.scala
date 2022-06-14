@@ -108,16 +108,6 @@ class ParserTest extends FunSuite {
     assert(parse("a()") == "(a self)")
   }
 
-//  test("subname resolution") {
-//    assert(parse("A::method") == "(A::method)")
-//    assert(parse("A.B::method") == "((B A)::method)")
-//    assert(parse("NameA.NameB") == "(NameB NameA)")
-//    assert(parse("NameA.NameB.test") == "(test (NameB NameA))")
-//    assert(parse("NameA.NameB.test 123") == "(test (NameB NameA) 123)")
-//    assert(parse("A.include(B)::C::D") == "(((include A B)::C)::D)")
-//    assert(parse("A.include(B)::C::D.test") == "(test (((include A B)::C)::D))")
-//  }
-
   test("method calls with arguments") {
     assert(parse("method(a)") == "(method self a)")
     assert(parse("method a") == "(method self a)")
@@ -268,6 +258,19 @@ class ParserTest extends FunSuite {
   test("patterns in parameter types") {
     assert(parse("(a: val AT) 42") == "(lambda [(param a (val AT))] 42)")
     assert(parse("(a: val AT, b: AT) 42") == "(lambda [(param a (val AT)) (param b AT)] 42)")
+  }
+
+  test("call patterns in parameter types") {
+    assert(parse("(a: Optional(val T)) 42") == "(lambda [(param a <Optional self (val T)>)] 42)")
+    assert(parse("(a: Optional.match(val T)) 42") == "(lambda [(param a <match Optional (val T)>)] 42)")
+    assert(parse("(a: Optional.match(1, val T)) 42") == "(lambda [(param a <match Optional 1 (val T)>)] 42)")
+    assert(parse("(a: Optional.match(1, Optional(val T))) 42") == "(lambda [(param a <match Optional 1 <Optional self (val T)>>)] 42)")
+  }
+
+  test("specific value patterns in parameter types") {
+    assert(parse("(a: Optional(Int)) 42") == "(lambda [(param a (Optional self Int))] 42)")
+    assert(parse("(a: Optional.of(Int)) 42") == "(lambda [(param a (of Optional Int))] 42)")
+    assert(parse("(a: Optional.of(1, Int)) 42") == "(lambda [(param a (of Optional 1 Int))] 42)")
   }
 
   test("parameters with external and internal names") {

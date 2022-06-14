@@ -116,9 +116,8 @@ object UValueToAST {
     renameAllPrefix: Option[String],
     forInspection: Boolean
   ): ASTValue.Pattern = value match {
-    case UPattern.SpecificValue(value, location) => ASTValue.Pattern.SpecificValue(
-      transform(value, varNames, renameAllPrefix, forInspection),
-      location
+    case UPattern.SpecificValue(value) => ASTValue.Pattern.SpecificValue(
+      transform(value, varNames, renameAllPrefix, forInspection)
     )
     case UPattern.Binding(name, location) => ASTValue.Pattern.Binding(
       varNames.getOrElse(name, name.originalName),

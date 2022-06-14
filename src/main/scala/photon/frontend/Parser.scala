@@ -322,8 +322,6 @@ class Parser(
   }
 
   private def tryToParseCall(target: ASTValue, requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): Option[ASTValue] = {
-    val startLocation = token.location
-
     // target.call
     if (token.tokenType == TokenType.Dot) {
       if (token.hadWhitespaceBefore && hasLowerPriorityTarget) {
@@ -342,15 +340,25 @@ class Parser(
 
       val name = read()
       val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = true)
-      val location = startLocation.extendWith(lastLocation)
+      val isPattern = arguments.exists(_._2.isInstanceOf[ASTValue.Pattern])
 
-      return Some(ASTValue.Call(
-        target,
-        name.string,
-        arguments,
-        mayBeVarCall = false,
-        location = Some(location)
-      ))
+      if (isPattern) {
+        return Some(ASTValue.Pattern.Call(
+          target,
+          name.string,
+          toPatternArguments(arguments),
+          mayBeVarCall = false,
+          location = target.location.map(_.extendWith(lastLocation))
+        ))
+      } else {
+        return Some(ASTValue.Call(
+          target,
+          name.string,
+          toArguments(arguments),
+          mayBeVarCall = false,
+          location = target.location.map(_.extendWith(lastLocation))
+        ))
+      }
     }
 
     // name a
@@ -361,14 +369,25 @@ class Parser(
 
         if (!currentExpressionMayEnd && (!requireCallParens || isDefinitelyACall)) {
           val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = true)
+          val isPattern = arguments.exists(_._2.isInstanceOf[ASTValue.Pattern])
 
-          return Some(ASTValue.Call(
-            target = ASTValue.NameReference("self", targetLocation),
-            name,
-            arguments,
-            mayBeVarCall = true,
-            location = targetLocation.map(_.extendWith(lastLocation))
-          ))
+          if (isPattern) {
+            return Some(ASTValue.Pattern.Call(
+              target = ASTValue.NameReference("self", targetLocation),
+              name,
+              toPatternArguments(arguments),
+              mayBeVarCall = true,
+              location = targetLocation.map(_.extendWith(lastLocation))
+            ))
+          } else {
+            return Some(ASTValue.Call(
+              target = ASTValue.NameReference("self", targetLocation),
+              name,
+              toArguments(arguments),
+              mayBeVarCall = true,
+              location = targetLocation.map(_.extendWith(lastLocation))
+            ))
+          }
         }
 
       case _ => ()
@@ -377,20 +396,31 @@ class Parser(
     // expression( ... )
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
       val arguments = parseArguments(requireCallParens, hasLowerPriorityTarget = false)
+      val isPattern = arguments.exists(_._2.isInstanceOf[ASTValue.Pattern])
 
-      return Some(ASTValue.Call(
-        target = target,
-        name = "call",
-        arguments = arguments,
-        mayBeVarCall = false,
-        target.location.map(_.extendWith(lastLocation))
-      ))
+      if (isPattern) {
+        return Some(ASTValue.Pattern.Call(
+          target,
+          name = "call",
+          args = toPatternArguments(arguments),
+          mayBeVarCall = false,
+          target.location.map(_.extendWith(lastLocation))
+        ))
+      } else {
+        return Some(ASTValue.Call(
+          target = target,
+          name = "call",
+          arguments = toArguments(arguments),
+          mayBeVarCall = false,
+          target.location.map(_.extendWith(lastLocation))
+        ))
+      }
     }
 
     None
   }
 
-  private def parseArguments(requireParens: Boolean, hasLowerPriorityTarget: Boolean): ASTArguments = {
+  private def parseArguments(requireParens: Boolean, hasLowerPriorityTarget: Boolean): Seq[(Option[String], ASTValue)] = {
     var withParentheses = false
 
     if (token.tokenType == TokenType.OpenParen && !token.hadWhitespaceBefore) {
@@ -399,35 +429,25 @@ class Parser(
     }
 
     if (!withParentheses && currentExpressionMayEnd) {
-      return ASTArguments.empty
+      return Seq.empty
     }
 
     if (!withParentheses && requireParens) {
-      return ASTArguments.empty
+      return Seq.empty
     }
 
     if (withParentheses && token.tokenType == TokenType.CloseParen) {
       read() // )
-      return ASTArguments.empty
+      return Seq.empty
     }
 
-    val positionalArguments = Vector.newBuilder[ASTValue]
-    val namedArguments = ListMap.newBuilder[String, ASTValue]
 
-    var value = parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses)
-    value match {
-      case (Some(name), value) => namedArguments.addOne(name, value)
-      case (None, value) => positionalArguments.addOne(value)
-    }
+    val arguments = Seq.newBuilder[(Option[String], ASTValue)]
 
+    arguments.addOne(parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses))
     while (token.tokenType == TokenType.Comma) {
       read() // ,
-
-      value = parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses)
-      value match {
-        case (Some(name), value) => namedArguments.addOne(name, value)
-        case (None, value) => positionalArguments.addOne(value)
-      }
+      arguments.addOne(parseArgument(hasLowerPriorityTarget = hasLowerPriorityTarget && !withParentheses))
     }
 
     if (withParentheses) {
@@ -440,7 +460,31 @@ class Parser(
       parseError("Expected current expression to end (either new line or ')')")
     }
 
-    ASTArguments(positionalArguments.result(), namedArguments.result())
+    arguments.result
+  }
+
+  private def toArguments(args: Seq[(Option[String], ASTValue)]): ASTArguments = {
+    val (positional, named) = args.partition(_._1.isEmpty)
+
+    ASTArguments(
+      positional.map(_._2),
+      named.map { case (name, value) => name.get -> value }.toMap
+    )
+  }
+
+  private def toPatternArguments(args: Seq[(Option[String], ASTValue)]): ArgumentsWithoutSelf[ASTValue.Pattern] = {
+    val patternArgs = args.map { case (name, value) =>
+      name -> (value match {
+        case pattern: ASTValue.Pattern => pattern
+        case _ => ASTValue.Pattern.SpecificValue(value)
+      })
+    }
+    val (positional, named) = patternArgs.partition(_._1.isEmpty)
+
+    ArgumentsWithoutSelf(
+      positional.map(_._2),
+      named.map { case (name, value) => name.get -> value }.toMap
+    )
   }
 
   private def parseArgument(hasLowerPriorityTarget: Boolean): (Option[String], ASTValue) = {
@@ -452,7 +496,11 @@ class Parser(
       Some(name.string)
     } else { None }
 
-    val value = parseExpression(requireCallParens = false, hasLowerPriorityTarget = hasLowerPriorityTarget)
+    val value = if (token.tokenType == TokenType.Val) {
+      parsePattern(hasLowerPriorityTarget)
+    } else {
+      parseExpression(requireCallParens = false, hasLowerPriorityTarget = hasLowerPriorityTarget)
+    }
 
     (name, value)
   }
@@ -559,7 +607,7 @@ class Parser(
           val typeValue = if (token.tokenType == TokenType.Colon) {
             read() // :
 
-            Some(parseArgumentTypePattern())
+            Some(parsePattern(hasLowerPriorityTarget = false))
           } else {
             None
           }
@@ -580,7 +628,7 @@ class Parser(
     parameters.result
   }
 
-  private def parseArgumentTypePattern(): ASTValue.Pattern = {
+  private def parsePattern(hasLowerPriorityTarget: Boolean): ASTValue.Pattern = {
     if (token.tokenType == TokenType.Val) {
       read() // val
       val startLocation = lastLocation
@@ -589,11 +637,13 @@ class Parser(
       val name = read() // name
 
       ASTValue.Pattern.Binding(name.string, Some(startLocation.extendWith(lastLocation)))
-    // TODO: Support call patterns
     } else {
-      val value = parseExpression(requireCallParens = true, hasLowerPriorityTarget = false)
+      val value = parseExpression(requireCallParens = true, hasLowerPriorityTarget = hasLowerPriorityTarget)
 
-      ASTValue.Pattern.SpecificValue(value, Some(lastLocation))
+      value match {
+        case pattern: ASTValue.Pattern => pattern
+        case _ => ASTValue.Pattern.SpecificValue(value)
+      }
     }
   }
 
