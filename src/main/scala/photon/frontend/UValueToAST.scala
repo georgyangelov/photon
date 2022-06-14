@@ -94,6 +94,8 @@ object UValueToAST {
             location = location
           )
       }
+
+    case pattern: UPattern => transform(pattern, varNames, renameAllPrefix, forInspection)
   }
 
   private def uniqueName(original: String, used: Set[String]) = {
@@ -164,7 +166,7 @@ object UValueToAST {
       //       but this shouldn't happen anyway.
       val newInName = renameAllPrefix match {
         case Some(prefix) => s"$prefix$$${param.inName}"
-        case None => uniqueName(param.inName, unboundNames)
+        case None => uniqueName(param.inName.originalName, unboundNames)
       }
 
       val typePatternDefNames = param.typ.definitions

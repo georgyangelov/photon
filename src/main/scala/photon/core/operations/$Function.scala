@@ -41,36 +41,41 @@ object $FunctionDef extends Type {
 
     override def evaluate(mode: EvalMode) = {
       val context = EValue.context
+      var fnScope = scope
       val eParams = fn.params.map { param =>
-        val argType = context.toEValue(param.typ, scope)
+        val (argType, patternScope) = context.toEValue(param.typ, fnScope)
+        fnScope = patternScope
 
         EParameter(param.outName, param.inName, argType, location)
       }
 
       val eReturnType = fn.returnType
         .map(context.toEValue(_, scope))
-        .getOrElse { inferReturnType(context, eParams) }
+        .getOrElse {
+          throw EvalError("Cannot infer return types yet", location)
+          // inferReturnType(context, eParams)
+        }
 
       val functionType = $FunctionT(eParams, eReturnType, FunctionRunMode.Default, InlinePreference.Default)
 
-      FunctionValue(functionType, fn.nameMap, fn.body, scope, location)
+      FunctionValue(functionType, fn.body, fn.unboundNames, scope, location)
     }
 
-    private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
-      val paramVariables = eparams.map(param => {
-        val typ = param.typ match {
-          case $Pattern.SpecificValue(value, _) => value.assertType
-          case _ => throw EvalError("Cannot infer the return type of a function using type vals", param.location)
-        }
-
-        Variable(fn.nameMap(param.inName), $Unknown.Value(typ, param.location))
-      })
-
-      val partialScope = scope.newChild(paramVariables)
-      val ebody = context.toEValue(fn.body, partialScope)
-
-      ebody.realType
-    }
+//    private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
+//      val paramVariables = eparams.map(param => {
+//        val typ = param.typ match {
+//          case $Pattern.SpecificValue(value, _) => value.assertType
+//          case _ => throw EvalError("Cannot infer the return type of a function using type vals", param.location)
+//        }
+//
+//        Variable(param.inName, $Unknown.Value(typ, param.location))
+//      })
+//
+//      val partialScope = scope.newChild(paramVariables)
+//      val ebody = context.toEValue(fn.body, partialScope)
+//
+//      ebody.realType
+//    }
   }
 }
 
@@ -89,12 +94,12 @@ object $Function extends Type {
     )
   }
 
-  override def typ = $Type
+  override def typ = meta
   override def toUValue(core: Core): UValue = core.referenceTo(this, location)
   override val methods = Map.empty
 }
 
-case class EParameter(outName: String, inName: String, typ: $Pattern.Value, location: Option[Location]) {
+case class EParameter(outName: String, inName: VarName, typ: $Pattern.Value, location: Option[Location]) {
   def toUParameter(core: Core) = UParameter(outName, inName, typ.toUValue(core), location)
 }
 
@@ -119,7 +124,7 @@ case class $FunctionT(
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
-        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, fn.location)
+        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
       }
     },
 
@@ -133,7 +138,7 @@ case class $FunctionT(
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
-        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, fn.location)
+        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
       }
     },
 
@@ -147,7 +152,7 @@ case class $FunctionT(
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
-        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, fn.location)
+        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
       }
     },
 
@@ -161,7 +166,7 @@ case class $FunctionT(
         val newType = args.returnType.assertSpecificType[$FunctionT]
         val fn = args.selfEval[FunctionValue]
 
-        FunctionValue(newType, fn.nameMap, fn.body, fn.scope, fn.location)
+        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
       }
     },
 
@@ -269,12 +274,12 @@ case class $FunctionT(
 
 case class FunctionValue(
   typ: $FunctionT,
-  nameMap: Map[String, VariableName],
   body: UValue,
+  unboundNames: Set[VarName],
   scope: Scope,
   location: Option[Location]
 ) extends RealEValue {
-  override def unboundNames = body.unboundNames ++ typ.unboundNames -- nameMap.values
+//  override def unboundNames = body.unboundNames ++ typ.unboundNames -- nameMap.values
 
   // TODO: Encode method traits with `.compileTimeOnly` / `.runTimeOnly`
   //       and inline preference as well.
@@ -282,7 +287,6 @@ case class FunctionValue(
     UOperation.Function(
       new UFunction(
         typ.params.map(_.toUParameter(core)),
-        nameMap,
         body,
         Some(typ.returnType.toUValue(core))
       ),

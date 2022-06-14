@@ -565,7 +565,7 @@ class Parser(
           }
 
           parameters.addOne(
-            ASTParameter(outName, inName, typeValue, Some(lastLocation.extendWith(startLocation)))
+            ASTParameter(outName, inName, typeValue, Some(startLocation.extendWith(lastLocation)))
           )
 
           if (token.tokenType != TokenType.Comma) break
@@ -580,18 +580,20 @@ class Parser(
     parameters.result
   }
 
-  private def parseArgumentTypePattern(): ASTPattern = {
+  private def parseArgumentTypePattern(): ASTValue.Pattern = {
     if (token.tokenType == TokenType.Val) {
       read() // val
+      val startLocation = lastLocation
 
       if (token.tokenType != TokenType.Name) parseError("Expected name after `val` in pattern")
       val name = read() // name
 
-      ASTPattern.Val(name.string)
+      ASTValue.Pattern.Binding(name.string, Some(startLocation.extendWith(lastLocation)))
+    // TODO: Support call patterns
     } else {
       val value = parseExpression(requireCallParens = true, hasLowerPriorityTarget = false)
 
-      ASTPattern.SpecificValue(value)
+      ASTValue.Pattern.SpecificValue(value, Some(lastLocation))
     }
   }
 

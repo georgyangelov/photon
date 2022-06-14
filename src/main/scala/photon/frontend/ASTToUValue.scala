@@ -14,11 +14,11 @@ object ASTToUValue {
         UOperation.Block(values.map(transform(_, scope)), location)
 
       case ASTValue.Function(params, astBody, returnType, location) =>
-        val (parameters, nameMap, lambdaScope) = transform(params, scope)
+        val (parameters, lambdaScope) = transform(params, scope)
 
         val body = transform(astBody, lambdaScope)
         val returns = returnType.map(transform(_, scope))
-        val fn = new UFunction(parameters, nameMap, body, returns)
+        val fn = new UFunction(parameters, body, returns)
 
         UOperation.Function(fn, location)
 
@@ -72,15 +72,16 @@ object ASTToUValue {
         val body = transform(block, innerScope)
 
         UOperation.Let(variable, expression, body, location)
+
+      case pattern: ASTValue.Pattern => transform(pattern, scope)
     }
   }
 
   def transform(
     params: Seq[ASTParameter],
     scope: StaticScope
-  ): (Seq[UParameter], Map[String, VarName], StaticScope) = {
+  ): (Seq[UParameter], StaticScope) = {
     val uparams = Seq.newBuilder[UParameter]
-    val names = Map.newBuilder[String, VarName]
     var resultScope = scope
 
     params.foreach { param =>
@@ -88,18 +89,16 @@ object ASTToUValue {
         throw EvalError("Function parameter types have to be defined explicitly for now", param.location)
       }
 
-      val uparam = UParameter(param.outName, param.inName, upattern, param.location)
+      val uparam = UParameter(param.outName, new VarName(param.inName), upattern, param.location)
 
       uparams.addOne(uparam)
 
-      val paramNames = Map(param.inName -> new VarName(param.inName))
-
-      names.addAll(paramNames)
-
-      resultScope = newPatternScope.newChild(paramNames)
+      resultScope = newPatternScope.newChild(
+        Map(param.inName -> uparam.inName)
+      )
     }
 
-    (uparams.result, names.result, resultScope)
+    (uparams.result, resultScope)
   }
 
   def transform(ast: ASTValue.Pattern, scope: StaticScope): (UPattern, StaticScope) = {

@@ -8,5 +8,5 @@ class Interpreter {
   val core = new Core
 
   def toEValue(uvalue: UValue, scope: Scope): EValue = ???
-  def toEValue(upattern: UPattern, scope: Scope): $Pattern.Value = ???
+  def toEValue(upattern: UPattern, scope: Scope): ($Pattern.Value, Scope) = ???
 }

@@ -93,15 +93,20 @@ object UPattern {
 
 class UFunction(
   val params: Seq[UParameter],
-  val nameMap: Map[String, VarName],
   val body: UValue,
   val returnType: Option[UValue]
 ) {
-  val unboundNames = params.flatMap(_.unboundNames).toSet ++ body.unboundNames -- nameMap.values
+  /**
+   * Variable names that are defined in the parameter list.
+   * Those need to be renamed together with any `let`s inside of the function body
+   * before inlining.
+   */
+  val definitions = params.flatMap(_.typ.definitions) ++ params.map(_.inName)
+
+  val unboundNames = params.flatMap(_.unboundNames).toSet ++ body.unboundNames -- definitions
 }
 
 // TODO: Type here should be optional as it may rely on the usage
-// TODO: Should the `inName` be a VarName? We won't need the nameMap (probably)
-case class UParameter(outName: String, inName: String, typ: UPattern, location: Option[Location]) {
+case class UParameter(outName: String, inName: VarName, typ: UPattern, location: Option[Location]) {
   val unboundNames = typ.unboundNames
 }
