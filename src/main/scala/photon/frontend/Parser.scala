@@ -56,14 +56,24 @@ class Parser(
 
   def skipNextToken(): Unit = read()
 
+  def parseRoot(): ASTValue = {
+    val values = parseAll()
+    val startLocation = lastLocation
+
+    values.size match {
+      case 1 => values.head
+      case 0 => ASTValue.Block(values, Some(startLocation.extendWith(lastLocation)))
+    }
+  }
+
   def parseAll(): Seq[ASTValue] = {
-    val tokens = Vector.newBuilder[ASTValue]
+    val values = Vector.newBuilder[ASTValue]
 
     while (hasMoreTokens) {
-      tokens += parseCompleteExpression()
+      values += parseCompleteExpression()
     }
 
-    tokens.result
+    values.result
   }
 
   def parseCompleteExpression(): ASTValue = {

@@ -46,7 +46,7 @@ object Unparser {
         blockString
       }
 
-    case ASTValue.Pattern.SpecificValue(value, _) => unparse(value)
+    case ASTValue.Pattern.SpecificValue(value) => unparse(value)
     case ASTValue.Pattern.Binding(name, _) => s"val $name"
     case ASTValue.Pattern.Call(t, name, arguments, _, _) =>
       val target = unparse(t, expectSingleValue = true)

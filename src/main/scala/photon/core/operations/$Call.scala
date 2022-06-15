@@ -12,10 +12,7 @@ object $Call extends Type {
 
   case class Value(name: String, args: Arguments[EValue], location: Option[Location]) extends EValue {
     override def typ = $Call
-    override def unboundNames =
-      args.self.unboundNames ++
-        args.positional.flatMap(_.unboundNames) ++
-          args.named.values.flatMap(_.unboundNames)
+    override def unboundNames = args.values.flatMap(_.unboundNames).toSet
 
     override def toUValue(core: Core) = UOperation.Call(name, args.map(_.toUValue(core)), location)
 

@@ -9,13 +9,13 @@ object $Pattern extends Type {
   override def typ = $Type
   override def toUValue(core: Core) = core.referenceTo(this, location)
   override val methods = Map(
-    "match" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.of(
-        Seq("value" -> $Pattern.SpecificValue($AnyStatic, None)),
-        ???
-      )
-      override def apply(args: CallSpec, location: Option[Location]): EValue = ???
-    }
+//    "match" -> new CompileTimeOnlyMethod {
+//      override val signature = MethodSignature.of(
+//        Seq("value" -> $Pattern.SpecificValue($AnyStatic, None)),
+//        ???
+//      )
+//      override def apply(args: CallSpec, location: Option[Location]): EValue = ???
+//    }
   )
 
   sealed trait Value extends EValue {

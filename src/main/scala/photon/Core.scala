@@ -12,7 +12,7 @@ class Core extends RealEValue {
     override def typ: Type = $Type
     override val methods = Map(
       "typeCheck" -> new CompileTimeOnlyMethod {
-        override val signature: MethodSignature = ???
+        override val signature: MethodSignature = MethodSignature.any($AnyStatic)
         override def apply(args: CallSpec, location: Option[Location]): EValue = ???
       }
     )
