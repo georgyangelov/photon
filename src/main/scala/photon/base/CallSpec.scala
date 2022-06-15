@@ -17,7 +17,9 @@ case class SpecificMethodSignature(
   argTypes: Seq[(String, EValue)],
   returnType: EValue
 ) extends MethodSignature {
-  def specialize(args: Arguments[EValue]): CallSpec = ???
+  def specialize(args: Arguments[EValue]): CallSpec = {
+
+  }
 }
 
 case class AnyMethodSignature(returnType: EValue) extends MethodSignature {

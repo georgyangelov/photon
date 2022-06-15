@@ -19,7 +19,7 @@ object $Pattern extends Type {
   )
 
   sealed trait Value extends EValue {
-    def bindings: Seq[VarName]
+    def bindings: Seq[EVarName]
     override def toUValue(core: Core): UPattern
   }
 
@@ -32,7 +32,7 @@ object $Pattern extends Type {
     override def evaluate(mode: EvalMode): EValue = this
   }
 
-  case class Binding(name: VarName, location: Option[Location]) extends Value {
+  case class Binding(name: EVarName, location: Option[Location]) extends Value {
     override def bindings = Seq(name)
     override def unboundNames = Set.empty
     override def toUValue(core: Core) = ???
@@ -41,10 +41,9 @@ object $Pattern extends Type {
     override def evaluate(mode: EvalMode): EValue = this
   }
 
-  // TODO: Something other than Arguments that can accept different types for self and argValues?
-  case class Call(name: String, args: Arguments[EValue], location: Option[Location]) extends Value {
-    override def bindings = args.argValues.flatMap(_.asInstanceOf[$Pattern.Value].bindings)
-    override def unboundNames = args.values.flatMap(_.unboundNames).toSet
+  case class Call(target: EValue, name: String, args: ArgumentsWithoutSelf[$Pattern.Value], location: Option[Location]) extends Value {
+    override def bindings = args.argValues.flatMap(_.bindings)
+    override def unboundNames = target.unboundNames ++ args.argValues.flatMap(_.unboundNames)
     override def toUValue(core: Core) = ???
     override def typ = $Pattern
     override def realType = $Pattern

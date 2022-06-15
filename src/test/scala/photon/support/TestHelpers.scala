@@ -12,7 +12,7 @@ object TestHelpers {
     val interpreter = new Interpreter
     val ast = parse(code)
     val value = interpreter.withContext(EvalMode.CompileTimeOnly) {
-      interpreter.toEValueInRootScope(ast)
+      interpreter.toEValueInRootScope(ast).evaluated
     }
 
     val resultCode = value.toUValue(interpreter.core).toString

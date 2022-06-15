@@ -50,6 +50,6 @@ object $Call extends Type {
         .getOrElse { throw EvalError(s"No method named $name on $typ (self = ${args.self})", location) }
     }
 
-    private lazy val callSpec: CallSpec = ???
+    private lazy val callSpec: CallSpec = method.signature.specialize(args)
   }
 }
