@@ -11,6 +11,7 @@ object $Call extends Type {
   override val methods = Map.empty
 
   case class Value(name: String, args: Arguments[EValue], location: Option[Location]) extends EValue {
+    override def isOperation = true
     override def typ = $Call
     override def unboundNames = args.values.flatMap(_.unboundNames).toSet
 

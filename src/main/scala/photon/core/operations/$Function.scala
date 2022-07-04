@@ -27,154 +27,98 @@ object FunctionEvalRequest {
   case object InlineIfDefinedInline extends FunctionEvalRequest
 }
 
-object $FunctionDef extends Type {
-  override def typ = $Type
-  override def toUValue(core: Core): UValue = inconvertible
-  override val methods = Map.empty
-
-  case class Value(fn: UFunction, scope: Scope, location: Option[Location]) extends EValue {
-    override def typ: Type = $FunctionDef
-    override def isOperation = true
-    override def unboundNames = fn.unboundNames
-    override def toUValue(core: Core) = UOperation.Function(fn, location)
-    override def realType = evaluated.typ
-
-    override def evaluate(mode: EvalMode) = {
-      val context = EValue.context
-      var fnScope = scope
-      val eParams = fn.params.map { param =>
-        val (argType, patternScope) = context.toEValue(param.typ, fnScope)
-        fnScope = patternScope
-
-        EParameter(param.outName, param.inName, argType, location)
-      }
-
-      val eReturnType = fn.returnType
-        .map(context.toEValue(_, scope))
-        .getOrElse {
-          throw EvalError("Cannot infer return types yet", location)
-          // inferReturnType(context, eParams)
-        }
-
-      val functionType = $FunctionT(eParams, eReturnType, FunctionRunMode.Default, InlinePreference.Default)
-
-      FunctionValue(functionType, fn.body, fn.unboundNames, scope, location)
-    }
-
-//    private def inferReturnType(context: EValueContext, eparams: Seq[EParameter]) = {
-//      val paramVariables = eparams.map(param => {
-//        val typ = param.typ match {
-//          case $Pattern.SpecificValue(value, _) => value.assertType
-//          case _ => throw EvalError("Cannot infer the return type of a function using type vals", param.location)
-//        }
-//
-//        Variable(param.inName, $Unknown.Value(typ, param.location))
-//      })
-//
-//      val partialScope = scope.newChild(paramVariables)
-//      val ebody = context.toEValue(fn.body, partialScope)
-//
-//      ebody.realType
-//    }
-  }
-}
-
-object $Function extends Type {
-  val meta = new Type {
-    override def typ: Type = $Type
-    override def toUValue(core: Core): UValue = inconvertible
-    override val methods = Map(
-      // e.g. Function(a = Int, returns = Bool)
-      // This should return an interface, not $FunctionT as we can't
-      // handle patterns like this
-      "call" -> new CompileTimeOnlyMethod {
-        override val signature: MethodSignature = ???
-        override def apply(args: CallSpec, location: Option[Location]): EValue = ???
+object $Function {
+  def of(fn: UOperation.Function): $Function.Value = {
+    val signature = MethodSignature.of(
+      args = fn.fn.params.map(param => param.outName -> param.typ),
+      fn.fn.returnType.getOrElse {
+        // TODO: Infer return types for non-generic functions
+        throw EvalError("Inferring function return types is not yet supported", fn.location)
       }
     )
+    val typ = $Function(signature, FunctionRunMode.Default, InlinePreference.Default)
+
+    Value(typ, fn.fn, fn.location)
   }
 
-  override def typ = meta
-  override def toUValue(core: Core): UValue = core.referenceTo(this, location)
-  override val methods = Map.empty
+  case class Value(typ: $Function, fn: UFunction, location: Option[Location]) extends RealEValue {
+    override def unboundNames = fn.unboundNames
+
+    // TODO: Encode method traits with `.compileTimeOnly` / `.runTimeOnly`
+    //       and inline preference as well.
+    override def toUValue(core: Core) = UOperation.Function(fn, location)
+  }
 }
 
-case class EParameter(outName: String, inName: VarName, typ: $Pattern.Value, location: Option[Location]) {
-  def toUParameter(core: Core) = UParameter(outName, inName, typ.toUValue(core), location)
-}
-
-case class $FunctionT(
-  params: Seq[EParameter],
-  returnType: EValue,
+case class $Function(
+  signature: MethodSignature,
   runMode: FunctionRunMode,
   inlinePreference: InlinePreference
 ) extends Type {
-  override def typ: Type = $Function
-
-  override def unboundNames = params.flatMap(_.typ.unboundNames).toSet ++ typ.unboundNames
+  override def typ: Type = $Type
   override def toUValue(core: Core) = inconvertible
+
+  val self = this
+
   override val methods = Map(
     "runTimeOnly" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.of(
         Seq.empty,
-        $FunctionT(params, returnType, FunctionRunMode.RunTimeOnly, inlinePreference)
+        $Function(self.signature, FunctionRunMode.RunTimeOnly, inlinePreference)
       )
 
       override def apply(args: CallSpec, location: Option[Location]) = {
-        val newType = args.returnType.assertSpecificType[$FunctionT]
-        val fn = args.selfEval[FunctionValue]
+        val newType = args.returnType.assertSpecificType[$Function]
+        val fn = args.selfEval[$Function.Value].fn
 
-        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
+        $Function.Value(newType, fn, location)
       }
     },
 
     "compileTimeOnly" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.of(
         Seq.empty,
-        $FunctionT(params, returnType, FunctionRunMode.CompileTimeOnly, inlinePreference)
+        $Function(self.signature, FunctionRunMode.CompileTimeOnly, inlinePreference)
       )
 
       override def apply(args: CallSpec, location: Option[Location]) = {
-        val newType = args.returnType.assertSpecificType[$FunctionT]
-        val fn = args.selfEval[FunctionValue]
+        val newType = args.returnType.assertSpecificType[$Function]
+        val fn = args.selfEval[$Function.Value].fn
 
-        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
+        $Function.Value(newType, fn, location)
       }
     },
 
     "inline" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.of(
         Seq.empty,
-        $FunctionT(params, returnType, runMode, InlinePreference.ForceInline)
+        $Function(self.signature, runMode, InlinePreference.ForceInline)
       )
 
       override def apply(args: CallSpec, location: Option[Location]) = {
-        val newType = args.returnType.assertSpecificType[$FunctionT]
-        val fn = args.selfEval[FunctionValue]
+        val newType = args.returnType.assertSpecificType[$Function]
+        val fn = args.selfEval[$Function.Value].fn
 
-        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
+        $Function.Value(newType, fn, location)
       }
     },
 
     "noInline" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.of(
         Seq.empty,
-        $FunctionT(params, returnType, runMode, InlinePreference.NoInline)
+        $Function(self.signature, runMode, InlinePreference.NoInline)
       )
 
       override def apply(args: CallSpec, location: Option[Location]) = {
-        val newType = args.returnType.assertSpecificType[$FunctionT]
-        val fn = args.selfEval[FunctionValue]
+        val newType = args.returnType.assertSpecificType[$Function]
+        val fn = args.selfEval[$Function.Value].fn
 
-        FunctionValue(newType, fn.body, fn.unboundNames, fn.scope, fn.location)
+        $Function.Value(newType, fn, location)
       }
     },
 
     "call" -> new Method {
-      override val signature = MethodSignature.of(
-        params.map(param => param.outName -> param.typ),
-        returnType
-      )
+      override val signature = self.signature
 
       override def call(args: CallSpec, location: Option[Location]) = {
         val evalRequest = this.evalRequest(EValue.context.evalMode)
@@ -187,7 +131,7 @@ case class $FunctionT(
             )
 
             EValue.withContext(context) {
-              val fn = args.selfEval[FunctionValue]
+              val fn = args.selfEval[$Function.Value]
               val self = PartialValue(fn, Seq.empty)
 
               // TODO: To avoid infinite recursion, this should check that the args can be fully evaluated first
@@ -207,7 +151,7 @@ case class $FunctionT(
               followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
             )
             val fn = partialSelf.value match {
-              case fn: FunctionValue => fn
+              case fn: $Function.Value => fn
               case value if value.isOperation => throw DelayCall
               case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
             }
@@ -263,33 +207,13 @@ case class $FunctionT(
       }
 
       private def buildCodeForExecution(
-        fn: FunctionValue,
+        fn: $Function.Value,
         self: PartialValue,
         args: CallSpec,
         location: Option[Location]
-      ): EValue = ???
+      ): EValue = {
+        
+      }
     }
   )
-}
-
-case class FunctionValue(
-  typ: $FunctionT,
-  body: UValue,
-  unboundNames: Set[VarName],
-  scope: Scope,
-  location: Option[Location]
-) extends RealEValue {
-//  override def unboundNames = body.unboundNames ++ typ.unboundNames -- nameMap.values
-
-  // TODO: Encode method traits with `.compileTimeOnly` / `.runTimeOnly`
-  //       and inline preference as well.
-  override def toUValue(core: Core) =
-    UOperation.Function(
-      new UFunction(
-        typ.params.map(_.toUParameter(core)),
-        body,
-        Some(typ.returnType.toUValue(core))
-      ),
-      location
-    )
 }

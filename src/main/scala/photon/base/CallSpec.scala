@@ -1,12 +1,13 @@
 package photon.base
 
-import photon.core.$Pattern
+import photon.frontend.{UPattern, UValue}
 
 import scala.reflect.ClassTag
 
 object MethodSignature {
   def any(returnType: EValue) = AnyMethodSignature(returnType)
-  def of(args: Seq[(String, $Pattern.Value)], returnType: EValue) = SpecificMethodSignature(args, returnType)
+  def of(args: Seq[(String, UPattern)], returnType: UValue) = PatternMethodSignature(args, returnType)
+  def of(args: Seq[(String, EValue)], returnType: EValue) = SpecificMethodSignature(args, returnType)
 }
 
 sealed trait MethodSignature {
@@ -17,9 +18,14 @@ case class SpecificMethodSignature(
   argTypes: Seq[(String, EValue)],
   returnType: EValue
 ) extends MethodSignature {
-  def specialize(args: Arguments[EValue]): CallSpec = {
+  def specialize(args: Arguments[EValue]): CallSpec = ???
+}
 
-  }
+case class PatternMethodSignature(
+  argTypes: Seq[(String, UPattern)],
+  returnType: UValue
+) extends MethodSignature {
+  def specialize(args: Arguments[EValue]): CallSpec = ???
 }
 
 case class AnyMethodSignature(returnType: EValue) extends MethodSignature {
