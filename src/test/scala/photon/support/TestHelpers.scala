@@ -2,7 +2,7 @@ package photon.support
 
 import org.scalatest.Assertions._
 
-import photon.base.{EValue, EvalMode, Interpreter}
+import photon.base.{EValue, EvalMode}
 import photon.frontend.{Lexer, Parser, Unparser}
 
 object TestHelpers {

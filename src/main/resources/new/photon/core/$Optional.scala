@@ -1,7 +1,6 @@
 package photon.core
 
 import photon.Core
-import photon.base.Type
 
 object $Optional extends Type {
   override def toUValue(core: Core) = core.referenceTo(this, location)

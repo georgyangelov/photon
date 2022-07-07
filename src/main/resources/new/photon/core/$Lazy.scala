@@ -1,7 +1,7 @@
 package photon.core
 
 import photon.Core
-import photon.base.{EValue, EvalError, EvalMode, Location, PartialValue}
+import photon.base.{EValue, EvalError, EvalMode, Location}
 import photon.lib.Lazy
 
 // TODO: Make this a Type?
