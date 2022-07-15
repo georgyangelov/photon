@@ -1,9 +1,9 @@
 package photon.support
 
 import org.scalatest.Assertions._
-
-import photon.base.{EValue, EvalMode}
+import photon.base._
 import photon.frontend.{Lexer, Parser, Unparser}
+import photon.interpreter._
 
 object TestHelpers {
   def expectCompileTime(macros: String, code: String, expected: String) = ???
@@ -11,18 +11,15 @@ object TestHelpers {
   def expectCompileTime(code: String, expected: String) = {
     val interpreter = new Interpreter
     val ast = parse(code)
-    val value = interpreter.withContext(EvalMode.CompileTimeOnly) {
-      interpreter.toEValueInRootScope(ast).evaluated
-    }
+    val value = interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
 
-    val resultCode = value.toUValue(interpreter.core).toString
+    val resultCode = value.toAST(Map.empty).toString
     val expectedCode = Unparser.unparse(parse(expected))
 
     assert(resultCode == expectedCode)
   }
 
   def expectPhases(code: String, compile: String, run: String) = ???
-  def toEValue(code: String): EValue = ???
 
   private def parse(code: String) = {
     val lexer = new Lexer("<test>", code)

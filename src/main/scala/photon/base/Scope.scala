@@ -1,12 +1,12 @@
 package photon.base
 
 object Scope {
-  def newRoot(variables: Seq[(VarName, EValue)]) =
+  def newRoot(variables: Seq[(VarName, Value)]) =
     Scope(parent = None, variables)
 }
 
-case class Scope(parent: Option[Scope], var variables: Seq[(VarName, EValue)]) {
-  def newChild(variables: Seq[(VarName, EValue)]) =
+case class Scope(parent: Option[Scope], var variables: Seq[(VarName, Value)]) {
+  def newChild(variables: Seq[(VarName, Value)]) =
     Scope(parent = Some(this), variables)
 
   override def toString: String = {
@@ -19,14 +19,10 @@ case class Scope(parent: Option[Scope], var variables: Seq[(VarName, EValue)]) {
     }
   }
 
-  def find(name: VarName): Option[EValue] = {
+  def find(name: VarName): Option[Value] = {
     variables
       .find { case varName -> _ => varName == name }
       .map(_._2)
       .orElse { parent.flatMap(_.find(name)) }
-  }
-
-  def dangerouslySetValue(name: VarName, value: EValue): Unit = {
-    variables = variables ++ Seq(name -> value)
   }
 }

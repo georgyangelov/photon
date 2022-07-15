@@ -47,8 +47,8 @@ object StaticScope {
     )
 
   def fromRootScope(scope: Scope): StaticScope.Root = {
-    val variables = scope.variables.keys
-      .map { variable => (variable.originalName, variable) }
+    val variables = scope.variables
+      .map { case name -> _ => name.originalName -> name }
       .toMap
 
     StaticScope.Root(variables)

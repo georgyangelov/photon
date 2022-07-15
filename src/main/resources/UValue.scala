@@ -1,6 +1,6 @@
 package photon
 
-import photon.frontend.{Unparser, ValueToAST}
+import photon.frontend.Unparser
 import photon.lib.ObjectId
 import photon.lib.ScalaExtensions._
 

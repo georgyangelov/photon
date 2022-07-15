@@ -192,7 +192,7 @@ case class Class(
         }
 
       override def call(args: Arguments[EValue], location: Option[Location]) = {
-        val self = args.selfEval[Object]
+        val self = args.selfEval[$Object]
 
         // TODO: This should set the EvalMode
         definition.value.evaluated match {
