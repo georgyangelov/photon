@@ -4,9 +4,9 @@ import photon.base._
 import photon.frontend.ASTValue
 
 case class $Reference(name: VarName, location: Option[Location]) extends Value {
-  override def evaluate(scope: Scope, evalMode: EvalMode) = evalMode match {
+  override def evaluate(env: Environment) = env.evalMode match {
     case EvalMode.CompileTimeOnly |
-         EvalMode.RunTime => valueInScope(scope).evaluate(scope, evalMode)
+         EvalMode.RunTime => valueInScope(env.scope).evaluate(env)
 
     // If it's in a partial mode => it's not required (yet)
     case EvalMode.Partial |

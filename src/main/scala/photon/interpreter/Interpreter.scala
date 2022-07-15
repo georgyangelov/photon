@@ -13,6 +13,8 @@ class Interpreter {
   }
 
   def evaluate(value: Value, evalMode: EvalMode): Value = {
-    value.evaluate(rootScope, evalMode)
+    val env = Environment(rootScope, evalMode)
+
+    value.evaluate(env)
   }
 }

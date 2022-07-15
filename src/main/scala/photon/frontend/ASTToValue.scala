@@ -2,6 +2,7 @@ package photon.frontend
 
 import photon.base._
 import photon.core._
+import photon.core.objects._
 import photon.core.operations._
 
 object ASTToValue {

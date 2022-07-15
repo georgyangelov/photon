@@ -8,14 +8,14 @@ trait Value {
   def location: Option[Location]
   def typ(scope: Scope): Type
   // TODO: Memoize the result
-  def evaluate(scope: Scope, evalMode: EvalMode): Value
+  def evaluate(env: Environment): Value
 
   def inconvertible = throw EvalError(s"Could not convert $this to AST", location)
   def toAST(names: Map[VarName, String]): ASTValue
 }
 
 trait ConcreteValue extends Value {
-  override def evaluate(scope: Scope, evalMode: EvalMode): Value = this
+  override def evaluate(env: Environment): Value = this
 }
 
 trait Type extends ConcreteValue {
@@ -26,8 +26,6 @@ trait Type extends ConcreteValue {
 
   def method(name: String): Option[Method] = methods.get(name)
 }
-
-trait Method
 
 sealed trait EvalMode
 object EvalMode {

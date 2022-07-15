@@ -8,7 +8,7 @@ import photon.lib.Lazy
 case class $Let(name: VarName, value: Value, body: Value, location: Option[Location]) extends Value {
   override def typ(scope: Scope) = body.typ(scope)
 
-  override def evaluate(scope: Scope, evalMode: EvalMode): Value = {
+  override def evaluate(env: Environment): Value = {
     var evalue: Option[Value] = None
     val lazyValue = $Lazy(Lazy.of(() => {
       if (evalue.isEmpty) {
@@ -20,10 +20,10 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     ), location
     )
 
-    val innerScope = scope.newChild(Seq(name -> lazyValue))
+    val innerScope = env.scope.newChild(Seq(name -> lazyValue))
 
-    evalue = Some(value.evaluate(innerScope, evalMode))
-    val ebody = body.evaluate(innerScope, evalMode)
+    evalue = Some(value.evaluate(env))
+    val ebody = body.evaluate(env)
 
     // Inline if the body is a direct reference to this let value
     // case UValue.Reference(refName, _) if refName == name => evalue
