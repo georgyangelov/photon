@@ -31,7 +31,11 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     // case UValue.Reference(refName, _) if refName == name => evalue
     // case _ if ebody.unboundNames.contains(name) => $Let.Value(name, evalue, ebody, location)
     // case _ => UValue.Block(Seq(value, body), location)
-    $Let(name, evalue.get, ebody, location)
+    ebody match {
+      case $Reference(refName, _) if refName == name => evalue.get
+      // TODO: Define `Value#unboundNames` and use it to eliminate the let if possible
+      case _ => $Let(name, evalue.get, ebody, location)
+    }
 
     //    val unknown = $Unknown(location)
     //    val innerScope = scope.newChild(Seq(name -> $Lazy(unknown, location)))
@@ -53,5 +57,29 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     //    }
   }
 
-  override def toAST(names: Map[VarName, String]): ASTValue = ???
+  override def toAST(names: Map[VarName, String]) = {
+    val uniqueName = findUniqueNameFor(name, names.values.toSet)
+    val innerNames = names + (name -> uniqueName)
+
+    ASTValue.Let(
+      uniqueName,
+      value.toAST(innerNames),
+      body.toAST(innerNames),
+      location
+    )
+  }
+
+  private def findUniqueNameFor(name: VarName, usedNames: Set[String]): String = {
+    // TODO: Define `Value#unboundNames` and check if the duplicate name is actually used before renaming
+    if (!usedNames.contains(name.originalName)) {
+      return name.originalName
+    }
+
+    var i = 1
+    while (usedNames.contains(s"${name.originalName}__$i")) {
+      i += 1
+    }
+
+    s"${name.originalName}__$i"
+  }
 }
