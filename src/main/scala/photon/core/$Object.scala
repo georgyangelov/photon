@@ -3,6 +3,8 @@ package photon.core
 import photon.base._
 import photon.frontend.ASTValue
 
+import scala.reflect.ClassTag
+
 case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Value {
   override def evaluate(env: Environment) = this
   override def typ(scope: Scope) = typ
@@ -14,4 +16,11 @@ case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Valu
     case value: Boolean => ASTValue.Boolean(value, location)
     case _ => inconvertible
   }
+
+  def assert[T <: Any](implicit tag: ClassTag[T]) =
+    obj match {
+      case value: T => value
+      // TODO: Better messaging
+      case _ => throw EvalError(s"Unexpected object type, expected $tag, got $obj", location)
+    }
 }

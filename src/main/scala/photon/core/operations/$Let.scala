@@ -6,6 +6,7 @@ import photon.frontend.ASTValue
 import photon.lib.Lazy
 
 case class $Let(name: VarName, value: Value, body: Value, location: Option[Location]) extends Value {
+  override def isOperation = true
   override def typ(scope: Scope) = body.typ(scope)
 
   override def evaluate(env: Environment): Value = {
@@ -16,14 +17,15 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
       }
 
       evalue.get
-    }
-    ), location
+    }), location)
+
+    val innerEnv = Environment(
+      scope = env.scope.newChild(Seq(name -> lazyValue)),
+      evalMode = env.evalMode
     )
 
-    val innerScope = env.scope.newChild(Seq(name -> lazyValue))
-
-    evalue = Some(value.evaluate(env))
-    val ebody = body.evaluate(env)
+    evalue = Some(value.evaluate(innerEnv))
+    val ebody = body.evaluate(innerEnv)
 
     // Inline if the body is a direct reference to this let value
     // case UValue.Reference(refName, _) if refName == name => evalue

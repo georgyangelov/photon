@@ -13,7 +13,37 @@ object ASTToValue {
     case ASTValue.String(value, location) => ???
     case ASTValue.Block(values, location) => $Block(values.map(transform(_, scope)), location)
     case ASTValue.Function(params, body, returnType, location) => ???
-    case ASTValue.Call(target, name, arguments, mayBeVarCall, location) => ???
+
+    case ASTValue.Call(target, name, arguments, mayBeVarCall, location) =>
+      val positionalArgs = arguments.positional.map(transform(_, scope))
+      val namedArgs = arguments.named.map { case name -> astValue => (name, transform(astValue, scope)) }
+
+      if (mayBeVarCall) {
+        scope.find(name) match {
+          case Some(value) =>
+            return $Call(
+              "call",
+              Arguments(
+                self = $Reference(value, location),
+                positionalArgs,
+                namedArgs
+              ),
+              location
+            )
+
+          case _ =>
+        }
+      }
+
+      $Call(
+        name,
+        Arguments(
+          self = transform(target, scope),
+          positionalArgs,
+          namedArgs
+        ),
+        location
+      )
 
     case ASTValue.NameReference(name, location) =>
       val varName = scope.find(name)

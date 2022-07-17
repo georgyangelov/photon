@@ -5,6 +5,7 @@ import photon.frontend.ASTValue
 class VarName(val originalName: String)
 
 trait Value {
+  def isOperation: Boolean = false
   def location: Option[Location]
   def typ(scope: Scope): Type
   // TODO: Memoize the result

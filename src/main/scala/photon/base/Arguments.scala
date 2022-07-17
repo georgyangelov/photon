@@ -90,7 +90,7 @@ case class Arguments[+T](
   }
 
   def matchWith[T1](params: Seq[(String, T1)]): Seq[(String, (T, T1))] = {
-    val (positionalParams, namedParams) = params.partition { case (name, _) => named.contains(name) }
+    val (namedParams, positionalParams) = params.partition { case (name, _) => named.contains(name) }
 
     val positionalWithT1 = positionalParams
       .zip(positional)
