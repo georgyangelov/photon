@@ -4,6 +4,7 @@ import photon.base._
 import photon.core._
 import photon.core.objects._
 import photon.core.operations._
+import photon.frontend.ASTValue.Pattern
 
 object ASTToValue {
   def transform(ast: ASTValue, scope: StaticScope): Value = ast match {
@@ -12,7 +13,21 @@ object ASTToValue {
     case ASTValue.Float(value, location) => ???
     case ASTValue.String(value, location) => ???
     case ASTValue.Block(values, location) => $Block(values.map(transform(_, scope)), location)
-    case ASTValue.Function(params, body, returnType, location) => ???
+
+    // TODO: Support patterns
+    case ASTValue.Function(params, body, returnType, location) =>
+      val fnParams = params.map(transform(_, scope))
+      val innerScope = scope.newChild(
+        fnParams
+          .map { param => param.inName.originalName -> param.inName }
+          .toMap
+      )
+      val fnBody = transform(body, innerScope)
+      val fnReturnType = returnType
+        .map(transform(_, scope))
+        .getOrElse { throw EvalError("Functions must have an explicit return type for now", location) }
+
+      $FunctionDef(fnParams, fnBody, fnReturnType, location)
 
     case ASTValue.Call(target, name, arguments, mayBeVarCall, location) =>
       val positionalArgs = arguments.positional.map(transform(_, scope))
@@ -63,5 +78,19 @@ object ASTToValue {
       )
 
     case pattern: ASTValue.Pattern => ???
+  }
+
+  private def transform(param: ASTParameter, scope: StaticScope): Parameter = {
+    val varName = new VarName(param.inName)
+    val typePattern = param.typePattern
+      .getOrElse { throw EvalError("Params must have explicit types for now", param.location) }
+
+    val typ = typePattern match {
+      case Pattern.SpecificValue(value) => transform(value, scope)
+      case Pattern.Binding(name, location) => ???
+      case Pattern.Call(target, name, args, mayBeVarCall, location) => ???
+    }
+
+    Parameter(param.outName, varName, typ, param.location)
   }
 }

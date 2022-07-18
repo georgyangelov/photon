@@ -5,10 +5,9 @@ import photon.frontend.ASTValue
 
 import scala.reflect.ClassTag
 
-case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Value {
-  override def evaluate(env: Environment) = this
+case class $Object(obj: Any, typ: Type, location: Option[Location]) extends ConcreteValue {
   override def typ(scope: Scope) = typ
-
+  
   override def toAST(names: Map[VarName, String]): ASTValue = obj match {
     case value: Int => ASTValue.Int(value, location)
     case value: Float => ASTValue.Float(value, location)

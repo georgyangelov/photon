@@ -1,10 +1,13 @@
 package photon.interpreter
 
 import photon.base._
-import photon.frontend.{ASTToValue, ASTValue, StaticScope}
+import photon.core.objects._
+import photon.frontend._
 
 class Interpreter {
-  val rootScope = Scope.newRoot(Seq.empty)
+  val rootScope = Scope.newRoot(Seq(
+    new VarName("Int") -> $Int
+  ))
 
   def evaluate(ast: ASTValue, evalMode: EvalMode): Value = {
     val value = ASTToValue.transform(ast, StaticScope.fromRootScope(rootScope))

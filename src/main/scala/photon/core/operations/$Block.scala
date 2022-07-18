@@ -5,6 +5,8 @@ import photon.frontend.ASTValue
 
 case class $Block(values: Seq[Value], location: Option[Location]) extends Value {
   override def isOperation = true
+  override def unboundNames = values.flatMap(_.unboundNames).toSet
+
   override def typ(scope: Scope) = values.last.typ(scope)
   override def evaluate(env: Environment) = {
     val eValues = values.map(_.evaluate(env))

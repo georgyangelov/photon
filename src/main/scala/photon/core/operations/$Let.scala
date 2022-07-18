@@ -7,6 +7,7 @@ import photon.lib.Lazy
 
 case class $Let(name: VarName, value: Value, body: Value, location: Option[Location]) extends Value {
   override def isOperation = true
+  override def unboundNames = value.unboundNames ++ body.unboundNames - name
   override def typ(scope: Scope) = body.typ(scope)
 
   override def evaluate(env: Environment): Value = {

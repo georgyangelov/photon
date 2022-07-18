@@ -11,10 +11,10 @@ sealed trait MethodSignature {
 object MethodSignature {
   def any(returnType: Type) = Any(returnType)
 //  def of(args: Seq[(String, UPattern)], returnType: UValue) = Pattern(args, returnType)
-  def of(args: Seq[(String, Value)], returnType: Type) = Specific(args, returnType)
+  def of(args: Seq[(String, Type)], returnType: Type) = Specific(args, returnType)
 
   case class Specific(
-    argTypes: Seq[(String, Value)],
+    argTypes: Seq[(String, Type)],
     returnType: Type
   ) extends MethodSignature {
     def specialize(args: Arguments[Value]): CallSpec = {
@@ -22,11 +22,7 @@ object MethodSignature {
       val bindings = args.matchWith(argTypes)
         .map { case (name, (value, expectedType)) => name -> value }
 
-      CallSpec(
-        args,
-        bindings = bindings ++ Seq("self" -> args.self),
-        returnType
-      )
+      CallSpec(args, bindings, returnType)
     }
   }
 
@@ -56,12 +52,22 @@ case class CallSpec(
 ) {
   def self = args.self
 
+  def requireSelf[T <: Value](env: Environment)(implicit tag: ClassTag[T]): T = {
+    val self = args.self.evaluate(env)
+
+    requireType[T](env, "self", Some(self))(tag)
+  }
+
   def require[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): T = {
     val value = bindings
       .find { case varName -> _ => varName == name }
       .map(_._2)
       .map(_.evaluate(env))
 
+    requireType[T](env, name, value)(tag)
+  }
+
+  private def requireType[T <: Value](env: Environment, name: String, value: Option[Value])(implicit tag: ClassTag[T]): T = {
     value match {
       case Some(value: T) => value
 
@@ -82,4 +88,7 @@ case class CallSpec(
 
   def requireObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): T =
     require[$Object](env, name).assert[T](tag)
+
+  def requireSelfObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
+    requireSelf[$Object](env).assert[T](tag)
 }

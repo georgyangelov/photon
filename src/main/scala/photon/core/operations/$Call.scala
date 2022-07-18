@@ -2,16 +2,20 @@ package photon.core.operations
 
 import photon.base._
 import photon.frontend.{ASTArguments, ASTValue}
+import photon.lib.ScalaExtensions.IterableSetExtensions
 
 case class $Call(name: String, args: Arguments[Value], location: Option[Location]) extends Value {
   override def isOperation = true
+  override def unboundNames =
+    (Seq(args.self) ++ args.positional ++ args.named.values)
+      .map(_.unboundNames)
+      .unionSets
 
-  override def typ(scope: Scope): Type = {
+  override def typ(scope: Scope) =
     findMethod(scope)
       .signature
       .specialize(args)
       .returnType
-  }
 
   override def toAST(names: Map[VarName, String]) =
     ASTValue.Call(

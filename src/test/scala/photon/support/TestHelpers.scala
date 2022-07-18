@@ -11,7 +11,7 @@ object TestHelpers {
   def expectCompileTime(code: String, expected: String) = {
     val interpreter = new Interpreter
     val ast = parse(code)
-    val value = interpreter.evaluate(ast, EvalMode.Partial)
+    val value = interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
 
     val resultCode = value.toAST(Map.empty).toString
     val expectedCode = Unparser.unparse(parse(expected))

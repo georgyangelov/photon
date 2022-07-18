@@ -7,15 +7,23 @@ class VarName(val originalName: String)
 trait Value {
   def isOperation: Boolean = false
   def location: Option[Location]
+  def unboundNames: Set[VarName]
   def typ(scope: Scope): Type
-  // TODO: Memoize the result
+
+  // TODO: Memoize the result?
   def evaluate(env: Environment): Value
 
   def inconvertible = throw EvalError(s"Could not convert $this to AST", location)
   def toAST(names: Map[VarName, String]): ASTValue
+
+  def assertType: Type = this match {
+    case typ: Type => typ
+    case _ => throw EvalError(s"Expected value $this to be a type", location)
+  }
 }
 
 trait ConcreteValue extends Value {
+  override def unboundNames = Set.empty
   override def evaluate(env: Environment): Value = this
 }
 
