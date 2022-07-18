@@ -30,6 +30,19 @@ object $Int extends Type {
 
         $Object(self - other, $Int, location)
       }
-    }
+    },
+
+    "*" -> new DefaultMethod {
+      override val signature = MethodSignature.of(
+        Seq("other" -> $Int),
+        $Int
+      )
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val self = spec.requireSelfObject[Int](env)
+        val other = spec.requireObject[Int](env, "other")
+
+        $Object(self * other, $Int, location)
+      }
+    },
   )
 }

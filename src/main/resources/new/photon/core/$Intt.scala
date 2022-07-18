@@ -4,7 +4,7 @@ import photon.Core
 import photon.base._
 import photon.frontend.{ULiteral, UValue}
 
-object $Int extends Type {
+object $Intt extends Type {
   val static = new Type {
     override def typ: Type = $Type
     override val methods = Map(

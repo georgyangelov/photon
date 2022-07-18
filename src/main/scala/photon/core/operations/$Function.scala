@@ -77,8 +77,22 @@ case class $Function(
 
             execBody.evaluate(execEnv).wrapInLets
 
-          case FunctionEvalRequest.InlineIfPossible => ???
-          case FunctionEvalRequest.InlineIfDefinedInline => ???
+          case FunctionEvalRequest.InlineIfPossible |
+               FunctionEvalRequest.InlineIfDefinedInline =>
+            val partialSelf = spec.requireSelf[Value](env).partialValue(
+              env,
+              followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
+            )
+
+            val closure = partialSelf.value match {
+              case $Object(closure: Closure, _, _) => closure
+              case value if value.isOperation => throw DelayCall
+              case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
+            }
+
+            val execBody = buildBodyForExecution(closure, spec)
+
+            execBody.evaluate(env).wrapInLets
         }
       }
 

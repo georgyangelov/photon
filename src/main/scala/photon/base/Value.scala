@@ -20,6 +20,8 @@ trait Value {
     case typ: Type => typ
     case _ => throw EvalError(s"Expected value $this to be a type", location)
   }
+
+  def partialValue(env: Environment, followReferences: Boolean): PartialValue = PartialValue(this, Seq.empty)
 }
 
 trait ConcreteValue extends Value {

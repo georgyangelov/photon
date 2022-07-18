@@ -34,8 +34,8 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     // case _ => UValue.Block(Seq(value, body), location)
     ebody match {
       case $Reference(refName, _) if refName == name => evalue.get
-      // TODO: Define `Value#unboundNames` and use it to eliminate the let if possible
-      case _ => $Let(name, evalue.get, ebody, location)
+      case value if value.unboundNames.contains(name) => $Let(name, evalue.get, ebody, location)
+      case _ => ebody
     }
 
     //    val unknown = $Unknown(location)
@@ -57,6 +57,9 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     //        )
     //    }
   }
+
+  override def partialValue(env: Environment, followReferences: Boolean) =
+    body.partialValue(env, followReferences).withOuterVariable(name, value)
 
   override def toAST(names: Map[VarName, String]) = {
     val uniqueName = findUniqueNameFor(name, names.values.toSet)

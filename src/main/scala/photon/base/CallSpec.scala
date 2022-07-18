@@ -42,7 +42,6 @@ object MethodSignature {
         // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
       )
   }
-
 }
 
 case class CallSpec(

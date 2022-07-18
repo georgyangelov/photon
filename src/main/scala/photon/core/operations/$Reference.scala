@@ -27,4 +27,11 @@ case class $Reference(name: VarName, location: Option[Location]) extends Value {
 
   override def toAST(names: Map[VarName, String]): ASTValue =
     ASTValue.NameReference(names(name), location)
+
+  override def partialValue(env: Environment, followReferences: Boolean) =
+    if (followReferences) {
+      valueInScope(env.scope).partialValue(env, followReferences)
+    } else {
+      PartialValue(this, Seq.empty)
+    }
 }
