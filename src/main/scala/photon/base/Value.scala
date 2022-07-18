@@ -2,7 +2,9 @@ package photon.base
 
 import photon.frontend.ASTValue
 
-class VarName(val originalName: String)
+class VarName(val originalName: String) {
+  override def toString = s"VarName($originalName)"
+}
 
 trait Value {
   def isOperation: Boolean = false

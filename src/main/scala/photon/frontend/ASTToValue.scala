@@ -23,9 +23,7 @@ object ASTToValue {
           .toMap
       )
       val fnBody = transform(body, innerScope)
-      val fnReturnType = returnType
-        .map(transform(_, scope))
-        .getOrElse { throw EvalError("Functions must have an explicit return type for now", location) }
+      val fnReturnType = returnType.map(transform(_, scope))
 
       $FunctionDef(fnParams, fnBody, fnReturnType, location)
 

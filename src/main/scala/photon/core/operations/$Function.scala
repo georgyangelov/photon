@@ -13,23 +13,41 @@ case class Parameter(
 case class $FunctionDef(
   params: Seq[Parameter],
   body: Value,
-  returnType: Value,
+  returnType: Option[Value],
   location: Option[Location]
 ) extends Value {
   override def isOperation = true
   override def unboundNames: Set[VarName] =
-    body.unboundNames -- params.map(_.inName) ++ params.flatMap(_.typ.unboundNames) ++ returnType.unboundNames
+    body.unboundNames -- params.map(_.inName) ++ params.flatMap(_.typ.unboundNames) ++ returnType.map(_.unboundNames).getOrElse(Set.empty)
 
   // TODO: Cache this and share with `evaluate`?
   override def typ(scope: Scope) = {
     // TODO: Pattern types
+    val paramTypes = params
+      .map { param => param.outName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType }
+
+    val actualReturnType = returnType
+      .getOrElse {
+        val paramTypes = params
+          .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType }
+
+        inferReturnType(scope, paramTypes)
+      }
+      .evaluate(Environment(scope, EvalMode.CompileTimeOnly))
+      .assertType
+
     val signature = MethodSignature.of(
-      args = params
-        .map { param => param.outName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType },
-      returnType.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType
+      args = paramTypes,
+      returnType = actualReturnType
     )
 
     $Function(signature, FunctionRunMode.Default, InlinePreference.Default)
+  }
+
+  private def inferReturnType(scope: Scope, paramTypes: Seq[(VarName, Type)]) = {
+    val innerScope = scope.newChild(paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) })
+
+    body.typ(innerScope)
   }
 
   override def evaluate(env: Environment) =
@@ -66,14 +84,19 @@ case class $Function(
         evalRequest match {
           case FunctionEvalRequest.ForceEval =>
             // We should execute the function fully, nothing left for later
-            val execEnv = Environment(
+            val selfEnv = Environment(
               env.scope,
               forcedEvalMode(env.evalMode)
             )
 
-            val closure = spec.requireSelfObject[Closure](execEnv)
+            val closure = spec.requireSelfObject[Closure](selfEnv)
 
             val execBody = buildBodyForExecution(closure, spec)
+
+            val execEnv = Environment(
+              closure.scope,
+              forcedEvalMode(env.evalMode)
+            )
 
             execBody.evaluate(execEnv).wrapInLets
 
@@ -90,9 +113,13 @@ case class $Function(
               case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
             }
 
+            val execEnv = Environment(
+              closure.scope,
+              env.evalMode
+            )
             val execBody = buildBodyForExecution(closure, spec)
 
-            execBody.evaluate(env).wrapInLets
+            execBody.evaluate(execEnv).wrapInLets
         }
       }
 
