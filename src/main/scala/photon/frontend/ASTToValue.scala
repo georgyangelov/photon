@@ -11,7 +11,7 @@ object ASTToValue {
     case ASTValue.Boolean(value, location) => ???
     case ASTValue.Int(value, location) => $Object(value, $Int, location)
     case ASTValue.Float(value, location) => ???
-    case ASTValue.String(value, location) => ???
+    case ASTValue.String(value, location) => $Object(value, $String, location)
     case ASTValue.Block(values, location) => $Block(values.map(transform(_, scope)), location)
 
     // TODO: Support patterns

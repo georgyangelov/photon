@@ -6,7 +6,8 @@ import photon.frontend._
 
 class Interpreter {
   val rootScope = Scope.newRoot(Seq(
-    new VarName("Int") -> $Int
+    new VarName("Int") -> $Int,
+    new VarName("String") -> $String
   ))
 
   def evaluate(ast: ASTValue, evalMode: EvalMode): Value = {
