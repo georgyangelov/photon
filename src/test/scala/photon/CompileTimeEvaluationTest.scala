@@ -72,7 +72,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("does not try to inline into + if it can't evaluate it fully") {
     expectPartial(
       "val a = 1; val b = { 42 }.runTimeOnly.call; a + b",
-      "val a = 1; val b = () { 42 }(); a + b"
+      "val a = 1; val b = { 42 }(); a + b"
     )
   }
 
@@ -210,7 +210,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 
     expectPartial(
       "val a = 42; val unknown = { a }.runTimeOnly; unknown()",
-      "val a = 42; val unknown = { a }; unknown()"
+      "val a = 42; val unknown = { a }; unknown.call"
     )
 
     expectPartial(
