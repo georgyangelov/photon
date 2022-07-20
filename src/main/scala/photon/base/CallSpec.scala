@@ -6,6 +6,7 @@ import scala.reflect.ClassTag
 
 sealed trait MethodSignature {
   def specialize(args: Arguments[Value]): CallSpec
+  def mapReturnType(mapping: Type => Type): MethodSignature
 }
 
 object MethodSignature {
@@ -24,6 +25,8 @@ object MethodSignature {
 
       CallSpec(args, bindings, returnType)
     }
+
+    override def mapReturnType(mapping: Type => Type) = Specific(argTypes, mapping(returnType))
   }
 
 //  case class Pattern(
@@ -41,6 +44,8 @@ object MethodSignature {
         ???
         // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
       )
+
+    override def mapReturnType(mapping: Type => Type) = Any(mapping(returnType))
   }
 }
 

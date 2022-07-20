@@ -2,6 +2,7 @@ package photon.core.operations
 
 import photon.base._
 import photon.core._
+import photon.core.objects.$AnyStatic
 
 case class Parameter(
   outName: String,
@@ -78,6 +79,18 @@ case class $Function(
 
       override def call(env: Environment, spec: CallSpec, location: Option[Location]) =
         self.call(env, spec, location)
+    },
+
+    "compileTimeOnly" -> new CompileTimeOnlyMethod {
+      override lazy val signature = MethodSignature.of(
+        args = Seq.empty,
+        $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
+      )
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val closure = spec.requireSelfObject[Closure](env)
+
+        $Object(closure, spec.returnType, location)
+      }
     }
   )
 
