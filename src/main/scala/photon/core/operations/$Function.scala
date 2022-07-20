@@ -3,6 +3,7 @@ package photon.core.operations
 import photon.base._
 import photon.core._
 import photon.core.objects.$AnyStatic
+import photon.frontend.{ASTParameter, ASTValue}
 
 case class Parameter(
   outName: String,
@@ -58,7 +59,42 @@ case class $FunctionDef(
       location
     )
 
-  override def toAST(names: Map[VarName, String]) = ???
+  override def toAST(names: Map[VarName, String]) = {
+    val paramNames = params
+      .map(_.inName)
+      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
+      .toMap
+
+    ASTValue.Function(
+      // TODO: Support type patterns
+      params.map { param =>
+        ASTParameter(
+          param.outName,
+          paramNames(param.inName),
+          Some(ASTValue.Pattern.SpecificValue(param.typ.toAST(names))),
+          param.location
+        )
+      },
+      body = body.toAST(names ++ paramNames),
+      returnType = returnType.map(_.toAST(names)),
+      location
+    )
+  }
+
+  // TODO: Deduplicate this with $Let#findUniqueName
+  private def findUniqueNameFor(name: VarName, usedNames: Set[String]): String = {
+    // TODO: Define `Value#unboundNames` and check if the duplicate name is actually used before renaming
+    if (!usedNames.contains(name.originalName)) {
+      return name.originalName
+    }
+
+    var i = 1
+    while (usedNames.contains(s"${name.originalName}__$i")) {
+      i += 1
+    }
+
+    s"${name.originalName}__$i"
+  }
 }
 
 case class Closure(scope: Scope, fnDef: $FunctionDef) {
@@ -85,6 +121,18 @@ case class $Function(
       override lazy val signature = MethodSignature.of(
         args = Seq.empty,
         $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
+      )
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val closure = spec.requireSelfObject[Closure](env)
+
+        $Object(closure, spec.returnType, location)
+      }
+    },
+
+    "runTimeOnly" -> new CompileTimeOnlyMethod {
+      override lazy val signature = MethodSignature.of(
+        args = Seq.empty,
+        $Function(self.signature, FunctionRunMode.RunTimeOnly, self.inlinePreference)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val closure = spec.requireSelfObject[Closure](env)

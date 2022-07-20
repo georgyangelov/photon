@@ -72,7 +72,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("does not try to inline into + if it can't evaluate it fully") {
     expectPartial(
       "val a = 1; val b = { 42 }.runTimeOnly.call; a + b",
-      "val a = 1; val b = (): Int { 42 }(); a + b"
+      "val a = 1; val b = () { 42 }(); a + b"
     )
   }
 
@@ -205,17 +205,17 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("variables are kept if the value is unknown and uses them") {
     expectPartial(
       "val a = 42; { a }",
-      "val a = 42; (): Int { a }"
+      "val a = 42; { a }"
     )
 
     expectPartial(
       "val a = 42; val unknown = { a }.runTimeOnly; unknown()",
-      "val a = 42; val unknown = (): Int { a }; unknown()"
+      "val a = 42; val unknown = { a }; unknown()"
     )
 
     expectPartial(
       "():Int { val a = 42; { a } }()",
-      "val a = 42; (): Int { a }"
+      "val a = 42; { a }"
     )
   }
 
