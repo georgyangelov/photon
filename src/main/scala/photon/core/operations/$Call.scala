@@ -36,7 +36,8 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
     val spec = method.signature.specialize(args)
 
     try {
-      method.call(env, spec, location)
+      val result = method.call(env, spec, location)
+      result
     } catch {
       case DelayCall =>
         // TODO: This should be correct, right? Or not? What about self-references here?

@@ -19,6 +19,17 @@ object TestHelpers {
     assert(resultCode == expectedCode)
   }
 
+  def expectPartial(code: String, expected: String) = {
+    val interpreter = new Interpreter
+    val ast = parse(code)
+    val value = interpreter.evaluate(ast, EvalMode.Partial)
+
+    val resultCode = value.toAST(Map.empty).toString
+    val expectedCode = Unparser.unparse(parse(expected))
+
+    assert(resultCode == expectedCode)
+  }
+
   def expectPhases(code: String, compile: String, run: String) = ???
 
   private def parse(code: String) = {

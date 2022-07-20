@@ -90,4 +90,31 @@ case class CallSpec(
 
   def requireSelfObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
     requireSelf[$Object](env).assert[T](tag)
+
+  def requireSelfInlined[T <: Value](env: Environment)(implicit tag: ClassTag[T]): T = {
+    val self = args.self
+      .evaluate(env)
+      .partialValue(env, followReferences = true)
+      .value
+
+    requireType[T](env, "self", Some(self))(tag)
+  }
+
+  def requireInlined[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): T = {
+    val value = bindings
+      .find { case varName -> _ => varName == name }
+      .map(_._2)
+      .map(_.evaluate(env))
+      // TODO: Should I check for empty variables?
+      .map(_.partialValue(env, followReferences = true))
+      .map(_.value)
+
+    requireType[T](env, name, value)(tag)
+  }
+
+  def requireInlinedObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): T =
+    requireInlined[$Object](env, name).assert[T](tag)
+
+  def requireSelfInlinedObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
+    requireSelfInlined[$Object](env).assert[T](tag)
 }

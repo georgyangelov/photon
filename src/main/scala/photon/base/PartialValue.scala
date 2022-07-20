@@ -3,9 +3,11 @@ package photon.base
 import photon.core.operations.$Let
 
 case class PartialValue(value: Value, variables: Seq[(VarName, Value)]) {
-  def withOuterVariable(name: VarName, outerValue: Value) = {
+  def withOuterVariable(name: VarName, outerValue: Value) =
     PartialValue(value, (name -> outerValue) +: variables)
-  }
+
+  def withOuterVariables(outer: Seq[(VarName, Value)]) =
+    PartialValue(value, outer ++ variables)
 
   def evaluate(env: Environment) = {
     val envWithVariables = Environment(

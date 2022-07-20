@@ -1,8 +1,7 @@
 package photon
 
 import org.scalatest._
-
-import photon.TestHelpers._
+import photon.support.TestHelpers._
 
 class CompileTimeEvaluationTest extends FunSuite {
   test("supports closures") {
@@ -11,7 +10,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("inlines unnamed inline functions") {
-    expectEvalCompileTime("(a: Int) { (b:Int) { a + b } }(1)(41)", "42")
+    expectPartial("(a: Int) { (b:Int) { a + b } }(1)(41)", "42")
   }
 
 //  TODO: Enable this to test
@@ -23,26 +22,26 @@ class CompileTimeEvaluationTest extends FunSuite {
 //  }
 
   test("supports constants compile-time") {
-    expectEvalCompileTime("42", "42")
-    expectEvalCompileTime("'test'", "'test'")
+    expectPartial("42", "42")
+    expectPartial("'test'", "'test'")
   }
 
   test("inlines dummy lets") {
-    expectEvalCompileTime("val a = 42; a", "42")
-    expectEvalCompileTime("val a = 42; val b = a; b", "42")
+    expectPartial("val a = 42; a", "42")
+    expectPartial("val a = 42; val b = a; b", "42")
   }
 
   test("can add numbers compile-time") {
-    expectEvalCompileTime("41 + 1", "42")
+    expectPartial("41 + 1", "42")
   }
 
   test("can call compile-time functions") {
-    expectEvalCompileTime("val add = (a:Int, b:Int) { a + b }.compileTimeOnly; add(1, 41)", "42")
+    expectPartial("val add = (a:Int, b:Int) { a + b }.compileTimeOnly; add(1, 41)", "42")
   }
 
   test("can inline functions") {
-    expectEvalCompileTime("val add = (a:Int, b:Int) { a + b }.inline; add(1, 41)", "42")
-    expectEvalCompileTime(
+    expectPartial("val add = (a:Int, b:Int) { a + b }.inline; add(1, 41)", "42")
+    expectPartial(
       """
       val add = (a:Int, b:Int) { a + b }.inline
       val add1 = add
@@ -52,7 +51,7 @@ class CompileTimeEvaluationTest extends FunSuite {
       """,
       "42"
     )
-    expectEvalCompileTime(
+    expectPartial(
       """
       val add = (a:Int, b:Int) { a + b }.inline
       val add1 = add
@@ -64,25 +63,25 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("can constant-fold addition") {
-    expectEvalCompileTime("val a = 1; val b = 1 + a; val c = a; a + b + c", "4")
+    expectPartial("val a = 1; val b = 1 + a; val c = a; a + b + c", "4")
   }
 
   test("does not try to inline into + if it can't evaluate it fully") {
-    expectEvalCompileTime(
+    expectPartial(
       "val a = 1; val b = { 42 }.runTimeOnly.call; a + b",
       "val a = 1; val b = (): Int { 42 }(); a + b"
     )
   }
 
   test("does not evaluate runtime-only functions during compile-time") {
-    expectEvalCompileTime(
+    expectPartial(
       "val add = (a:Int, b:Int) { a + b }.runTimeOnly; add(1, 41)",
       "val add = (a:Int, b:Int): Int { a + b }; add(1, 41)"
     )
   }
 
   test("does not try to compile-time evaluate functions with some unknown arguments") {
-    expectEvalCompileTime(
+    expectPartial(
       """
           val unknown = { 42 }
           val add = (a:Int, b:Int):Int { a + b }
@@ -94,7 +93,7 @@ class CompileTimeEvaluationTest extends FunSuite {
       "53"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       """
           val unknown = { 42 }.runTimeOnly
           val add = (a:Int, b:Int):Int { a + b }
@@ -115,7 +114,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 
   // TODO: This needs partial evaluation
   ignore("does not duplicate variables during partial evaluation") {
-    expectEvalCompileTime(
+    expectPartial(
       """
           val unknown = { 42 }.runTimeOnly
           val add = (a:Int, b:Int):Int { a + b }
@@ -135,7 +134,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("does not duplicate variables during calls") {
-    expectEvalCompileTime(
+    expectPartial(
       """
           val unknown = { 42 }.runTimeOnly
           val add = (a:Int, b:Int) { a + b }
@@ -157,7 +156,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("evaluates some functions and leaves others during compile-time") {
-    expectEvalCompileTime(
+    expectPartial(
       """
           val unknown = { 42 }.runTimeOnly
           val add = (a:Int, b:Int) { a + b }
@@ -177,58 +176,58 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("removes unused let bindings, keeping expressions for side-effects") {
-    expectEvalCompileTime("val unused = 11; 42", "42")
-    expectEvalCompileTime(
+    expectPartial("val unused = 11; 42", "42")
+    expectPartial(
       "val unknown = ():Int{}.runTimeOnly; val something = unknown(); 42",
       "val unknown = ():Int{}; unknown(); 42"
     )
-    expectEvalCompileTime(
+    expectPartial(
       "val usedOnce = (a:Int):Int { 41 + a }; val result = usedOnce(1); result",
       "42"
     )
   }
 
   test("does not eliminate lets used by inner lambdas in params") {
-    expectEvalCompileTime(
+    expectPartial(
       "val unknown = ():Int{}.runTimeOnly; ():Int { unknown() }",
       "val unknown = ():Int{}; ():Int { unknown() }"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "val unknown = (){ 42 }.runTimeOnly; (a: Function(returns=Int)) { a.call }(() unknown())",
       "val unknown = ():Int 42; unknown()"
     )
   }
 
   test("variables are kept if the value is unknown and uses them") {
-    expectEvalCompileTime(
+    expectPartial(
       "val a = 42; { a }",
       "val a = 42; (): Int { a }"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "val a = 42; val unknown = { a }.runTimeOnly; unknown()",
       "val a = 42; val unknown = (): Int { a }; unknown()"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "():Int { val a = 42; { a } }()",
       "val a = 42; (): Int { a }"
     )
   }
 
   test("variables do not escape the scope (without partial evaluation)") {
-    expectEvalCompileTime(
+    expectPartial(
       "val outer = (a:Int) { { a } }; outer(42)",
       "val a = 42; (): Int { a }"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "val a = 11; val outer = (a:Int) { { a } }; outer(a + 31)",
       "val a = 42; (): Int { a }"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "val a = 11; val outer = (a:Int) { { a } }; outer(42); a",
       //      "a = 11; (a = 42; () { a }); a"
       "11"
@@ -236,14 +235,14 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   ignore("variables do not escape the scope (without partial evaluation) 2") {
-    expectEvalCompileTime(
+    expectPartial(
       "val fn = (a:Int) { { a } }; val something = (x:Function(returns=Int)) { x }.runTimeOnly; something(x = fn(42))",
       "val something = (x:Function(returns=Int)): Function(returns=Int) { x }; something(x = (val a = 42; (): Int { a }))"
     )
   }
 
   test("variables do not escape the scope (without partial evaluation) 3") {
-    expectEvalCompileTime(
+    expectPartial(
       """
         val scope1 = (a:Int) {
           val unknown = { 42 }.runTimeOnly
@@ -263,7 +262,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("variables do not escape the scope (without partial evaluation) 4") {
-    expectEvalCompileTime(
+    expectPartial(
       """
         val scope1 = (a:Int) {
           val unknown = { a + 42 }.runTimeOnly
@@ -283,7 +282,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("scope escapes with inner lets") {
-    expectEvalCompileTime(
+    expectPartial(
       """
         val outer = (a:Int) {
           val inner = (
@@ -306,12 +305,12 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("variables do not escape the scope") {
-    expectEvalCompileTime(
+    expectPartial(
       "val outer = (a:Int) { { a } }; outer(42)",
       "val a = 42; (): Int { a }"
     )
 
-    expectEvalCompileTime(
+    expectPartial(
       "val unknown = { 42 }.runTimeOnly; val outer = { { unknown() } }; outer()",
       "val unknown = ():Int 42; ():Int { unknown() }"
     )
@@ -320,7 +319,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 //    TODO: This probably needs to happen at some point, but it's fine for now.
 //          The problem is that to do this, we need to track and preserve the scopes correctly.
   test("does not break on evaluating nested lambdas") {
-    expectEvalCompileTime(
+    expectPartial(
       """
         val unknown = { 42 }.runTimeOnly
 

@@ -52,11 +52,7 @@ case class $FunctionDef(
 
   override def evaluate(env: Environment) =
     $Object(
-      Closure(
-        env.scope,
-        names = params.map { param => param.inName.originalName -> param.inName }.toMap,
-        body
-      ),
+      Closure(env.scope, this),
       typ(env.scope),
       location
     )
@@ -64,7 +60,9 @@ case class $FunctionDef(
   override def toAST(names: Map[VarName, String]) = ???
 }
 
-case class Closure(scope: Scope, names: Map[String, VarName], body: Value)
+case class Closure(scope: Scope, fnDef: $FunctionDef) {
+  lazy val names = fnDef.params.map { param => param.inName.originalName -> param.inName }.toMap
+}
 
 case class $Function(
   signature: MethodSignature,
@@ -78,103 +76,106 @@ case class $Function(
     "call" -> new Method {
       override val signature = self.signature
 
-      override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val evalRequest = this.evalRequest(env.evalMode)
-
-        evalRequest match {
-          case FunctionEvalRequest.ForceEval =>
-            // We should execute the function fully, nothing left for later
-            val selfEnv = Environment(
-              env.scope,
-              forcedEvalMode(env.evalMode)
-            )
-
-            val closure = spec.requireSelfObject[Closure](selfEnv)
-
-            val execBody = buildBodyForExecution(closure, spec)
-
-            val execEnv = Environment(
-              closure.scope,
-              forcedEvalMode(env.evalMode)
-            )
-
-            execBody.evaluate(execEnv).wrapInLets
-
-          case FunctionEvalRequest.InlineIfPossible |
-               FunctionEvalRequest.InlineIfDefinedInline =>
-            val partialSelf = spec.requireSelf[Value](env).partialValue(
-              env,
-              followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
-            )
-
-            val closure = partialSelf.value match {
-              case $Object(closure: Closure, _, _) => closure
-              case value if value.isOperation => throw DelayCall
-              case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
-            }
-
-            val execEnv = Environment(
-              closure.scope,
-              env.evalMode
-            )
-            val execBody = buildBodyForExecution(closure, spec)
-
-            execBody.evaluate(execEnv).wrapInLets
-        }
-      }
-
-      private def buildBodyForExecution(closure: Closure, spec: CallSpec): PartialValue = {
-        val variables = spec.bindings.map { case name -> value => closure.names(name) -> value }
-
-        PartialValue(closure.body, variables)
-      }
-
-      private def evalRequest(evalMode: EvalMode) = evalMode match {
-        case EvalMode.RunTime => runMode match {
-          case FunctionRunMode.CompileTimeOnly => throw CannotCallCompileTimeMethodInRunTimeMethod
-          case FunctionRunMode.Default => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.RunTimeOnly => FunctionEvalRequest.ForceEval
-        }
-
-        case EvalMode.CompileTimeOnly => runMode match {
-          case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.Default => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.RunTimeOnly => throw CannotCallRunTimeMethodInCompileTimeMethod
-        }
-
-        case EvalMode.Partial => runMode match {
-          case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.Default =>
-            inlinePreference match {
-              case InlinePreference.ForceInline => FunctionEvalRequest.InlineIfPossible
-              case InlinePreference.Default => FunctionEvalRequest.InlineIfDefinedInline
-              case InlinePreference.NoInline => throw DelayCall
-            }
-
-          case FunctionRunMode.PreferRunTime => throw DelayCall
-          case FunctionRunMode.RunTimeOnly => throw DelayCall
-        }
-
-        case EvalMode.PartialRunTimeOnly |
-             EvalMode.PartialPreferRunTime => runMode match {
-          case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
-          case FunctionRunMode.Default => throw DelayCall
-          case FunctionRunMode.PreferRunTime => throw DelayCall
-          case FunctionRunMode.RunTimeOnly => throw DelayCall
-        }
-      }
-
-      private def forcedEvalMode(evalMode: EvalMode) = evalMode match {
-        case EvalMode.RunTime => EvalMode.RunTime
-        case EvalMode.CompileTimeOnly |
-             EvalMode.Partial |
-             EvalMode.PartialRunTimeOnly |
-             EvalMode.PartialPreferRunTime => EvalMode.CompileTimeOnly
-      }
+      override def call(env: Environment, spec: CallSpec, location: Option[Location]) =
+        self.call(env, spec, location)
     }
   )
+
+  def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
+    val evalRequest = this.evalRequest(env.evalMode)
+
+    evalRequest match {
+      case FunctionEvalRequest.ForceEval =>
+        // We should execute the function fully, nothing left for later
+        val selfEnv = Environment(
+          env.scope,
+          forcedEvalMode(env.evalMode)
+        )
+
+        val closure = spec.requireSelfObject[Closure](selfEnv)
+
+        val execBody = buildBodyForExecution(closure, spec)
+
+        val execEnv = Environment(
+          closure.scope,
+          forcedEvalMode(env.evalMode)
+        )
+
+        execBody.evaluate(execEnv).wrapInLets
+
+      case FunctionEvalRequest.InlineIfPossible |
+           FunctionEvalRequest.InlineIfDefinedInline =>
+        val partialSelf = spec.requireSelf[Value](env).partialValue(
+          env,
+          followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
+        )
+
+        val closure = partialSelf.value match {
+          case $Object(closure: Closure, _, _) => closure
+          case value if value.isOperation => throw DelayCall
+          case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
+        }
+
+        val execEnv = Environment(
+          closure.scope,
+          env.evalMode
+        )
+        val execBody = buildBodyForExecution(closure, spec)
+
+        execBody.withOuterVariables(partialSelf.variables).evaluate(execEnv).wrapInLets
+    }
+  }
+
+  private def buildBodyForExecution(closure: Closure, spec: CallSpec): PartialValue = {
+    val variables = spec.bindings.map { case name -> value => closure.names(name) -> value }
+
+    PartialValue(closure.fnDef.body, variables)
+  }
+
+  private def evalRequest(evalMode: EvalMode) = evalMode match {
+    case EvalMode.RunTime => runMode match {
+      case FunctionRunMode.CompileTimeOnly => throw CannotCallCompileTimeMethodInRunTimeMethod
+      case FunctionRunMode.Default => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.RunTimeOnly => FunctionEvalRequest.ForceEval
+    }
+
+    case EvalMode.CompileTimeOnly => runMode match {
+      case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.Default => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.PreferRunTime => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.RunTimeOnly => throw CannotCallRunTimeMethodInCompileTimeMethod
+    }
+
+    case EvalMode.Partial => runMode match {
+      case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.Default =>
+        inlinePreference match {
+          case InlinePreference.ForceInline => FunctionEvalRequest.InlineIfPossible
+          case InlinePreference.Default => FunctionEvalRequest.InlineIfDefinedInline
+          case InlinePreference.NoInline => throw DelayCall
+        }
+
+      case FunctionRunMode.PreferRunTime => throw DelayCall
+      case FunctionRunMode.RunTimeOnly => throw DelayCall
+    }
+
+    case EvalMode.PartialRunTimeOnly |
+         EvalMode.PartialPreferRunTime => runMode match {
+      case FunctionRunMode.CompileTimeOnly => FunctionEvalRequest.ForceEval
+      case FunctionRunMode.Default => throw DelayCall
+      case FunctionRunMode.PreferRunTime => throw DelayCall
+      case FunctionRunMode.RunTimeOnly => throw DelayCall
+    }
+  }
+
+  private def forcedEvalMode(evalMode: EvalMode) = evalMode match {
+    case EvalMode.RunTime => EvalMode.RunTime
+    case EvalMode.CompileTimeOnly |
+         EvalMode.Partial |
+         EvalMode.PartialRunTimeOnly |
+         EvalMode.PartialPreferRunTime => EvalMode.CompileTimeOnly
+  }
 }
 
 sealed trait FunctionRunMode

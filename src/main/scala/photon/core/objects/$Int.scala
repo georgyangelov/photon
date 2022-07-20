@@ -12,8 +12,8 @@ object $Int extends Type {
         $Int
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val self = spec.requireSelfObject[Int](env)
-        val other = spec.requireObject[Int](env, "other")
+        val self = spec.requireSelfInlinedObject[Int](env)
+        val other = spec.requireInlinedObject[Int](env, "other")
 
         $Object(self + other, $Int, location)
       }
@@ -25,8 +25,8 @@ object $Int extends Type {
         $Int
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val self = spec.requireSelfObject[Int](env)
-        val other = spec.requireObject[Int](env, "other")
+        val self = spec.requireSelfInlinedObject[Int](env)
+        val other = spec.requireInlinedObject[Int](env, "other")
 
         $Object(self - other, $Int, location)
       }
@@ -38,8 +38,8 @@ object $Int extends Type {
         $Int
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val self = spec.requireSelfObject[Int](env)
-        val other = spec.requireObject[Int](env, "other")
+        val self = spec.requireSelfInlinedObject[Int](env)
+        val other = spec.requireInlinedObject[Int](env, "other")
 
         $Object(self * other, $Int, location)
       }
