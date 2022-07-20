@@ -20,4 +20,13 @@ class Interpreter {
 
     value.evaluate(env)
   }
+
+  def toAST(value: Value): ASTValue = {
+    val rootNames = rootScope
+      .variables
+      .map { case key -> _ => key -> key.originalName }
+      .toMap
+
+    value.toAST(rootNames)
+  }
 }

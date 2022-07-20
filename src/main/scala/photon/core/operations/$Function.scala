@@ -165,7 +165,17 @@ case class $Function(
           forcedEvalMode(env.evalMode)
         )
 
-        val closure = spec.requireSelfObject[Closure](selfEnv)
+        val partialSelf = spec.requireSelf[Value](selfEnv).partialValue(
+          selfEnv,
+          followReferences = true
+        )
+
+        // TODO: Should we check that the lets wrapping this value are fully evaluated as well?
+        val closure = partialSelf.value match {
+          case $Object(closure: Closure, _, _) => closure
+          case value if value.isOperation => throw EvalError(s"Cannot call '$value' compile-time because it's not fully evaluated", location)
+          case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
+        }
 
         val execBody = buildBodyForExecution(closure, spec)
 

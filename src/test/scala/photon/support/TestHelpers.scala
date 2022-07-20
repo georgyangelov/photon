@@ -13,7 +13,7 @@ object TestHelpers {
     val ast = parse(code)
     val value = interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
 
-    val resultCode = value.toAST(Map.empty).toString
+    val resultCode = interpreter.toAST(value).toString
     val expectedCode = Unparser.unparse(parse(expected))
 
     assert(resultCode == expectedCode)
@@ -24,7 +24,7 @@ object TestHelpers {
     val ast = parse(code)
     val value = interpreter.evaluate(ast, EvalMode.Partial)
 
-    val resultCode = value.toAST(Map.empty).toString
+    val resultCode = interpreter.toAST(value).toString
     val expectedCode = Unparser.unparse(parse(expected))
 
     assert(resultCode == expectedCode)

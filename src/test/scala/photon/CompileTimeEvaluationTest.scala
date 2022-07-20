@@ -79,7 +79,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("does not evaluate runtime-only functions during compile-time") {
     expectPartial(
       "val add = (a:Int, b:Int) { a + b }.runTimeOnly; add(1, 41)",
-      "val add = (a:Int, b:Int): Int { a + b }; add(1, 41)"
+      "val add = (a:Int, b:Int) { a + b }; add.call(1, 41)"
     )
   }
 
@@ -148,8 +148,8 @@ class CompileTimeEvaluationTest extends FunSuite {
           add(var1, var2)
       """,
       """
-          val unknown = (): Int { 42 }
-          val var1 = unknown()
+          val unknown = { 42 }
+          val var1 = unknown.call
           val var2 = 11
 
           var1 + var2
@@ -169,8 +169,8 @@ class CompileTimeEvaluationTest extends FunSuite {
           add(var1, var2)
       """,
       """
-          val unknown = ():Int { 42 }
-          val var1 = unknown()
+          val unknown = { 42 }
+          val var1 = unknown.call
           val var2 = 11
 
           var1 + var2
@@ -182,7 +182,7 @@ class CompileTimeEvaluationTest extends FunSuite {
     expectPartial("val unused = 11; 42", "42")
     expectPartial(
       "val unknown = ():Int{}.runTimeOnly; val something = unknown(); 42",
-      "val unknown = ():Int{}; unknown(); 42"
+      "val unknown = ():Int{}; unknown.call; 42"
     )
     expectPartial(
       "val usedOnce = (a:Int):Int { 41 + a }; val result = usedOnce(1); result",
@@ -193,12 +193,12 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("does not eliminate lets used by inner lambdas in params") {
     expectPartial(
       "val unknown = ():Int{}.runTimeOnly; ():Int { unknown() }",
-      "val unknown = ():Int{}; ():Int { unknown() }"
+      "val unknown = ():Int{}; ():Int { unknown.call }"
     )
 
     expectPartial(
       "val unknown = (){ 42 }.runTimeOnly; (a: Function(returns=Int)) { a.call }(() unknown())",
-      "val unknown = ():Int 42; unknown()"
+      "val unknown = { 42 }; unknown.call"
     )
   }
 
@@ -222,12 +222,12 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("variables do not escape the scope (without partial evaluation)") {
     expectPartial(
       "val outer = (a:Int) { { a } }; outer(42)",
-      "val a = 42; (): Int { a }"
+      "val a = 42; { a }"
     )
 
     expectPartial(
       "val a = 11; val outer = (a:Int) { { a } }; outer(a + 31)",
-      "val a = 42; (): Int { a }"
+      "val a = 42; { a }"
     )
 
     expectPartial(
