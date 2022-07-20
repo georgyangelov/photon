@@ -21,7 +21,7 @@ case class $FunctionDef(
   override def unboundNames: Set[VarName] =
     body.unboundNames -- params.map(_.inName) ++ params.flatMap(_.typ.unboundNames) ++ returnType.map(_.unboundNames).getOrElse(Set.empty)
 
-  // TODO: Cache this and share with `evaluate`?
+  // TODO: Cache this and share with `evaluate`! This gets called multiple times!
   override def typ(scope: Scope) = {
     // TODO: Pattern types
     val paramTypes = params
@@ -85,6 +85,18 @@ case class $Function(
       override lazy val signature = MethodSignature.of(
         args = Seq.empty,
         $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
+      )
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val closure = spec.requireSelfObject[Closure](env)
+
+        $Object(closure, spec.returnType, location)
+      }
+    },
+
+    "inline" -> new CompileTimeOnlyMethod {
+      override lazy val signature = MethodSignature.of(
+        args = Seq.empty,
+        $Function(self.signature, self.runMode, InlinePreference.ForceInline)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val closure = spec.requireSelfObject[Closure](env)

@@ -51,6 +51,9 @@ class CompileTimeEvaluationTest extends FunSuite {
       """,
       "42"
     )
+  }
+
+  test("can inline functions through partial lets") {
     expectPartial(
       """
       val add = (a:Int, b:Int) { a + b }.inline
