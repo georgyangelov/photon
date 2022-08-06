@@ -1,6 +1,7 @@
 package photon.core.operations
 
 import photon.base._
+import photon.core.$ScopeBound
 import photon.frontend.{ASTArguments, ASTValue}
 import photon.lib.ScalaExtensions.IterableSetExtensions
 
@@ -32,8 +33,10 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
   override def evaluate(env: Environment) = {
     val method = findMethod(env.scope)
 
+    val boundArgs = args.map($ScopeBound(_, env.scope))
+
     // TODO: Memoize and share this between `typ` and `evaluate`
-    val spec = method.signature.specialize(args)
+    val spec = method.signature.specialize(boundArgs)
 
     try {
       val result = method.call(env, spec, location)

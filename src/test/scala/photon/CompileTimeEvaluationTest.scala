@@ -86,7 +86,7 @@ class CompileTimeEvaluationTest extends FunSuite {
   test("does not try to compile-time evaluate functions with some unknown arguments") {
     expectPartial(
       """
-          val unknown = { 42 }
+          val unknown = { 42 }.inline
           val add = (a:Int, b:Int):Int { a + b }.inline
           val var1 = unknown()
           val var2 = 11
@@ -96,23 +96,25 @@ class CompileTimeEvaluationTest extends FunSuite {
       "53"
     )
 
-//    expectPartial(
-//      """
-//          val unknown = { 42 }.runTimeOnly
-//          val add = (a:Int, b:Int):Int { a + b }
-//          val var1 = unknown()
-//          val var2 = 11
-//
-//          add(var1, var2)
-//      """,
-//      """
-//          val unknown = { 42 }
-//          val var1 = unknown.call
-//          val var2 = 11
-//
-//          var1 + var2
-//      """
-//    )
+    expectPartial(
+      """
+          val unknown = { 42 }.runTimeOnly
+          val add = (a:Int, b:Int):Int { a + b }.inline
+          val var1 = unknown()
+          val var2 = 11
+
+          add(var1, var2)
+      """,
+      """
+          val unknown = { 42 }
+          val var1 = unknown.call
+          val var2 = 11
+          val a = var1
+          val b = var2
+
+          a + b
+      """
+    )
   }
 
   // TODO: This needs partial evaluation
