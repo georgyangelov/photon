@@ -5,6 +5,7 @@ import photon.frontend.ASTValue
 
 case class $Reference(name: VarName, location: Option[Location]) extends Value {
   override def isOperation = true
+  override def evalMayHaveSideEffects = false
   override def unboundNames = Set(name)
 
   override def evaluate(env: Environment) = env.evalMode match {

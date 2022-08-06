@@ -7,6 +7,7 @@ import photon.frontend.ASTValue
 import scala.reflect.ClassTag
 
 case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Value {
+  override def evalMayHaveSideEffects = false
   override def typ(scope: Scope) = typ
   
   override def toAST(names: Map[VarName, String]): ASTValue = obj match {

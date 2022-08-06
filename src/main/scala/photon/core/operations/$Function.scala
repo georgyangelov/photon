@@ -2,7 +2,6 @@ package photon.core.operations
 
 import photon.base._
 import photon.core._
-import photon.core.objects.$AnyStatic
 import photon.frontend.{ASTParameter, ASTValue}
 
 case class Parameter(
@@ -18,6 +17,7 @@ case class $FunctionDef(
   returnType: Option[Value],
   location: Option[Location]
 ) extends Value {
+  override def evalMayHaveSideEffects = false
   override def isOperation = true
   override def unboundNames: Set[VarName] =
     body.unboundNames -- params.map(_.inName) ++ params.flatMap(_.typ.unboundNames) ++ returnType.map(_.unboundNames).getOrElse(Set.empty)

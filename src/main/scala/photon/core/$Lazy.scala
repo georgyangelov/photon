@@ -6,6 +6,7 @@ import photon.lib._
 
 case class $Lazy(value: Lazy[Value], location: Option[Location]) extends Value {
   override def isOperation = value.resolve.isOperation
+  override def evalMayHaveSideEffects = value.resolve.evalMayHaveSideEffects
   override def unboundNames = value.resolve.unboundNames
   override def typ(scope: Scope) = value.resolve.typ(scope)
   override def evaluate(env: Environment) = value.resolve.evaluate(env)

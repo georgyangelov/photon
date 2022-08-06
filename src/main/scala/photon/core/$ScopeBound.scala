@@ -4,6 +4,7 @@ import photon.base._
 
 case class $ScopeBound(value: Value, scope: Scope) extends Value {
   override def isOperation = value.isOperation
+  override def evalMayHaveSideEffects = value.evalMayHaveSideEffects
   override def location = value.location
   override def unboundNames = value.unboundNames
   override def typ(_scope: Scope) = value.typ(scope)

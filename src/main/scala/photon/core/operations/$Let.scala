@@ -7,6 +7,7 @@ import photon.lib.Lazy
 
 case class $Let(name: VarName, value: Value, body: Value, location: Option[Location]) extends Value {
   override def isOperation = true
+  override def evalMayHaveSideEffects = value.evalMayHaveSideEffects || body.evalMayHaveSideEffects
   override def unboundNames = value.unboundNames ++ body.unboundNames - name
   override def typ(scope: Scope) = {
     val innerScope = scope.newChild(Seq(name -> value))
@@ -39,6 +40,7 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     ebody match {
       case $Reference(refName, _) if refName == name => evalue.get
       case value if value.unboundNames.contains(name) => $Let(name, evalue.get, ebody, location)
+      case _ if evalue.get.evalMayHaveSideEffects => $Block(Seq(evalue.get, ebody), location)
       case _ => ebody
     }
 

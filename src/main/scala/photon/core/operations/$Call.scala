@@ -7,6 +7,7 @@ import photon.lib.ScalaExtensions.IterableSetExtensions
 
 case class $Call(name: String, args: Arguments[Value], location: Option[Location]) extends Value {
   override def isOperation = true
+  override def evalMayHaveSideEffects = true
   override def unboundNames =
     (Seq(args.self) ++ args.positional ++ args.named.values)
       .map(_.unboundNames)

@@ -8,6 +8,7 @@ class VarName(val originalName: String) {
 
 trait Value {
   def isOperation: Boolean = false
+  def evalMayHaveSideEffects: Boolean
   def location: Option[Location]
   def unboundNames: Set[VarName]
   def typ(scope: Scope): Type
@@ -27,6 +28,7 @@ trait Value {
 }
 
 trait ConcreteValue extends Value {
+  override def evalMayHaveSideEffects = false
   override def unboundNames = Set.empty
   override def evaluate(env: Environment): Value = this
 }
