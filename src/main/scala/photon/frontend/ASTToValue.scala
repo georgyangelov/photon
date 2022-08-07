@@ -8,7 +8,7 @@ import photon.frontend.ASTValue.Pattern
 
 object ASTToValue {
   def transform(ast: ASTValue, scope: StaticScope): Value = ast match {
-    case ASTValue.Boolean(value, location) => ???
+    case ASTValue.Boolean(value, location) => $Object(value, $Boolean, location)
     case ASTValue.Int(value, location) => $Object(value, $Int, location)
     case ASTValue.Float(value, location) => ???
     case ASTValue.String(value, location) => $Object(value, $String, location)

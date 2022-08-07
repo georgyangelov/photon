@@ -106,7 +106,7 @@ class InterpreterTest extends FunSuite {
 //    expectCompileTime("a = Ref(1); a.set(42); a.get", "42")
 //  }
 
-  test("binding to variable names in functions") {
+  ignore("binding to variable names in functions") {
     expectCompileTime("val factorial = (n:Int):Int { (n == 1).ifElse { 1 }, { n * factorial(n - 1) } }; factorial 5", "120")
   }
 }

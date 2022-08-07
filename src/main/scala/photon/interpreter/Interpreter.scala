@@ -6,6 +6,7 @@ import photon.frontend._
 
 class Interpreter {
   val rootScope = Scope.newRoot(Seq(
+    new VarName("Boolean") -> $Boolean,
     new VarName("Int") -> $Int,
     new VarName("String") -> $String
   ))

@@ -34,9 +34,7 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
   override def evaluate(env: Environment) = {
     val method = findMethod(env.scope)
 
-    val boundArgs = args
-//      .map(_.evaluate(env))
-      .map($ScopeBound(_, env.scope))
+    val boundArgs = args.map($ScopeBound(_, env.scope))
 
     // TODO: Memoize and share this between `typ` and `evaluate`
     val spec = method.signature.specialize(boundArgs)
