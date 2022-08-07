@@ -228,21 +228,20 @@ class CompileTimeEvaluationTest extends FunSuite {
   }
 
   test("variables do not escape the scope (without partial evaluation)") {
-//    expectPartial(
-//      "val outer = (a:Int) { { a } }.inline; outer(42)",
-//      "val a = 42; { a }"
-//    )
+    expectPartial(
+      "val outer = (a:Int) { { a } }.inline; outer(42)",
+      "val a = 42; { a }"
+    )
 
     expectPartial(
       "val a = 11; val outer = (a:Int) { { a } }.inline; outer(a + 31)",
       "val a = 42; { a }"
     )
 
-//    expectPartial(
-//      "val a = 11; val outer = (a:Int) { { a } }.inline; outer(42); a",
-//      //      "a = 11; (a = 42; () { a }); a"
-//      "11"
-//    )
+    expectPartial(
+      "val a = 11; val outer = (a:Int) { { a } }.inline; outer(42); a",
+      "11"
+    )
   }
 
   ignore("variables do not escape the scope (without partial evaluation) 2") {

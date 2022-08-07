@@ -184,7 +184,7 @@ case class $Function(
           forcedEvalMode(env.evalMode)
         )
 
-        execBody.evaluate(execEnv).wrapInLets
+        execBody.wrapInLets.evaluate(execEnv)
 
       case FunctionEvalRequest.InlineIfPossible |
            FunctionEvalRequest.InlineIfDefinedInline =>
@@ -205,7 +205,7 @@ case class $Function(
         )
         val execBody = buildBodyForExecution(closure, spec)
 
-        execBody.withOuterVariables(partialSelf.variables).evaluate(execEnv).wrapInLets
+        execBody.withOuterVariables(partialSelf.variables).wrapInLets.evaluate(execEnv)
     }
   }
 

@@ -10,8 +10,18 @@ case class $Block(values: Seq[Value], location: Option[Location]) extends Value 
 
   override def typ(scope: Scope) = values.last.typ(scope)
   override def evaluate(env: Environment) = {
-    // TODO: Remove values that don't have side effects and are not last
-    val eValues = values.map(_.evaluate(env))
+    val lastIndex = values.length - 1
+    val eValueBuilder = Seq.newBuilder[Value]
+
+    values.zipWithIndex.foreach { case (value, index) =>
+      val evalue = value.evaluate(env)
+
+      if (evalue.evalMayHaveSideEffects || index == lastIndex) {
+        eValueBuilder.addOne(evalue)
+      }
+    }
+
+    val eValues = eValueBuilder.result
 
     if (eValues.length == 1) {
       eValues.last
