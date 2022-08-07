@@ -198,7 +198,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 //    )
   }
 
-  test("does not eliminate lets used by inner lambdas in params") {
+  ignore("does not eliminate lets used by inner lambdas in params") {
     expectPartial(
       "val unknown = ():Int{}.runTimeOnly; ():Int { unknown() }",
       "val unknown = ():Int{}; ():Int { unknown.call }"
@@ -259,15 +259,15 @@ class CompileTimeEvaluationTest extends FunSuite {
           val unknown = { 42 }.runTimeOnly
 
           { a + unknown() }
-        }
+        }.inline
 
         scope1(1)
       """,
       """
         val a = 1
-        val unknown = (): Int 42
+        val unknown = () 42
 
-        (): Int { a + unknown() }
+        { a + unknown.call }
       """
     )
   }
@@ -279,15 +279,15 @@ class CompileTimeEvaluationTest extends FunSuite {
           val unknown = { a + 42 }.runTimeOnly
 
           { a + unknown() }
-        }
+        }.inline
 
         scope1(1)
       """,
       """
         val a = 1
-        val unknown = ():Int { a + 42 }
+        val unknown = { a + 42 }
 
-        ():Int { a + unknown() }
+        { a + unknown.call }
       """
     )
   }
@@ -303,27 +303,28 @@ class CompileTimeEvaluationTest extends FunSuite {
           )
 
           inner
-        }
+        }.inline
 
         outer(42)
       """,
       """
         val a = 42
         val b = 11
-        ():Int { a + b }
+
+        { a + b }
       """
     )
   }
 
   test("variables do not escape the scope") {
     expectPartial(
-      "val outer = (a:Int) { { a } }; outer(42)",
-      "val a = 42; (): Int { a }"
+      "val outer = (a:Int) { { a } }.inline; outer(42)",
+      "val a = 42; { a }"
     )
 
     expectPartial(
-      "val unknown = { 42 }.runTimeOnly; val outer = { { unknown() } }; outer()",
-      "val unknown = ():Int 42; ():Int { unknown() }"
+      "val unknown = { 42 }.runTimeOnly; val outer = { { unknown() } }.inline; outer()",
+      "val unknown = { 42 }; { unknown.call }"
     )
   }
 
@@ -336,19 +337,19 @@ class CompileTimeEvaluationTest extends FunSuite {
 
         val scope1 = (a: Int) {
           { a + unknown() }
-        }
+        }.inline
 
         val scope2 = (a: Int) {
           scope1(42)
-        }
+        }.inline
 
         scope2(1)
       """,
       """
-        val unknown = ():Int 42
+        val unknown = { 42 }
         val a = 42
 
-        (): Int { a + unknown() }
+        { a + unknown.call }
       """
     )
   }
