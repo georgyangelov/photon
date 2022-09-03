@@ -34,7 +34,7 @@ object TestHelpers {
 
   private def parse(code: String) = {
     val lexer = new Lexer("<test>", code)
-    val parser = new Parser(lexer, Parser.BlankMacroHandler)
+    val parser = new Parser(lexer, Interpreter.macroHandler)
 
     parser.parseRoot()
   }

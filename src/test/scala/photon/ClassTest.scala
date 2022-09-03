@@ -7,7 +7,7 @@ class ClassTest extends FunSuite {
   test("can create classes with values") {
     expectCompileTime(
       """
-      val Person = Class.new (self: ClassBuilder) {
+      val Person = Class.new "Person", (self: ClassBuilder) {
         define "name", String
         define "age", Int
       }
@@ -20,7 +20,7 @@ class ClassTest extends FunSuite {
     )
   }
 
-  ignore("supports class syntax for values") {
+  test("supports class syntax for values") {
     expectCompileTime(
       """
         class Person {
@@ -96,7 +96,7 @@ class ClassTest extends FunSuite {
   test("can create classes with methods using self") {
     expectCompileTime(
       """
-      val Person = Class.new (self: ClassBuilder) {
+      val Person = Class.new "Person", (self: ClassBuilder) {
         define "name", String
         define "age", Int
 
@@ -114,7 +114,7 @@ class ClassTest extends FunSuite {
   test("can create classes when we don't have a direct reference to the name (inline)") {
     expectCompileTime(
       """
-      val Person = Class.new (self: ClassBuilder) {
+      val Person = Class.new "Person", (self: ClassBuilder) {
         define "name", String
         define "age", Int
 
@@ -139,7 +139,7 @@ class ClassTest extends FunSuite {
         define "nextAge", (self: classType) { age + 1 }
       }
 
-      val Person = Class.new(classBuildFn)
+      val Person = Class.new("Person", classBuildFn)
 
       val person = Person.new(name = "Ivan", age = 42)
 
@@ -152,7 +152,7 @@ class ClassTest extends FunSuite {
   test("can create classes with methods using return type inference") {
     expectCompileTime(
       """
-      val Person = Class.new (self: ClassBuilder) {
+      val Person = Class.new "Person", (self: ClassBuilder) {
         define "name", String
         define "age", Int
 
@@ -170,7 +170,7 @@ class ClassTest extends FunSuite {
   test("can create classes with properties referencing the class") {
     expectCompileTime(
       """
-      val Person = Class.new (self: ClassBuilder) {
+      val Person = Class.new "Person", (self: ClassBuilder) {
         define "name", String
         define "parent", Optional(Person)
       }

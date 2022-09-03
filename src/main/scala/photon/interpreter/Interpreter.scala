@@ -3,7 +3,18 @@ package photon.interpreter
 import photon.base._
 import photon.core.$Object
 import photon.core.objects._
+import photon.frontend.Parser.MacroHandler
 import photon.frontend._
+import photon.frontend.macros.ClassMacro
+
+object Interpreter {
+  def macroHandler(name: String, parser: Parser, location: Location): Option[ASTValue] =
+    name match {
+      case "class" => Some(ClassMacro.classMacro(parser, location))
+      case "def" => Some(ClassMacro.defMacro(parser, location))
+      case _ => None
+    }
+}
 
 class Interpreter {
   val rootScope = Scope.newRoot(Seq(

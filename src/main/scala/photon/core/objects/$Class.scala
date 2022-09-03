@@ -11,7 +11,8 @@ object $Class extends Type {
     "new" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val builderFn = spec.args.positional.head.evaluate(env)
+        val className = spec.args.positional.head.evaluate(env)
+        val builderFn = spec.args.positional(1).evaluate(env)
 
 //        Lazy.selfReferencing[Class]
         val classBuilder = new ClassBuilder(location)
