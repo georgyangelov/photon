@@ -2,6 +2,8 @@ package photon.base
 
 import photon.frontend.ASTValue
 
+import scala.reflect.ClassTag
+
 class VarName(val originalName: String) {
   override def toString = s"VarName($originalName)"
 }
@@ -34,7 +36,7 @@ trait ConcreteValue extends Value {
 }
 
 trait Type extends ConcreteValue {
-  override val location = None
+  override val location: Option[Location] = None
   override def toAST(names: Map[VarName, String]): ASTValue = inconvertible
 
   val methods: Map[String, Method]

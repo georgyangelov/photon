@@ -21,7 +21,7 @@ abstract class CompileTimeOnlyMethod extends Method {
       case EvalMode.CompileTimeOnly |
            EvalMode.Partial |
            EvalMode.PartialPreferRunTime =>
-        apply(env, spec, location)
+        apply(Environment(env.scope, EvalMode.CompileTimeOnly), spec, location)
 
       case EvalMode.RunTime |
            EvalMode.PartialRunTimeOnly =>
