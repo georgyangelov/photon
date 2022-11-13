@@ -51,7 +51,7 @@ class ClassTest extends FunSuite {
 
         person.nextAge
       """,
-      "42"
+      "43"
     )
   }
 
