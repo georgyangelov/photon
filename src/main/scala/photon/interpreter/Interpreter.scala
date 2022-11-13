@@ -11,6 +11,7 @@ object Interpreter {
   def macroHandler(name: String, parser: Parser, location: Location): Option[ASTValue] =
     name match {
       case "class" => Some(ClassMacro.classMacro(parser, location))
+      case "interface" => Some(ClassMacro.interfaceMacro(parser, location))
       case "def" => Some(ClassMacro.defMacro(parser, location))
       case _ => None
     }
@@ -22,6 +23,7 @@ class Interpreter {
     new VarName("Int") -> $Int,
     new VarName("String") -> $String,
     new VarName("Class") -> $Object(null, $Class, None),
+    new VarName("Interface") -> $Object(null, $Interface, None),
     new VarName("ClassBuilder") -> $ClassBuilder
   ))
 

@@ -25,7 +25,7 @@ object $Class extends Type {
             location
           ).evaluate(env)
 
-          classBuilder.build(env.scope)
+          classBuilder.buildClass(env.scope)
         }).resolve
       }
     }
@@ -157,10 +157,12 @@ object $ClassBuilder extends Type {
 class ClassBuilder(val ref: Value, val location: Option[Location]) {
   var definitions = Seq.newBuilder[ClassDefinition]
 
-  def build(scope: Scope) = {
+  def buildClass(scope: Scope) = {
     val (methodDefs, propertyDefs) = definitions.result
       .partition(_.value.typ(scope).isInstanceOf[$Function])
 
     Class(propertyDefs, methodDefs, scope, location)
   }
+
+  def buildInterface(scope: Scope) = Interface(definitions.result, scope, location)
 }

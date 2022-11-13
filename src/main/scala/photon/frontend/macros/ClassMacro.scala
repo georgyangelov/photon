@@ -4,8 +4,14 @@ import photon.base.Location
 import photon.frontend._
 
 object ClassMacro {
-  def classMacro(parser: Parser, location: Location): ASTValue = {
-    val name = parser.readToken(TokenType.Name, "Expected a name after class")
+  def classMacro(parser: Parser, location: Location): ASTValue =
+    classBuilderMacro("Class", parser, location)
+
+  def interfaceMacro(parser: Parser, location: Location): ASTValue =
+    classBuilderMacro("Interface", parser, location)
+
+  private def classBuilderMacro(buildType: String, parser: Parser, location: Location): ASTValue = {
+    val name = parser.readToken(TokenType.Name, s"Expected a name after $buildType")
     val builderFn = parser.parseAST[ASTValue.Function]
 
     val builderFnWithSelfArg =
@@ -33,7 +39,7 @@ object ClassMacro {
     ASTValue.Let(
       name.string,
       ASTValue.Call(
-        ASTValue.NameReference("Class", Some(location)),
+        ASTValue.NameReference(buildType, Some(location)),
         "new",
         ASTArguments.positional(Seq(
           ASTValue.String(name.string, Some(name.location)),
@@ -45,7 +51,6 @@ object ClassMacro {
       block,
       Some(letLocation)
     )
-
   }
 
   def defMacro(parser: Parser, location: Location): ASTValue = {
