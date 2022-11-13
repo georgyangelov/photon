@@ -6,6 +6,11 @@ import scala.reflect.ClassTag
 
 sealed trait MethodSignature {
   def specialize(args: Arguments[Value]): CallSpec
+
+  // TODO: This is a half-measure, I need MethodSignature to be
+  //       able to expose the arguments to the outside, but this
+  //       depends on support for varargs and patterns
+  def withoutArgument(name: String): MethodSignature
 }
 
 object MethodSignature {
@@ -24,6 +29,24 @@ object MethodSignature {
 
       CallSpec(args, bindings, returnType)
     }
+
+    override def withoutArgument(name: String): MethodSignature = {
+      val argsWithoutName = Seq.newBuilder[(String, Type)]
+      var foundArgument = false
+
+      // We only want to drop the first argument named this way.
+      // This is because we want to be able to define class methods that
+      // have a different `self` argument
+      argTypes.foreach { case (param, value) =>
+        if (param == name && !foundArgument) {
+          foundArgument = true
+        } else {
+          argsWithoutName.addOne(param -> value)
+        }
+      }
+
+      Specific(argsWithoutName.result, returnType)
+    }
   }
 
 //  case class Pattern(
@@ -41,6 +64,8 @@ object MethodSignature {
         returnType
         // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
       )
+
+    override def withoutArgument(name: String): MethodSignature = this
   }
 }
 

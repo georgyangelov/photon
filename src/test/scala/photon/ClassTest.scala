@@ -55,7 +55,7 @@ class ClassTest extends FunSuite {
     )
   }
 
-  ignore("supports forward-referencing methods") {
+  test("supports forward-referencing methods") {
     expectCompileTime(
       """
         class Person {
@@ -70,7 +70,7 @@ class ClassTest extends FunSuite {
 
         person.nextAge
       """,
-      "42"
+      "43"
     )
   }
 
