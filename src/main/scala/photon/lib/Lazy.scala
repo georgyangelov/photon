@@ -43,8 +43,13 @@ object Lazy {
   def ofValue[T](value: T): Lazy[T] = Eager[T](value)
   def selfReferencing[T](resolve: Lazy[T] => T): Lazy[T] = {
     var self: Option[Lazy[T]] = None
+    var resolved = false
     val lazyFn = new LazyFn[T](() => {
-      // TODO: This will currently blow the stack if it self-references directly
+      if (resolved) {
+        throw new Error("Self-referencing Lazy value directly references itself")
+      }
+      resolved = true
+
       resolve(self.get)
     })
 

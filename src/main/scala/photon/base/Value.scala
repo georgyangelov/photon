@@ -21,7 +21,7 @@ trait Value {
   def inconvertible = throw EvalError(s"Could not convert $this to AST", location)
   def toAST(names: Map[VarName, String]): ASTValue
 
-  def assertType: Type = this match {
+  def asType: Type = this match {
     case typ: Type => typ
     case _ => throw EvalError(s"Expected value $this to be a type", location)
   }

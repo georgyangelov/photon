@@ -45,7 +45,7 @@ case class Class(
       "new" -> new DefaultMethod {
         override val signature = MethodSignature.of(
           propertyDefs.map { property =>
-            property.name -> property.value.assertType
+            property.name -> property.value.asType
           },
           self
         )
@@ -66,7 +66,7 @@ case class Class(
     propertyDefs.map { property => property.name -> methodForProperty(property) }.toMap
 
   private def methodForProperty(property: ClassDefinition) = new DefaultMethod {
-    override val signature = MethodSignature.of(Seq.empty, property.value.assertType)
+    override val signature = MethodSignature.of(Seq.empty, property.value.asType)
     override def apply(env: Environment, spec: CallSpec, location: Option[Location]) =
       spec.requireSelfObject[Map[String, Value]](env)
         .getOrElse(
@@ -105,7 +105,7 @@ object $ClassBuilder extends Type {
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
         val self = spec.requireSelfObject[ClassBuilder](env)
 
-        self.ref.evaluate(env)
+        self.ref //.evaluate(env)
       }
     }
   )

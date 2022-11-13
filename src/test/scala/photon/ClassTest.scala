@@ -49,7 +49,26 @@ class ClassTest extends FunSuite {
 
         val person = Person.new(name = "Ivan", age = 42)
 
-        person.age
+        person.nextAge
+      """,
+      "42"
+    )
+  }
+
+  ignore("supports forward-referencing methods") {
+    expectCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+
+          def nextAge: Int { agePlus 1 }
+          def agePlus(x: Int) { age + x }
+        }
+
+        val person = Person.new(name = "Ivan", age = 42)
+
+        person.nextAge
       """,
       "42"
     )

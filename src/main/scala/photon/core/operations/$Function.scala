@@ -3,6 +3,7 @@ package photon.core.operations
 import photon.base._
 import photon.core._
 import photon.frontend.{ASTParameter, ASTValue}
+import photon.lib.Lazy
 
 case class Parameter(
   outName: String,
@@ -26,17 +27,20 @@ case class $FunctionDef(
   override def typ(scope: Scope) = {
     // TODO: Pattern types
     val paramTypes = params
-      .map { param => param.outName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType }
+      .map { param => param.outName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
 
-    val actualReturnType = returnType
-      .getOrElse {
-        val paramTypes = params
-          .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).assertType }
+    val actualReturnType = returnType match {
+      case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+      case None =>
+        // This is lazy because methods defined on a class need to be able to infer the return type based
+        // on the class's other methods, which may not be defined yet
+        $LazyType(Lazy.of(() => {
+          val paramTypes = params
+            .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
 
-        inferReturnType(scope, paramTypes)
-      }
-      .evaluate(Environment(scope, EvalMode.CompileTimeOnly))
-      .assertType
+          inferReturnType(scope, paramTypes)
+        }))
+    }
 
     val signature = MethodSignature.of(
       args = paramTypes,
