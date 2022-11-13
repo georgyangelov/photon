@@ -3,6 +3,7 @@ package photon.core.objects
 import photon.base._
 import photon.core._
 import photon.core.operations._
+import photon.lib.Lazy
 
 object $Class extends Type {
   override def typ(scope: Scope) = $Type
@@ -14,17 +15,18 @@ object $Class extends Type {
         val className = spec.args.positional.head.evaluate(env)
         val builderFn = spec.args.positional(1).evaluate(env)
 
-//        Lazy.selfReferencing[Class]
-        val classBuilder = new ClassBuilder(location)
-        val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
+        Lazy.selfReferencing[$Object](self => {
+          val classBuilder = new ClassBuilder($Lazy(self, location), location)
+          val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
-        $Call(
-          "call",
-          Arguments.positional(builderFn, Seq(classBuilderObject)),
-          location
-        ).evaluate(env)
+          $Call(
+            "call",
+            Arguments.positional(builderFn, Seq(classBuilderObject)),
+            location
+          ).evaluate(env)
 
-        classBuilder.build(env.scope)
+          classBuilder.build(env.scope)
+        }).resolve
       }
     }
   )
@@ -71,6 +73,7 @@ case class Class(
           property.name,
           throw EvalError(s"Property ${property.name} not in class definition", location)
         )
+        .evaluate(env)
   }
 }
 
@@ -95,11 +98,20 @@ object $ClassBuilder extends Type {
         // TODO: Actual null value
         $Object(null, $Type, location)
       }
+    },
+
+    "selfType" -> new CompileTimeOnlyMethod {
+      override val signature = MethodSignature.any($Type)
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+        val self = spec.requireSelfObject[ClassBuilder](env)
+
+        self.ref.evaluate(env)
+      }
     }
   )
 }
 
-class ClassBuilder(val location: Option[Location]) {
+class ClassBuilder(val ref: Value, val location: Option[Location]) {
   var definitions = Seq.newBuilder[ClassDefinition]
 
   def build(scope: Scope): $Object = {

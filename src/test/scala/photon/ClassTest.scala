@@ -36,7 +36,7 @@ class ClassTest extends FunSuite {
     )
   }
 
-  ignore("supports class syntax for methods") {
+  test("supports class syntax for methods") {
     expectCompileTime(
       """
         class Person {

@@ -59,10 +59,20 @@ object ASTToValue {
       )
 
     case ASTValue.NameReference(name, location) =>
-      val varName = scope.find(name)
-        .getOrElse { throw EvalError(s"Could not find name $name in $scope", location) }
+      scope.find(name) match {
+        case Some(varName) => $Reference(varName, location)
+        case None =>
+          val self = scope.find("self").getOrElse {
+            throw EvalError(s"Could not find name $name in $scope", location)
+          }
+          val referenceToSelf = $Reference(self, location)
 
-      $Reference(varName, location)
+          $Call(
+            name,
+            args = Arguments.empty(referenceToSelf),
+            location
+          )
+      }
 
     case ASTValue.Let(name, value, block, location) =>
       val varName = new VarName(name)
