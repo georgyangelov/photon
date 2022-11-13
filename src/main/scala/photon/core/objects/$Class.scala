@@ -15,7 +15,7 @@ object $Class extends Type {
         val className = spec.args.positional.head.evaluate(env)
         val builderFn = spec.args.positional(1).evaluate(env)
 
-        Lazy.selfReferencing[$Object](self => {
+        Lazy.selfReferencing[Class](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)
           val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
@@ -92,15 +92,20 @@ case class Class(
 
     override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
       val self = spec.requireSelf[$Object](env)
+      val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
       val argsForFunction = Arguments[Value](
         // Function should be able to get its closure correctly
         self = fnDef.value,
         positional = spec.args.positional,
-        named = spec.args.named + ("self" -> self)
+        named =
+          if (hasExplicitSelfBinding) spec.args.named
+          else spec.args.named + ("self" -> self)
       )
       val specWithSelfArgument = CallSpec(
         args = argsForFunction,
-        bindings = spec.bindings.appended("self" -> self),
+        bindings =
+          if (hasExplicitSelfBinding) spec.bindings
+          else spec.bindings.appended("self" -> self),
         returnType = spec.returnType
       )
 
@@ -146,12 +151,10 @@ object $ClassBuilder extends Type {
 class ClassBuilder(val ref: Value, val location: Option[Location]) {
   var definitions = Seq.newBuilder[ClassDefinition]
 
-  def build(scope: Scope): $Object = {
+  def build(scope: Scope) = {
     val (methodDefs, propertyDefs) = definitions.result
       .partition(_.value.typ(scope).isInstanceOf[$Function])
 
-    val klass = Class(propertyDefs, methodDefs, scope, location)
-
-    $Object(klass, klass.metaType, location)
+    Class(propertyDefs, methodDefs, scope, location)
   }
 }

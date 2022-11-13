@@ -74,7 +74,45 @@ class ClassTest extends FunSuite {
     )
   }
 
-  ignore("can call functions with arguments") {
+  test("supports using classes as argument type") {
+    expectCompileTime(
+      """
+        class Other {
+          def answer { 42 }
+        }
+
+        class Person {
+          def giveAnswer(other: Other) { other.answer }
+        }
+
+        val person = Person.new
+
+        person.giveAnswer(Other.new)
+      """,
+      "42"
+    )
+  }
+
+  test("supports defining explicit self argument on methods") {
+    expectCompileTime(
+      """
+        class Other {
+          def answer { 42 }
+        }
+
+        class Person {
+          def giveAnswer(self: Other) { answer }
+        }
+
+        val person = Person.new
+
+        person.giveAnswer(Other.new)
+      """,
+      "42"
+    )
+  }
+
+  test("can call functions with arguments") {
     expectCompileTime(
       """
         class Person {
@@ -93,7 +131,7 @@ class ClassTest extends FunSuite {
     )
   }
 
-  ignore("can call functions with named arguments") {
+  test("can call functions with named arguments") {
     expectCompileTime(
       """
         class Person {
