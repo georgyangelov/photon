@@ -26,8 +26,12 @@ case class $FunctionDef(
   // TODO: Cache this and share with `evaluate`! This gets called multiple times!
   override def typ(scope: Scope) = {
     // TODO: Pattern types
-    val paramTypes = params
-      .map { param => param.outName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
+    val paramTypes = params.map { param =>
+      // This is lazy because we want to be able to self-reference types we're currently defining
+      param.outName -> $LazyType(Lazy.of(() => {
+        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+      }))
+    }
 
     val actualReturnType = returnType match {
       case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
