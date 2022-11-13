@@ -11,6 +11,7 @@ sealed trait MethodSignature {
   //       able to expose the arguments to the outside, but this
   //       depends on support for varargs and patterns
   def withoutArgument(name: String): MethodSignature
+  def hasArgument(name: String): Boolean
 }
 
 object MethodSignature {
@@ -47,6 +48,8 @@ object MethodSignature {
 
       Specific(argsWithoutName.result, returnType)
     }
+
+    override def hasArgument(name: String): Boolean = argTypes.exists { case (argName, _) => argName == name }
   }
 
 //  case class Pattern(
@@ -66,6 +69,7 @@ object MethodSignature {
       )
 
     override def withoutArgument(name: String): MethodSignature = this
+    override def hasArgument(name: String): Boolean = true
   }
 }
 

@@ -88,7 +88,13 @@ case class Class(
       .method("call")
       .getOrElse { throw EvalError(s"Class method ${fnDef.name} is not callable", location) }
 
-    override val signature: MethodSignature = callMethod.signature.withoutArgument("self")
+    private val hasSelfArgument = callMethod.signature.hasArgument("self")
+
+    override val signature: MethodSignature =
+      if (hasSelfArgument)
+        callMethod.signature.withoutArgument("self")
+      else
+        callMethod.signature
 
     override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
       val self = spec.requireSelf[$Object](env)
@@ -98,13 +104,13 @@ case class Class(
         self = fnDef.value,
         positional = spec.args.positional,
         named =
-          if (hasExplicitSelfBinding) spec.args.named
+          if (hasExplicitSelfBinding || !hasSelfArgument) spec.args.named
           else spec.args.named + ("self" -> self)
       )
       val specWithSelfArgument = CallSpec(
         args = argsForFunction,
         bindings =
-          if (hasExplicitSelfBinding) spec.bindings
+          if (hasExplicitSelfBinding || !hasSelfArgument) spec.bindings
           else spec.bindings.appended("self" -> self),
         returnType = spec.returnType
       )

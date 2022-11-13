@@ -20,6 +20,53 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("can manually define methods") {
+    expectCompileTime(
+      """
+      val Person = Class.new "Person", (self: ClassBuilder) {
+        define "age", Int
+
+        define "nextAge", (self: selfType) { age + 1 }
+      }
+
+      val person = Person.new(age = 42)
+
+      person.nextAge
+      """,
+      "43"
+    )
+  }
+
+  test("can manually define methods without self") {
+    expectCompileTime(
+      """
+      val Person = Class.new "Person", (self: ClassBuilder) {
+        define "answer", { 42 }
+      }
+
+      Person.new.answer
+      """,
+      "42"
+    )
+  }
+
+  test("can manually define methods referencing self through the variable name") {
+    expectCompileTime(
+      """
+      val Person = Class.new "Person", (self: ClassBuilder) {
+        define "age", Int
+
+        define "nextAge", (self: Person) { age + 1 }
+      }
+
+      val person = Person.new(age = 42)
+
+      person.nextAge
+      """,
+      "43"
+    )
+  }
+
   test("supports class syntax for values") {
     expectCompileTime(
       """
@@ -88,6 +135,24 @@ class ClassTest extends FunSuite {
         val person = Person.new
 
         person.giveAnswer(Other.new)
+      """,
+      "42"
+    )
+  }
+
+  test("supports using the same class as argument type") {
+    expectCompileTime(
+      """
+        class Person {
+          def age: Int
+
+          def sumOfAges(other: Person) { age + other.age }
+        }
+
+        val a = Person.new(age = 20)
+        val b = Person.new(age = 22)
+
+        a.sumOfAges(b)
       """,
       "42"
     )
