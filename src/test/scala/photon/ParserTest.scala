@@ -324,17 +324,17 @@ class ParserTest extends FunSuite {
   }
 
   test("types for function values") {
-    assert(parse("val a: (): Int = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (call Function Int)) a)")
-    assert(parse("val a: ((): Int) = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (call Function Int)) a)")
+    assert(parse("val a: (): Int = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (Function [] Int)) a)")
+    assert(parse("val a: ((): Int) = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (Function [] Int)) a)")
   }
 
   test("function types with argument types") {
-    assert(parse("(a: Int): Int") == "(call Function Int (param a Int))")
-    assert(parse("(a: Int, b: String): Int") == "(call Function Int (param a Int) (param b String))")
+    assert(parse("(a: Int): Int") == "(Function [(param a Int)] Int)")
+    assert(parse("(a: Int, b: String): Int") == "(Function [(param a Int) (param b String)] Int)")
   }
 
   test("function types with argument type patterns") {
-    assert(parse("(a: val T): T") == "(call Function T (param a (val T)))")
-    assert(parse("(a: val A, b: Optional(val B)): Optional(A)") == "(call Function (Optional self A) (param a (val A)) (param b <Optional self (val B)>))")
+    assert(parse("(a: val T): T") == "(Function [(param a (val T))] T)")
+    assert(parse("(a: val A, b: Optional(val B)): Optional(A)") == "(Function [(param a (val A)) (param b <Optional self (val B)>)] Optional(A))")
   }
 }

@@ -164,5 +164,5 @@ class ClassBuilder(val ref: Value, val location: Option[Location]) {
     Class(propertyDefs, methodDefs, scope, location)
   }
 
-  def buildInterface(scope: Scope) = Interface(definitions.result, scope, location)
+  def buildInterface(scope: Scope) = Interface(definitions.result, location)
 }

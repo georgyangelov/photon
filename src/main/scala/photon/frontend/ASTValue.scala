@@ -96,6 +96,20 @@ object ASTValue {
     override def inspect = s"(let $name ${value.inspect} ${block.inspect})"
   }
 
+  case class FunctionType(
+    params: Seq[ASTTypeParameter],
+    returnType: ASTValue,
+    location: Option[Location]
+  ) extends ASTValue {
+    override def inspect = {
+      val paramsAST = params
+        .map { param => s"(param ${param.name} ${param.typePattern.inspect})" }
+        .mkString(" ")
+
+      s"(Function [$paramsAST] $returnType)"
+    }
+  }
+
   sealed trait Pattern extends ASTValue {
     def inspect: java.lang.String
   }
@@ -135,6 +149,12 @@ case class ASTParameter(
   outName: String,
   inName: String,
   typePattern: Option[ASTValue.Pattern],
+  location: Option[Location]
+)
+
+case class ASTTypeParameter(
+  name: String,
+  typePattern: ASTValue.Pattern,
   location: Option[Location]
 )
 

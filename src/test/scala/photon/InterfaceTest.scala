@@ -60,7 +60,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can assign methods to interfaces") {
+  test("can assign methods to interfaces") {
     expectCompileTime(
       """
         interface Aged {
@@ -78,7 +78,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("preserves self of methods") {
+  test("preserves self of methods") {
     expectCompileTime(
       """
         interface Aged {
@@ -98,7 +98,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can assign methods with arguments") {
+  test("can assign methods with arguments") {
     expectCompileTime(
       """
         interface Number {

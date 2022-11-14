@@ -3,7 +3,6 @@ package photon.frontend
 import photon.base._
 import photon.lib.LookAheadReader
 
-import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.util.control.Breaks._
@@ -579,22 +578,32 @@ class Parser(
       val returns = returnType.getOrElse { parseError("Function types need to have explicit return type") }
 
       val location = Some(startLocation.extendWith(lastLocation))
-      val arguments = ASTArguments(
-        Seq(returns),
-        named = parameters.map { param =>
-          param.outName -> param.typePattern
-            .getOrElse { parseError("Function type needs to have defined parameter types") }
-        }.toMap
-      )
+//      val arguments = ASTArguments(
+//        Seq(returns),
+//        named = parameters.map { param =>
+//          param.outName -> param.typePattern
+//            .getOrElse { parseError("Function type needs to have defined parameter types") }
+//        }.toMap
+//      )
+
+      val typeParameters = parameters.map { param =>
+        ASTTypeParameter(
+          name = param.outName,
+          typePattern = param.typePattern
+            .getOrElse { parseError("Function type needs to have defined parameter types") },
+          location
+        )
+      }
 
       // Function type, not lambda, e.g. `(a: Int): Int`
-      return ASTValue.Call(
-        target = ASTValue.NameReference("Function", location),
-        name = "call",
-        arguments = arguments,
-        mayBeVarCall = false,
-        location
-      )
+      return ASTValue.FunctionType(typeParameters, returns, location)
+//      return ASTValue.Call(
+//        target = ASTValue.NameReference("Function", location),
+//        name = "call",
+//        arguments = arguments,
+//        mayBeVarCall = false,
+//        location
+//      )
     }
 
     val hasBlock = token.tokenType == TokenType.OpenBrace

@@ -27,6 +27,13 @@ object ASTToValue {
 
       $FunctionDef(fnParams, fnBody, fnReturnType, location)
 
+    // TODO: Support patterns
+    case ASTValue.FunctionType(params, returnType, location) =>
+      val typeParams = params.map(transform(_, scope))
+      val returns = transform(returnType, scope)
+
+      $FunctionTypeDef(typeParams, returns, location)
+
     case ASTValue.Call(target, name, arguments, mayBeVarCall, location) =>
       val positionalArgs = arguments.positional.map(transform(_, scope))
       val namedArgs = arguments.named.map { case name -> astValue => (name, transform(astValue, scope)) }
@@ -100,5 +107,15 @@ object ASTToValue {
     }
 
     Parameter(param.outName, varName, typ, param.location)
+  }
+
+  private def transform(param: ASTTypeParameter, scope: StaticScope): TypeParameter = {
+    val typ = param.typePattern match {
+      case Pattern.SpecificValue(value) => transform(value, scope)
+      case Pattern.Binding(name, location) => ???
+      case Pattern.Call(target, name, args, mayBeVarCall, location) => ???
+    }
+
+    TypeParameter(param.name, typ, param.location)
   }
 }

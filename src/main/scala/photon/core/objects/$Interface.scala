@@ -34,8 +34,6 @@ object $Interface extends Type {
 
 case class Interface(
   definitions: Seq[ClassDefinition],
-  // TODO: Can I go without this?
-  scope: Scope,
   override val location: Option[Location]
 ) extends Type {
   val self = this
@@ -66,18 +64,11 @@ case class Interface(
 
   private def methodForDefinition(definition: ClassDefinition): Method = {
     definition.value match {
-//      case fn: $Function =>
       case returnType: Type =>
         new Method {
           override val signature: MethodSignature = MethodSignature.of(Seq.empty, returnType)
           override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
             val self = spec.requireSelfObject[Value](env)
-
-//            val method = self.typ(scope)
-//              .method(definition.name)
-//              .getOrElse { throw EvalError(s"Could not find method ${definition.name} on $self", location) }
-//
-//            method.call(env, spec, location)
 
             $Call(definition.name, spec.args.changeSelf(self), location).evaluate(env)
           }

@@ -72,10 +72,13 @@ object ClassMacro {
         returnType
       }
     } else {
-      // def agePlus(x: Int) { age + 1 }
-      val fn = parser.parseAST[ASTValue.Function]
+      parser.parseNext() match {
+        // def agePlus(x: Int) { age + 1 }
+        case fn: ASTValue.Function => addSelfAndTypeToFn(fn, None)
 
-      addSelfAndTypeToFn(fn, None)
+        // def agePlus(x: Int): Int
+        case fnType => fnType
+      }
     }
 
     val wholeDefLocation = location.extendWith(parser.lastLocation)

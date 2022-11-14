@@ -5,6 +5,44 @@ import photon.core._
 import photon.frontend.{ASTParameter, ASTValue}
 import photon.lib.Lazy
 
+case class TypeParameter(
+  name: String,
+  typ: Value,
+  location: Option[Location]
+)
+
+case class $FunctionTypeDef(
+  params: Seq[TypeParameter],
+  returnType: Value,
+  location: Option[Location]
+) extends Value {
+  override def evalMayHaveSideEffects: Boolean = false
+  override def unboundNames: Set[VarName] = params.flatMap(_.typ.unboundNames).toSet ++ returnType.unboundNames
+  override def typ(scope: Scope): Type = $Type
+
+  override def evaluate(env: Environment): Value = {
+    // TODO: Pattern types
+    val paramTypes = params.map { param =>
+      // This is lazy because we want to be able to self-reference types we're currently defining
+      param.name -> $LazyType(Lazy.of(() => {
+        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+      }))
+    }
+
+    // TODO: May need this to be $LazyType as well
+    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+
+    val signature = MethodSignature.of(
+      paramTypes,
+      actualReturnType
+    )
+
+    $Function(signature, FunctionRunMode.Default, InlinePreference.Default)
+  }
+
+  override def toAST(names: Map[VarName, String]): ASTValue = ???
+}
+
 case class Parameter(
   outName: String,
   inName: VarName,
@@ -34,6 +72,7 @@ case class $FunctionDef(
     }
 
     val actualReturnType = returnType match {
+      // TODO: May need this to be $LazyType as well
       case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
       case None =>
         // This is lazy because methods defined on a class need to be able to infer the return type based
