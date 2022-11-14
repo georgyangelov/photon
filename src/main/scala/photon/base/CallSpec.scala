@@ -10,8 +10,8 @@ sealed trait MethodSignature {
   // TODO: This is a half-measure, I need MethodSignature to be
   //       able to expose the arguments to the outside, but this
   //       depends on support for varargs and patterns
-  def withoutArgument(name: String): MethodSignature
-  def hasArgument(name: String): Boolean
+  def withoutFirstArgumentCalled(name: String): MethodSignature
+  def hasArgumentCalled(name: String): Boolean
 }
 
 object MethodSignature {
@@ -31,7 +31,7 @@ object MethodSignature {
       CallSpec(args, bindings, returnType)
     }
 
-    override def withoutArgument(name: String): MethodSignature = {
+    override def withoutFirstArgumentCalled(name: String): MethodSignature = {
       val argsWithoutName = Seq.newBuilder[(String, Type)]
       var foundArgument = false
 
@@ -49,7 +49,7 @@ object MethodSignature {
       Specific(argsWithoutName.result, returnType)
     }
 
-    override def hasArgument(name: String): Boolean = argTypes.exists { case (argName, _) => argName == name }
+    override def hasArgumentCalled(name: String): Boolean = argTypes.exists { case (argName, _) => argName == name }
   }
 
 //  case class Pattern(
@@ -68,8 +68,8 @@ object MethodSignature {
         // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
       )
 
-    override def withoutArgument(name: String): MethodSignature = this
-    override def hasArgument(name: String): Boolean = true
+    override def withoutFirstArgumentCalled(name: String): MethodSignature = this
+    override def hasArgumentCalled(name: String): Boolean = true
   }
 }
 

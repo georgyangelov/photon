@@ -88,11 +88,11 @@ case class Class(
       .method("call")
       .getOrElse { throw EvalError(s"Class method ${fnDef.name} is not callable", location) }
 
-    private val hasSelfArgument = callMethod.signature.hasArgument("self")
+    private val hasSelfArgument = callMethod.signature.hasArgumentCalled("self")
 
     override val signature: MethodSignature =
       if (hasSelfArgument)
-        callMethod.signature.withoutArgument("self")
+        callMethod.signature.withoutFirstArgumentCalled("self")
       else
         callMethod.signature
 
