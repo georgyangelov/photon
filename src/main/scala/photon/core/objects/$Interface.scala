@@ -34,6 +34,8 @@ object $Interface extends Type {
 
 case class Interface(
   definitions: Seq[ClassDefinition],
+  // TODO: Do I need this?
+  scope: Scope,
   override val location: Option[Location]
 ) extends Type {
   val self = this
@@ -73,6 +75,46 @@ case class Interface(
             $Call(definition.name, spec.args.changeSelf(self), location).evaluate(env)
           }
         }
+
+      // TODO: Check if it's callable instead of if it's a function?
+      case value if value.typ(scope).isInstanceOf[$Function] => methodForFunction(definition)
+    }
+  }
+
+  // TODO: This is copy/pasted from $Class.methodForFunction, unify those definitions
+  private def methodForFunction(fnDef: ClassDefinition) = new Method {
+    private val callMethod = fnDef.value.typ(scope)
+      .method("call")
+      .getOrElse { throw EvalError(s"Class method ${fnDef.name} is not callable", location) }
+
+    private val hasSelfArgument = callMethod.signature.hasArgument("self")
+
+    override val signature: MethodSignature =
+      if (hasSelfArgument)
+        callMethod.signature.withoutArgument("self")
+      else
+        callMethod.signature
+
+    override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+      val self = spec.requireSelf[$Object](env)
+      val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
+      val argsForFunction = Arguments[Value](
+        // Function should be able to get its closure correctly
+        self = fnDef.value,
+        positional = spec.args.positional,
+        named =
+          if (hasExplicitSelfBinding || !hasSelfArgument) spec.args.named
+          else spec.args.named + ("self" -> self)
+      )
+      val specWithSelfArgument = CallSpec(
+        args = argsForFunction,
+        bindings =
+          if (hasExplicitSelfBinding || !hasSelfArgument) spec.bindings
+          else spec.bindings.appended("self" -> self),
+        returnType = spec.returnType
+      )
+
+      callMethod.call(env, specWithSelfArgument, location)
     }
   }
 }

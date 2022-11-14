@@ -118,7 +118,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can define actual methods on interfaces") {
+  test("can define actual methods on interfaces") {
     expectCompileTime(
       """
         interface Number {
