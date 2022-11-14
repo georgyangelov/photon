@@ -22,6 +22,7 @@ class Interpreter {
     new VarName("Boolean") -> $Boolean,
     new VarName("Int") -> $Int,
     new VarName("String") -> $String,
+    new VarName("Core") -> $Object(null, $Core, None),
     new VarName("Class") -> $Object(null, $Class, None),
     new VarName("Interface") -> $Object(null, $Interface, None),
     new VarName("ClassBuilder") -> $ClassBuilder

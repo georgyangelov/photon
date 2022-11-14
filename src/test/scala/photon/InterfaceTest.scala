@@ -22,7 +22,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can use type assertions to create interfaces") {
+  test("can use type assertions to create interfaces") {
     expectCompileTime(
       """
         interface Aged {
