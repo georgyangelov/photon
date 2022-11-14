@@ -161,4 +161,33 @@ class InterfaceTest extends FunSuite {
       "43"
     )
   }
+
+  test("can assign functions to interfaces") {
+    expectCompileTime(
+      """
+        interface Producer {
+          def call: Int
+        }
+
+        val producer: Producer = () 42
+        producer.call
+      """,
+      "42"
+    )
+  }
+
+  // TODO: Change this, this should produce an error because the out names of the params are different
+  test("can assign functions with arguments to interfaces") {
+    expectCompileTime(
+      """
+        interface Producer {
+          def call(a: Int): Int
+        }
+
+        val producer: Producer = (b: Int) 42 + b
+        producer.call(1)
+      """,
+      "43"
+    )
+  }
 }

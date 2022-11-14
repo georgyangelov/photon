@@ -16,8 +16,10 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
   override def typ(scope: Scope) =
     findMethod(scope)
       .signature
-      .specialize(args)
-      .returnType
+      .specialize(args.map($ScopeBound(_, scope)), scope) match {
+      case Left(value) => value.returnType
+      case Right(typeError) => throw typeError
+    }
 
   override def toAST(names: Map[VarName, String]) =
     ASTValue.Call(
@@ -37,7 +39,10 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
     val boundArgs = args.map($ScopeBound(_, env.scope))
 
     // TODO: Memoize and share this between `typ` and `evaluate`
-    val spec = method.signature.specialize(boundArgs)
+    val spec = method.signature.specialize(boundArgs, env.scope) match {
+      case Left(value) => value
+      case Right(typeError) => throw typeError
+    }
 
     try {
       val result = method.call(env, spec, location)

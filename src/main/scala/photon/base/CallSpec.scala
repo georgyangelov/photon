@@ -1,11 +1,14 @@
 package photon.base
 
 import photon.core._
+import photon.core.objects.$AnyStatic
+import photon.core.operations.$Call
 
 import scala.reflect.ClassTag
 
 sealed trait MethodSignature {
-  def specialize(args: Arguments[Value]): CallSpec
+  // TODO: Instead of passing scope, pass Arguments[(Value, Type)]
+  def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError]
 
   // TODO: This is a half-measure, I need MethodSignature to be
   //       able to expose the arguments to the outside, but this
@@ -19,16 +22,46 @@ object MethodSignature {
 //  def of(args: Seq[(String, UPattern)], returnType: UValue) = Pattern(args, returnType)
   def of(args: Seq[(String, Type)], returnType: Type) = Specific(args, returnType)
 
+  // TODO: Resolve $LazyType so that it is printable
+  private def assignableTo(value: Value, to: Type, scope: Scope): Either[Value, TypeError] = {
+    val fromType = value.typ(scope)
+    val toMetaType = to.typ(scope)
+
+    // TODO: Check if we're in CompileTimeOnly execution
+    if (to.isSameAs($AnyStatic)) return Left(value)
+    if (fromType.isSameAs(to)) return Left(value)
+
+    val fromMethod = toMetaType.method("from")
+      .getOrElse { return Right(TypeError(s"Cannot assign value of type $fromType to $to - no `from` method", value.location)) }
+
+    fromMethod.signature.specialize(
+      Arguments.positional(null, Seq(value)),
+      scope
+    ) match {
+      case Left(_) =>
+        Left($Call("from", Arguments.positional(to, Seq(value)), value.location))
+
+      case Right(typeError) =>
+        Right(TypeError(s"Cannot assign value of type $fromType to $to - ${typeError.message}", value.location))
+    }
+  }
+
   case class Specific(
     argTypes: Seq[(String, Type)],
     returnType: Type
   ) extends MethodSignature {
-    def specialize(args: Arguments[Value]): CallSpec = {
-      // TODO: Actual type-checking
+    def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError] = {
       val bindings = args.matchWith(argTypes)
-        .map { case (name, (value, expectedType)) => name -> value }
+        .map { case (name, (value, expectedType)) =>
+          val convertedValue = assignableTo(value, expectedType, scope) match {
+            case Left(value) => value
+            case Right(reason) => return Right(reason)
+          }
 
-      CallSpec(args, bindings, returnType)
+          name -> convertedValue
+        }
+
+      Left(CallSpec(args, bindings, returnType))
     }
 
     override def withoutFirstArgumentCalled(name: String): MethodSignature = {
@@ -60,13 +93,13 @@ object MethodSignature {
 //  }
 
   case class Any(returnType: Type) extends MethodSignature {
-    def specialize(args: Arguments[Value]): CallSpec =
-      CallSpec(
+    def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError] =
+      Left(CallSpec(
         args,
         Seq.empty,
         returnType
         // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
-      )
+      ))
 
     override def withoutFirstArgumentCalled(name: String): MethodSignature = this
     override def hasArgumentCalled(name: String): Boolean = true
@@ -95,6 +128,29 @@ case class CallSpec(
     requireType[T](env, name, value)(tag)
   }
 
+  def requirePositional[T <: Value](env: Environment, index: Int)(implicit tag: ClassTag[T]): T = {
+    val value = args.positional(index).evaluate(env)
+
+    requireTypePositional[T](env, index, value)(tag)
+  }
+
+  private def requireTypePositional[T <: Value](env: Environment, index: Int, value: Value)(implicit tag: ClassTag[T]): T = {
+    value match {
+      case value: T => value
+
+      case value if value.isOperation =>
+        env.evalMode match {
+          case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $value even runtime", None)
+          case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $value compile-time", None)
+          case EvalMode.Partial |
+               EvalMode.PartialRunTimeOnly |
+               EvalMode.PartialPreferRunTime => throw DelayCall
+        }
+
+      case value => throw EvalError(s"Invalid value type $value for position $index, expected $tag", None)
+    }
+  }
+
   private def requireType[T <: Value](env: Environment, name: String, value: Option[Value])(implicit tag: ClassTag[T]): T = {
     value match {
       case Some(value: T) => value
@@ -116,6 +172,9 @@ case class CallSpec(
 
   def requireObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): T =
     require[$Object](env, name).assert[T](tag)
+
+  def requirePositionalObject[T <: Any](env: Environment, index: Int)(implicit tag: ClassTag[T]): T =
+    requirePositional[$Object](env, index).assert[T](tag)
 
   def requireSelfObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
     requireSelf[$Object](env).assert[T](tag)

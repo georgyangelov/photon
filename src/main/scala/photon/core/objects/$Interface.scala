@@ -45,13 +45,10 @@ case class Interface(
       // Named.from
       "from" -> new DefaultMethod {
         // TODO: Where should we typecheck?
-        override val signature = MethodSignature.of(
-          Seq("value" -> $AnyStatic),
-          self
-        )
+        override val signature = MethodSignature.any(self)
 
         override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-          val value = spec.require[Value](env, "value")
+          val value = spec.args.positional.head // spec.require[Value](env, "value")
 
           $Object(value, self, location)
         }

@@ -19,6 +19,24 @@ object TestHelpers {
     assert(resultCode == expectedCode)
   }
 
+  def expectTypeError(code: String) = {
+    val interpreter = new Interpreter
+    val ast = parse(code)
+
+    val error = intercept[TypeError] {
+      try {
+        interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
+      } catch {
+        case error: TypeError => throw error
+        case error =>
+          println(error)
+          throw error
+      }
+    }
+
+    println(error)
+  }
+
   def expectPartial(code: String, expected: String) = {
     val interpreter = new Interpreter
     val ast = parse(code)

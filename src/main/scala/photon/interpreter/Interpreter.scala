@@ -3,7 +3,6 @@ package photon.interpreter
 import photon.base._
 import photon.core.$Object
 import photon.core.objects._
-import photon.frontend.Parser.MacroHandler
 import photon.frontend._
 import photon.frontend.macros.ClassMacro
 

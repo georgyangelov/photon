@@ -18,7 +18,9 @@ case class $FunctionTypeDef(
 ) extends Value {
   override def evalMayHaveSideEffects: Boolean = false
   override def unboundNames: Set[VarName] = params.flatMap(_.typ.unboundNames).toSet ++ returnType.unboundNames
-  override def typ(scope: Scope): Type = $Type
+
+  // TODO: Cache this
+  override def typ(scope: Scope): Type = evaluate(Environment(scope, EvalMode.CompileTimeOnly)).typ(scope)
 
   override def evaluate(env: Environment): Value = {
     // TODO: Pattern types
@@ -148,6 +150,21 @@ case class Closure(scope: Scope, fnDef: $FunctionDef) {
   lazy val names = fnDef.params.map { param => param.inName.originalName -> param.inName }.toMap
 }
 
+case class $FunctionMetaType(fnT: $Function) extends Type {
+  override def typ(scope: Scope): Type = $Type
+  override val methods: Map[String, Method] = Map(
+    "from" -> new DefaultMethod {
+      override val signature = MethodSignature.any(fnT)
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+        // TODO: Replace with pattern MethodSignature when that's available
+        val closure = spec.requirePositionalObject[Closure](env, 0)
+
+        $Object(closure, fnT, location)
+      }
+    }
+  )
+}
+
 case class $Function(
   signature: MethodSignature,
   runMode: FunctionRunMode,
@@ -155,7 +172,7 @@ case class $Function(
 ) extends Type {
   val self = this
 
-  override def typ(scope: Scope) = $Type
+  override def typ(scope: Scope) = $FunctionMetaType(this)
   override val methods = Map(
     "call" -> new Method {
       override val signature = self.signature

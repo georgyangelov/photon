@@ -11,4 +11,5 @@ object $Type extends Type {
 case class $LazyType(value: Lazy[Type]) extends Type {
   override def typ(scope: Scope): Type = value.resolve.typ(scope)
   override lazy val methods: Map[String, Method] = value.resolve.methods
+  override protected def resolveLazy: Type = value.resolve
 }

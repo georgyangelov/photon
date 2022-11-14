@@ -42,6 +42,10 @@ trait Type extends ConcreteValue {
   val methods: Map[String, Method]
 
   def method(name: String): Option[Method] = methods.get(name)
+
+  def isSameAs(other: Type) = this.resolveLazy == other.resolveLazy
+
+  protected def resolveLazy: Type = this
 }
 
 sealed trait EvalMode

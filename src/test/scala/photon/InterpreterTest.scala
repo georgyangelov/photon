@@ -46,8 +46,17 @@ class InterpreterTest extends FunSuite {
   }
 
   test("higher-order functions") {
-    expectCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ a + 41 })", "42")
-    expectCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
+    expectCompileTime(
+      """
+        val hof = (fn: (a: Int): Int):Int { fn(1) }
+        val fn = (a: Int): Int { a + 41 }
+
+        hof(fn)
+      """,
+      "42"
+    )
+
+//    expectCompileTime("(fn:Int):Int{ fn(1) }((a:Int):Int{ val b = a; b + 41 })", "42")
   }
 
   ignore("simple macros") {

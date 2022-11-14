@@ -32,7 +32,15 @@ object $Core extends Type {
       evalMode = EvalMode.Partial
     )
 
-    $Call("from", Arguments.positional(requiredType, Seq(value)), location)
-      .evaluate(partialEnv)
+    val fromMethod = requiredType.typ(env.scope).method("from")
+      .getOrElse { throw TypeError(s"Cannot convert from $valueType to $requiredType and no `from` method exists", location) }
+
+    fromMethod.signature.specialize(Arguments.positional(requiredType, Seq(value)), env.scope) match {
+      case Left(_) =>
+        $Call("from", Arguments.positional(requiredType, Seq(value)), location)
+          .evaluate(partialEnv)
+
+      case Right(typeError) => throw typeError
+    }
   }
 }

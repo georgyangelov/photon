@@ -8,3 +8,8 @@ class PhotonError(
 
 case class EvalError(message: String, override val location: Option[Location])
   extends PhotonError(message, location) {}
+
+case class TypeError(
+  message: String,
+  override val location: Option[Location]
+) extends PhotonError(message, location) {}
