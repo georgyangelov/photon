@@ -32,6 +32,7 @@ object $Core extends Type {
       evalMode = EvalMode.Partial
     )
 
-    $Call("from", Arguments.positional(requiredType, Seq(value)), location).evaluate(partialEnv)
+    $Call("from", Arguments.positional(requiredType, Seq(value)), location)
+      .evaluate(partialEnv)
   }
 }

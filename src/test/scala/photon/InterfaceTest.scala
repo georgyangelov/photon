@@ -40,7 +40,27 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can assign method to interfaces") {
+  // TODO: This test needs to use another method defined only on the interface
+  ignore("can convert to interfaces for arguments") {
+    expectCompileTime(
+      """
+        interface Aged {
+          def age: Int
+        }
+
+        class Person {
+          def age: Int
+        }
+
+        val ageOf = (aged: Aged) aged.age
+
+        ageOf Person.new(age = 42)
+      """,
+      "42"
+    )
+  }
+
+  ignore("can assign methods to interfaces") {
     expectCompileTime(
       """
         interface Aged {

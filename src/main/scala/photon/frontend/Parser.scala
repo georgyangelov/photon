@@ -230,11 +230,11 @@ class Parser(
           ASTValue.NameReference(token.string, Some(lastLocation))
         }
 
-      case TokenType.OpenBrace => parseLambda(hasLowerPriorityTarget)
+      case TokenType.OpenBrace => parseLambdaOrLambdaType(hasLowerPriorityTarget)
       case TokenType.UnaryOperator => parseUnaryOperator(requireCallParens, hasLowerPriorityTarget)
       case TokenType.OpenParen =>
         if (isOpenParenForLambda) {
-          parseLambda(hasLowerPriorityTarget)
+          parseLambdaOrLambdaType(hasLowerPriorityTarget)
         } else {
           read() // (
 
@@ -550,7 +550,11 @@ class Parser(
     ASTValue.String(token.string, Some(token.location))
   }
 
-  private def parseLambda(hasLowerPriorityTarget: Boolean): ASTValue = {
+  private def parseLambdaOrLambdaType(hasLowerPriorityTarget: Boolean): ASTValue = {
+    // This aims to fix parse of lambdas using only braces on a separate line, e.g. `{ a }`
+    // Since there was a newline before, but we don't care
+    newline = false
+
     val startLocation = lastLocation
 
     val hasParameterParens = token.tokenType == TokenType.OpenParen
@@ -567,6 +571,30 @@ class Parser(
       Some(parseExpression(requireCallParens = true, hasLowerPriorityTarget = false))
     } else {
       None
+    }
+
+    val hasBody = !currentExpressionMayEnd
+
+    if (!hasBody) {
+      val returns = returnType.getOrElse { parseError("Function types need to have explicit return type") }
+
+      val location = Some(startLocation.extendWith(lastLocation))
+      val arguments = ASTArguments(
+        Seq(returns),
+        named = parameters.map { param =>
+          param.outName -> param.typePattern
+            .getOrElse { parseError("Function type needs to have defined parameter types") }
+        }.toMap
+      )
+
+      // Function type, not lambda, e.g. `(a: Int): Int`
+      return ASTValue.Call(
+        target = ASTValue.NameReference("Function", location),
+        name = "call",
+        arguments = arguments,
+        mayBeVarCall = false,
+        location
+      )
     }
 
     val hasBlock = token.tokenType == TokenType.OpenBrace
@@ -713,7 +741,9 @@ class Parser(
     token.tokenType == TokenType.CloseParen ||
     token.tokenType == TokenType.Dot ||
     token.tokenType == TokenType.CloseBracket ||
-    token.tokenType == TokenType.CloseBrace
+    token.tokenType == TokenType.CloseBrace ||
+    // This is because of lambda types
+    token.tokenType == TokenType.Equals
 
   private def operatorPrecedence(token: Token): Int = {
     token.string match {

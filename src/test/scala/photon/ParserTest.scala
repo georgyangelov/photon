@@ -230,6 +230,11 @@ class ParserTest extends FunSuite {
     assert(parse("fn 42, a = 1") == "(fn self 42 (param a 1))")
   }
 
+  test("lambdas using only braces") {
+    assert(parse("{ a }") == "(lambda [] a)")
+    assert(parse("val a = 42; { a }") == "(let a 42 (lambda [] a))")
+  }
+
   test("direct call on lambda with named arguments") {
     assert(parse("(a, b) { a + b }(1, b = 2)") == "(call (lambda [(param a) (param b)] (+ a b)) 1 (param b 2))")
     assert(parse("(a, b) { a + b }(a = 1, b = 2)") == "(call (lambda [(param a) (param b)] (+ a b)) (param a 1) (param b 2))")
@@ -316,5 +321,20 @@ class ParserTest extends FunSuite {
     assert(parse("map(42 .filter)") == "(map self (filter 42))")
     assert(parse("map 42 .filter") == "(filter (map self 42))")
     assert(parse("map(42).filter") == "(filter (map self 42))")
+  }
+
+  test("types for function values") {
+    assert(parse("val a: (): Int = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (call Function Int)) a)")
+    assert(parse("val a: ((): Int) = () 42; a") == "(let a (typeCheck Core (lambda [] 42) (call Function Int)) a)")
+  }
+
+  test("function types with argument types") {
+    assert(parse("(a: Int): Int") == "(call Function Int (param a Int))")
+    assert(parse("(a: Int, b: String): Int") == "(call Function Int (param a Int) (param b String))")
+  }
+
+  test("function types with argument type patterns") {
+    assert(parse("(a: val T): T") == "(call Function T (param a (val T)))")
+    assert(parse("(a: val A, b: Optional(val B)): Optional(A)") == "(call Function (Optional self A) (param a (val A)) (param b <Optional self (val B)>))")
   }
 }
