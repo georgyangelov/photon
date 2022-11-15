@@ -1,7 +1,7 @@
 package photon.base
 
 import photon.core._
-import photon.core.objects.$AnyStatic
+import photon.core.objects.{$AnyStatic, $Core}
 import photon.core.operations.$Call
 
 import scala.reflect.ClassTag
@@ -15,36 +15,14 @@ sealed trait MethodSignature {
   //       depends on support for varargs and patterns
   def withoutFirstArgumentCalled(name: String): MethodSignature
   def hasArgumentCalled(name: String): Boolean
+
+  def canBeAssignedFrom(other: MethodSignature): Boolean
 }
 
 object MethodSignature {
   def any(returnType: Type) = Any(returnType)
 //  def of(args: Seq[(String, UPattern)], returnType: UValue) = Pattern(args, returnType)
   def of(args: Seq[(String, Type)], returnType: Type) = Specific(args, returnType)
-
-  // TODO: Resolve $LazyType so that it is printable
-  private def assignableTo(value: Value, to: Type, scope: Scope): Either[Value, TypeError] = {
-    val fromType = value.typ(scope)
-    val toMetaType = to.typ(scope)
-
-    // TODO: Check if we're in CompileTimeOnly execution
-    if (to.isSameAs($AnyStatic)) return Left(value)
-    if (fromType.isSameAs(to)) return Left(value)
-
-    val fromMethod = toMetaType.method("from")
-      .getOrElse { return Right(TypeError(s"Cannot assign value of type $fromType to $to - no `from` method", value.location)) }
-
-    fromMethod.signature.specialize(
-      Arguments.positional(null, Seq(value)),
-      scope
-    ) match {
-      case Left(_) =>
-        Left($Call("from", Arguments.positional(to, Seq(value)), value.location))
-
-      case Right(typeError) =>
-        Right(TypeError(s"Cannot assign value of type $fromType to $to - ${typeError.message}", value.location))
-    }
-  }
 
   case class Specific(
     argTypes: Seq[(String, Type)],
@@ -53,9 +31,10 @@ object MethodSignature {
     def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError] = {
       val bindings = args.matchWith(argTypes)
         .map { case (name, (value, expectedType)) =>
-          val convertedValue = assignableTo(value, expectedType, scope) match {
+          val valueType = value.typ(scope)
+          val convertedValue = $Core.checkAndConvertTypes(value, valueType, expectedType) match {
             case Left(value) => value
-            case Right(reason) => return Right(reason)
+            case Right(typeError) => return Right(typeError)
           }
 
           name -> convertedValue
@@ -83,6 +62,23 @@ object MethodSignature {
     }
 
     override def hasArgumentCalled(name: String): Boolean = argTypes.exists { case (argName, _) => argName == name }
+
+    override def canBeAssignedFrom(other: MethodSignature): Boolean = other match {
+      // TODO: Make the actual conversion, not just a check
+      case Specific(otherArgTypes, otherReturnType) =>
+        val returnTypesAreCompatible = $Core.isTypeAssignable(otherReturnType, returnType)
+
+        val argumentTypesAreCompatible = argTypes.map(Some(_))
+          .zipAll(otherArgTypes.map(Some(_)), None, None)
+          .forall {
+            case (Some(aName -> aType), Some(bName -> bType)) => aName == bName && $Core.isTypeAssignable(bType, aType)
+            case _ => false
+          }
+
+        returnTypesAreCompatible && argumentTypesAreCompatible
+
+      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+    }
   }
 
 //  case class Pattern(
@@ -103,6 +99,12 @@ object MethodSignature {
 
     override def withoutFirstArgumentCalled(name: String): MethodSignature = this
     override def hasArgumentCalled(name: String): Boolean = true
+
+    override def canBeAssignedFrom(other: MethodSignature): Boolean = other match {
+      // TODO: Make the actual conversion, not just a check
+      case Specific(argTypes, otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+    }
   }
 }
 
@@ -134,6 +136,7 @@ case class CallSpec(
     requireTypePositional[T](env, index, value)(tag)
   }
 
+  // TODO: Remove this once we have patterns
   private def requireTypePositional[T <: Value](env: Environment, index: Int, value: Value)(implicit tag: ClassTag[T]): T = {
     value match {
       case value: T => value

@@ -218,6 +218,14 @@ case class $Function(
     }
   )
 
+  // TODO
+  def canBeAssignedFrom(other: Type): Boolean = {
+    other match {
+      case fnType: $Function => signature.canBeAssignedFrom(fnType.signature)
+      case _ => false
+    }
+  }
+
   def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
     val evalRequest = this.evalRequest(env.evalMode)
 

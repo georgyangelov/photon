@@ -4,7 +4,7 @@ import org.scalatest._
 import photon.support.TestHelpers._
 
 class InterfaceTest extends FunSuite {
-  test("can assign fields to interfaces") {
+  ignore("can use the Interface#from method") {
     expectCompileTime(
       """
         interface Aged {
@@ -16,6 +16,24 @@ class InterfaceTest extends FunSuite {
         }
 
         val aged = Aged.from(Person.new(age = 42))
+        aged.age
+      """,
+      "42"
+    )
+  }
+
+  test("can assign fields to interfaces") {
+    expectCompileTime(
+      """
+        interface Aged {
+          def age: Int
+        }
+
+        class Person {
+          def age: Int
+        }
+
+        val aged: Aged = Person.new(age = 42)
         aged.age
       """,
       "42"
@@ -40,7 +58,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  test("can convert to interfaces for arguments") {
+  ignore("can convert to interfaces for arguments") {
     expectCompileTime(
       """
         interface Aged {
@@ -60,27 +78,25 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-// TODO: Implement this later when we have enough of the type checking
-//
-//  test("can convert to interfaces for arguments automatically") {
-//    expectCompileTime(
-//      """
-//        interface Aged {
-//          def age: Int
-//          def nextAge { age + 1 }
-//        }
-//
-//        class Person {
-//          def age: Int
-//        }
-//
-//        val ageOf = (aged: Aged) aged.nextAge
-//
-//        ageOf Aged.from(Person.new(age = 42))
-//      """,
-//      "43"
-//    )
-//  }
+  test("can convert to interfaces for arguments automatically") {
+    expectCompileTime(
+      """
+        interface Aged {
+          def age: Int
+          def nextAge { age + 1 }
+        }
+
+        class Person {
+          def age: Int
+        }
+
+        val ageOf = (aged: Aged) aged.nextAge
+
+        ageOf Person.new(age = 42)
+      """,
+      "43"
+    )
+  }
 
   test("can assign methods to interfaces") {
     expectCompileTime(
@@ -124,7 +140,7 @@ class InterfaceTest extends FunSuite {
     expectCompileTime(
       """
         interface Number {
-          def add(x: Int): Int
+          def add(other: Int): Int
         }
 
         class NaturalNumber {
@@ -144,7 +160,7 @@ class InterfaceTest extends FunSuite {
     expectCompileTime(
       """
         interface Number {
-          def add(x: Int): Int
+          def add(other: Int): Int
 
           def plusOne { add 1 }
         }
@@ -176,7 +192,6 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  // TODO: Change this, this should produce an error because the out names of the params are different
   test("can assign functions with arguments to interfaces") {
     expectCompileTime(
       """
@@ -184,7 +199,7 @@ class InterfaceTest extends FunSuite {
           def call(a: Int): Int
         }
 
-        val producer: Producer = (b: Int) 42 + b
+        val producer: Producer = (a: Int) 42 + a
         producer.call(1)
       """,
       "43"

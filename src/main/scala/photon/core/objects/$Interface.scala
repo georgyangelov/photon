@@ -43,18 +43,39 @@ case class Interface(
     override def typ(scope: Scope) = $Type
     override val methods = Map(
       // Named.from
-      "from" -> new DefaultMethod {
-        // TODO: Where should we typecheck?
-        override val signature = MethodSignature.any(self)
-
-        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-          val value = spec.args.positional.head // spec.require[Value](env, "value")
-
-          $Object(value, self, location)
-        }
-      }
+//      "from" -> new DefaultMethod {
+//        // TODO: Where should we typecheck?
+//        override val signature = MethodSignature.any(self)
+//
+//        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+//          val value = spec.args.positional.head // spec.require[Value](env, "value")
+//
+//          $Object(value, self, location)
+//        }
+//      }
     )
   }
+
+  // TODO: Fix duplication with methodForDefinition
+  def canBeAssignedFrom(other: Type): Boolean =
+    definitions.forall { case ClassDefinition(methodName, value, location) =>
+      value match {
+        case returnType: Type =>
+          val interfaceSignature = returnType.resolvedType match {
+            case fnType: $Function => fnType.signature
+            case returnType => MethodSignature.of(Seq.empty, returnType)
+          }
+
+          val otherSignature = other.method(methodName)
+            .getOrElse { return false }
+            .signature
+
+          interfaceSignature.canBeAssignedFrom(otherSignature)
+
+        // This is a method defined on the interface, no need to check for that
+        case _ => true
+      }
+    }
 
   override def typ(scope: Scope): Type = metaType
   override val methods: Map[String, Method] = definitions
@@ -64,9 +85,14 @@ case class Interface(
   private def methodForDefinition(definition: ClassDefinition): Method = {
     definition.value match {
       case returnType: Type =>
+        val methodSignature = returnType.resolvedType match {
+          case fnType: $Function => fnType.signature
+          case returnType => MethodSignature.of(Seq.empty, returnType)
+        }
+
         new Method {
-          override val signature: MethodSignature = MethodSignature.of(Seq.empty, returnType)
-          override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+          override val signature = methodSignature
+          override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
             val self = spec.requireSelfObject[Value](env)
 
             $Call(definition.name, spec.args.changeSelf(self), location).evaluate(env)
@@ -74,7 +100,7 @@ case class Interface(
         }
 
       // TODO: Check if it's callable instead of if it's a function?
-      case value if value.typ(scope).isInstanceOf[$Function] => methodForFunction(definition)
+      case value if value.typ(scope).resolvedType.isInstanceOf[$Function] => methodForFunction(definition)
     }
   }
 
