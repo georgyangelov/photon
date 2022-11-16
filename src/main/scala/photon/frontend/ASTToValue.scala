@@ -32,7 +32,7 @@ object ASTToValue {
       val typeParams = params.map(transform(_, scope))
       val returns = transform(returnType, scope)
 
-      $FunctionTypeDef(typeParams, returns, location)
+      $FunctionInterfaceDef(typeParams, returns, location)
 
     case ASTValue.Call(target, name, arguments, mayBeVarCall, location) =>
       val positionalArgs = arguments.positional.map(transform(_, scope))

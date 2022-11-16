@@ -2,7 +2,8 @@ package photon.core.objects
 
 import photon.base._
 import photon.core._
-import photon.core.operations.{$Call, $Function}
+import photon.core.operations.{$Call, $Function, FunctionRunMode, InlinePreference, TypeParameter}
+import photon.frontend.ASTValue
 import photon.lib.Lazy
 
 object $Interface extends Type {
@@ -15,7 +16,7 @@ object $Interface extends Type {
         val interfaceName = spec.args.positional.head.evaluate(env)
         val builderFn = spec.args.positional(1).evaluate(env)
 
-        Lazy.selfReferencing[Interface](self => {
+        Lazy.selfReferencing[UserDefinedInterface](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)
           val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
@@ -32,12 +33,16 @@ object $Interface extends Type {
   )
 }
 
-case class Interface(
+sealed trait Interface {
+  def canBeAssignedFrom(other: Type): Boolean
+}
+
+case class UserDefinedInterface(
   definitions: Seq[ClassDefinition],
   // TODO: Do I need this?
   scope: Scope,
   override val location: Option[Location]
-) extends Type {
+) extends Type with Interface {
   val self = this
   val metaType = new Type {
     override def typ(scope: Scope) = $Type
@@ -62,7 +67,7 @@ case class Interface(
       value match {
         case returnType: Type =>
           val interfaceSignature = returnType.resolvedType match {
-            case fnType: $Function => fnType.signature
+            case fnInterface: FunctionInterface => fnInterface.signature
             case returnType => MethodSignature.of(Seq.empty, returnType)
           }
 
@@ -86,7 +91,7 @@ case class Interface(
     definition.value match {
       case returnType: Type =>
         val methodSignature = returnType.resolvedType match {
-          case fnType: $Function => fnType.signature
+          case fnInterface: FunctionInterface => fnInterface.signature
           case returnType => MethodSignature.of(Seq.empty, returnType)
         }
 
@@ -140,4 +145,75 @@ case class Interface(
       callMethod.call(env, specWithSelfArgument, location)
     }
   }
+}
+
+case class $FunctionInterfaceDef(
+  params: Seq[TypeParameter],
+  returnType: Value,
+  location: Option[Location]
+) extends Value {
+  override def evalMayHaveSideEffects: Boolean = false
+  override def unboundNames: Set[VarName] = params.flatMap(_.typ.unboundNames).toSet ++ returnType.unboundNames
+
+  // TODO: Cache this
+  override def typ(scope: Scope): Type = evaluate(Environment(scope, EvalMode.CompileTimeOnly)).typ(scope)
+
+  override def evaluate(env: Environment): Value = {
+    // TODO: Pattern types
+    val paramTypes = params.map { param =>
+      // This is lazy because we want to be able to self-reference types we're currently defining
+      param.name -> $LazyType(Lazy.of(() => {
+        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+      }))
+    }
+
+    // TODO: May need this to be $LazyType as well
+    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+
+    val signature = MethodSignature.of(
+      paramTypes,
+      actualReturnType
+    )
+
+    FunctionInterface(
+      signature,
+      FunctionRunMode.Default,
+      InlinePreference.Default,
+      location
+    )
+  }
+
+  // TODO
+  override def toAST(names: Map[VarName, String]): ASTValue = ???
+}
+
+case class FunctionInterface(
+  signature: MethodSignature,
+  runMode: FunctionRunMode,
+  inlinePreference: InlinePreference,
+  override val location: Option[Location]
+) extends Type with Interface {
+  val self = this
+
+  override def typ(scope: Scope): Type = $Type
+  override val methods = Map("call" -> callMethod)
+
+  override def canBeAssignedFrom(other: Type): Boolean = {
+    val otherSignature = other.method("call")
+      .getOrElse { return false }
+      .signature
+
+    signature.canBeAssignedFrom(otherSignature)
+  }
+
+  private def callMethod = new Method {
+    override val signature = self.signature
+    override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
+      val self = spec.requireSelfObject[Value](env)
+
+      $Call("call", spec.args.changeSelf(self), location).evaluate(env)
+    }
+  }
+
+  // TODO: `toAST`
 }

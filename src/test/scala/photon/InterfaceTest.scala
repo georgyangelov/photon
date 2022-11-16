@@ -168,7 +168,7 @@ class InterfaceTest extends FunSuite {
         class NaturalNumber {
           def value: Int
 
-          def add(other: Int) { value + other }
+          def add(other: Int) value + other
         }
 
         val number: Number = NaturalNumber.new(value = 42)
@@ -201,6 +201,30 @@ class InterfaceTest extends FunSuite {
 
         val producer: Producer = (a: Int) 42 + a
         producer.call(1)
+      """,
+      "43"
+    )
+  }
+
+  test("can assign functions with arguments to function interfaces") {
+    expectCompileTime(
+      """
+        val Producer = (a: Int): Int
+
+        val producer: Producer = (a: Int) 42 + a
+        producer.call(1)
+      """,
+      "43"
+    )
+  }
+
+  test("function type definitions can self-reference") {
+    expectCompileTime(
+      """
+        val Next = (a: Int, b: Next): Int
+
+        val producer: Next = (a: Int, b: Next) 42 + a
+        producer.call(1, producer)
       """,
       "43"
     )

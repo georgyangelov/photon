@@ -44,6 +44,7 @@ case class Class(
     override def typ(scope: Scope) = $Type
     override val methods = Map(
       // Person.new
+      // TODO: `new` -> `of`
       "new" -> new DefaultMethod {
         override val signature = MethodSignature.of(
           propertyDefs.map { property =>
@@ -164,5 +165,5 @@ class ClassBuilder(val ref: Value, val location: Option[Location]) {
     Class(propertyDefs, methodDefs, scope, location)
   }
 
-  def buildInterface(scope: Scope) = Interface(definitions.result, scope, location)
+  def buildInterface(scope: Scope) = UserDefinedInterface(definitions.result, scope, location)
 }
