@@ -33,10 +33,10 @@ class InterpreterTest extends FunSuite {
     expectCompileTime("(a:Int){ (b:Int){ a + b } }(1)(41)", "42")
   }
 
-  ignore("higher-order function types") {
+  test("higher-order function types") {
     expectCompileTime(
       """
-        val IntFn = Function(a = Int, returns = Int)
+        val IntFn = (a: Int): Int
 
         val callWithOne = (fn: IntFn) { fn(1) }
         callWithOne (a: Int) { 41 + a }
