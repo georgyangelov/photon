@@ -305,6 +305,21 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("can create anonymous classes") {
+    expectCompileTime(
+      """
+      val Person = class {
+        def age: Int
+      }
+
+      val person = Person.new(age = 42)
+
+      person.age
+      """,
+      "42"
+    )
+  }
+
 //  test("can create mutually-recursive classes") {
 //    expectCompileTime(
 //      """

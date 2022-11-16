@@ -229,4 +229,22 @@ class InterfaceTest extends FunSuite {
       "43"
     )
   }
+
+  test("can create anonymous interfaces") {
+    expectCompileTime(
+      """
+        val Aged = interface {
+          def age: Int
+        }
+
+        class Person {
+          def age: Int
+        }
+
+        val aged: Aged = Person.new(age = 42)
+        aged.age
+      """,
+      "42"
+    )
+  }
 }

@@ -10,11 +10,14 @@ object $Interface extends Type {
   override def typ(scope: Scope) = $Type
   override val methods = Map(
     // Interface.new
+    // TODO: Duplication with $Class.new
     "new" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val interfaceName = spec.args.positional.head.evaluate(env)
-        val builderFn = spec.args.positional(1).evaluate(env)
+        val (interfaceName, builderFn) = spec.args.positional.head.evaluate(env) match {
+          case $Object(name: String, _, _) => (Some(name), spec.args.positional(1).evaluate(env))
+          case builderFn => (None, builderFn)
+        }
 
         Lazy.selfReferencing[UserDefinedInterface](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)

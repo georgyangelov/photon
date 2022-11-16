@@ -11,8 +11,14 @@ object ClassMacro {
     classBuilderMacro("Interface", parser, location)
 
   private def classBuilderMacro(buildType: String, parser: Parser, location: Location): ASTValue = {
-    val name = parser.readToken(TokenType.Name, s"Expected a name after $buildType")
-    val builderFn = parser.parseAST[ASTValue.Function]
+    val (name, builderFn) = parser.token match {
+      case Token(TokenType.Name, _, _, _) =>
+        (
+          Some(parser.readToken(TokenType.Name, s"Expected a name after $buildType")),
+          parser.parseAST[ASTValue.Function]
+        )
+      case _ => (None, parser.parseAST[ASTValue.Function])
+    }
 
     val builderFnWithSelfArg =
       ASTValue.Function(
@@ -33,24 +39,37 @@ object ClassMacro {
       )
 
     val classDefLocation = location.extendWith(parser.lastLocation)
-    val block = parser.parseRestOfBlock()
-    val letLocation = location.extendWith(parser.lastLocation)
 
-    ASTValue.Let(
-      name.string,
-      ASTValue.Call(
-        ASTValue.NameReference(buildType, Some(location)),
-        "new",
-        ASTArguments.positional(Seq(
-          ASTValue.String(name.string, Some(name.location)),
-          builderFnWithSelfArg
-        )),
-        mayBeVarCall = false,
-        Some(classDefLocation)
-      ),
-      block,
-      Some(letLocation)
-    )
+    name match {
+      case Some(name) =>
+        val block = parser.parseRestOfBlock()
+        val letLocation = location.extendWith(parser.lastLocation)
+
+        ASTValue.Let(
+          name.string,
+          ASTValue.Call(
+            ASTValue.NameReference(buildType, Some(location)),
+            "new",
+            ASTArguments.positional(Seq(
+              ASTValue.String(name.string, Some(name.location)),
+              builderFnWithSelfArg
+            )),
+            mayBeVarCall = false,
+            Some(classDefLocation)
+          ),
+          block,
+          Some(letLocation)
+        )
+
+      case None =>
+        ASTValue.Call(
+          ASTValue.NameReference(buildType, Some(location)),
+          "new",
+          ASTArguments.positional(Seq(builderFnWithSelfArg)),
+          mayBeVarCall = false,
+          Some(classDefLocation)
+        )
+    }
   }
 
   def defMacro(parser: Parser, location: Location): ASTValue = {
