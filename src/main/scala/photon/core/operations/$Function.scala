@@ -2,8 +2,9 @@ package photon.core.operations
 
 import photon.base._
 import photon.core._
-import photon.frontend.{ASTParameter, ASTValue}
+import photon.frontend.{ASTParameter, ASTValue, ValuePattern}
 import photon.lib.Lazy
+import photon.lib.ScalaExtensions._
 
 case class TypeParameter(
   name: String,
@@ -14,7 +15,7 @@ case class TypeParameter(
 case class Parameter(
   outName: String,
   inName: VarName,
-  typ: Value,
+  pattern: ValuePattern,
   location: Option[Location]
 )
 
@@ -26,46 +27,88 @@ case class $FunctionDef(
 ) extends Value {
   override def evalMayHaveSideEffects = false
   override def isOperation = true
-  override def unboundNames: Set[VarName] =
-    body.unboundNames -- params.map(_.inName) ++ params.flatMap(_.typ.unboundNames) ++ returnType.map(_.unboundNames).getOrElse(Set.empty)
+  override def unboundNames: Set[VarName] = {
+    val typeNames = ValuePattern.List(params.map(_.pattern)).names
+
+    body.unboundNames -- typeNames.defined -- params.map(_.inName) ++
+      typeNames.unbound ++
+      returnType.map(_.unboundNames).getOrElse(Set.empty)
+  }
 
   // TODO: Cache this and share with `evaluate`! This gets called multiple times!
   override def typ(scope: Scope) = {
     // TODO: Pattern types
-    val paramTypes = params.map { param =>
-      // This is lazy because we want to be able to self-reference types we're currently defining
-      param.outName -> $LazyType(Lazy.of(() => {
-        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
-      }))
-    }
+//    val paramTypes = params.map { param =>
+//      // This is lazy because we want to be able to self-reference types we're currently defining
+//      param.outName -> $LazyType(Lazy.of(() => {
+//        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+//      }))
+//    }
+
+//    val actualReturnType = returnType match {
+//      // TODO: May need this to be $LazyType as well
+//      case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+//      case None =>
+//        // This is lazy because methods defined on a class need to be able to infer the return type based
+//        // on the class's other methods, which may not be defined yet
+//        $LazyType(Lazy.of(() => {
+//          val paramTypes = params
+//            .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
+//
+//          inferReturnType(scope, paramTypes)
+//        }))
+//    }
+
+//    val signature = MethodSignature.of(
+//      args = paramTypes,
+//      returnType = actualReturnType
+//    )
 
     val actualReturnType = returnType match {
-      // TODO: May need this to be $LazyType as well
-      case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+      // TODO: This evaluation needs to happen after the pattern is matched
+      //.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+      case Some(value) => value
       case None =>
-        // This is lazy because methods defined on a class need to be able to infer the return type based
-        // on the class's other methods, which may not be defined yet
-        $LazyType(Lazy.of(() => {
-          val paramTypes = params
-            .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
-
-          inferReturnType(scope, paramTypes)
-        }))
+        inferReturnTypeIfPossible(scope) match {
+          case Some(value) => value
+          case None => throw EvalError("Could not infer function return type because it uses type patterns", location)
+        }
     }
 
-    val signature = MethodSignature.of(
-      args = paramTypes,
-      returnType = actualReturnType
+    val signature = MethodSignature.ofPatterns(
+      scope,
+      params.map { param => param.outName -> param.pattern },
+      actualReturnType
     )
 
     $Function(signature, FunctionRunMode.Default, InlinePreference.Default)
   }
 
-  private def inferReturnType(scope: Scope, paramTypes: Seq[(VarName, Type)]) = {
-    val innerScope = scope.newChild(paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) })
+  private def inferReturnTypeIfPossible(scope: Scope): Option[Type] = {
+    val concreteParamValues = params.map {
+      case Parameter(_, name, pattern: ValuePattern.Expected, _) => name -> pattern.expectedValue
+      case _ => return None
+    }
 
-    body.typ(innerScope)
+    // This is lazy because methods defined on a class need to be able to infer the return type based
+    // on the class's other methods, which may not be defined yet
+    Some($LazyType(Lazy.of(() => {
+      val env = Environment(scope, EvalMode.CompileTimeOnly)
+      val paramTypes = concreteParamValues.map { case name -> value => name -> value.evaluate(env).asType }
+
+      val innerScope = scope.newChild(
+        paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) }
+      )
+
+      body.typ(innerScope)
+    })))
   }
+
+//  private def inferReturnType(scope: Scope, paramTypes: Seq[(VarName, Type)]) = {
+//    val innerScope = scope.newChild(paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) })
+//
+//    body.typ(innerScope)
+//  }
 
   override def evaluate(env: Environment) =
     $Object(
@@ -81,12 +124,11 @@ case class $FunctionDef(
       .toMap
 
     ASTValue.Function(
-      // TODO: Support type patterns
       params.map { param =>
         ASTParameter(
           param.outName,
           paramNames(param.inName),
-          Some(ASTValue.Pattern.SpecificValue(param.typ.toAST(names))),
+          Some(param.pattern.toAST(names)),
           param.location
         )
       },
@@ -113,6 +155,7 @@ case class $FunctionDef(
 }
 
 case class Closure(scope: Scope, fnDef: $FunctionDef) {
+  // TODO: Add bound values from type patterns
   lazy val names = fnDef.params.map { param => param.inName.originalName -> param.inName }.toMap
 }
 

@@ -156,6 +156,7 @@ case class $FunctionInterfaceDef(
   location: Option[Location]
 ) extends Value {
   override def evalMayHaveSideEffects: Boolean = false
+  override def isOperation = true
   override def unboundNames: Set[VarName] = params.flatMap(_.typ.unboundNames).toSet ++ returnType.unboundNames
 
   // TODO: Cache this

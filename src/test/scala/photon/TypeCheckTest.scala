@@ -20,4 +20,20 @@ class TypeCheckTest extends FunSuite {
       plusOne(true)
     """)
   }
+
+  test("checks function body") {
+    expectTypeError("""
+      val plusOne = (a: Boolean): Int a + 1
+
+      plusOne(true)
+    """)
+  }
+
+  test("checks generic function body on use") {
+    expectTypeError("""
+      val plusOne = (a: val T): Int a + 1
+
+      plusOne(true)
+    """)
+  }
 }

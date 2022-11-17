@@ -1,7 +1,5 @@
 package photon.base
 
-import scala.reflect.ClassTag
-
 case class ArgumentsWithoutSelf[+T](positional: Seq[T], named: Map[String, T]) {
   def argValues = positional ++ named.values
 
@@ -9,6 +7,20 @@ case class ArgumentsWithoutSelf[+T](positional: Seq[T], named: Map[String, T]) {
     positional.map(f),
     named.view.mapValues(f).toMap
   )
+
+  // TODO: Duplication with Arguments[T]
+  def matchWith[T1](params: Seq[(String, T1)]): Seq[(String, (T, T1))] = {
+    val (namedParams, positionalParams) = params.partition { case (name, _) => named.contains(name) }
+
+    val positionalWithT1 = positionalParams
+      .zip(positional)
+      .map { case ((name, t1), value) => (name, (value, t1)) }
+
+    val namedWithT1 = namedParams
+      .map { case (name, t1) => (name, (named(name), t1)) }
+
+    positionalWithT1 ++ namedWithT1
+  }
 }
 object ArgumentsWithoutSelf {
   def empty[T]: ArgumentsWithoutSelf[T] = ArgumentsWithoutSelf(Seq.empty, Map.empty)

@@ -2,6 +2,7 @@ package photon.base
 
 import photon.Core
 import photon.core._
+import photon.core.objects.$Pattern
 import photon.core.operations._
 import photon.frontend._
 import photon.lib.Lazy
