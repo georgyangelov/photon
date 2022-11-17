@@ -21,7 +21,7 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
-  test("checks function body") {
+  ignore("checks function body") {
     expectTypeError("""
       val plusOne = (a: Boolean): Int a + 1
 
@@ -29,7 +29,7 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
-  test("checks generic function body on use") {
+  ignore("checks generic function body on use") {
     expectTypeError("""
       val plusOne = (a: val T): Int a + 1
 

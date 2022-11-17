@@ -64,6 +64,7 @@ case class $FunctionDef(
 //      returnType = actualReturnType
 //    )
 
+    // TODO: The return type can be inferred for generic functions when they're used
     val actualReturnType = returnType match {
       // TODO: This evaluation needs to happen after the pattern is matched
       //.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType

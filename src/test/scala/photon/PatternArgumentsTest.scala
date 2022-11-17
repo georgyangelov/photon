@@ -64,6 +64,26 @@ class PatternArgumentsTest extends FunSuite {
     )
   }
 
+  ignore("can infer return type of generic functions") {
+    expectCompileTime(
+      """
+        val identity = (value: val T) value
+
+        identity(true)
+      """,
+      "true"
+    )
+
+    expectCompileTime(
+      """
+        val identity = (value: val T) value
+
+        identity(42)
+      """,
+      "42"
+    )
+  }
+
   ignore("can use defined variables in function body") {
     expectCompileTime(
       """
