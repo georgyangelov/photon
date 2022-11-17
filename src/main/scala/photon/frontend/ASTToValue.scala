@@ -218,7 +218,7 @@ sealed trait ValuePattern {
   def names: PatternNames
 
   def applyTo(value: Value, env: Environment): Option[MatchResult]
-  def toAST(names: Map[VarName, String]): ASTValue.Pattern = ???
+  def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern
 }
 object ValuePattern {
   case class Expected(expectedValue: Value, location: Option[Location]) extends ValuePattern {
@@ -233,6 +233,9 @@ object ValuePattern {
       if (value == expectedValue.evaluate(env)) {
         Some(MatchResult(Map.empty))
       } else None
+
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      ASTValue.Pattern.SpecificValue(expectedValue.toAST(names))
   }
 
   case class Binding(name: VarName, location: Option[Location]) extends ValuePattern {
@@ -243,6 +246,12 @@ object ValuePattern {
 
     override def applyTo(value: Value, env: Environment) =
       Some(MatchResult(Map(name -> value)))
+
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      ASTValue.Pattern.Binding(
+        names.getOrElse(name, throw EvalError(s"Could not find string name for $name", location)),
+        location
+      )
   }
 
   case class Call(
@@ -290,6 +299,15 @@ object ValuePattern {
 
       Some(MatchResult(result))
     }
+
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      ASTValue.Pattern.Call(
+        target.toAST(names),
+        name,
+        args = args.map(_.toASTWithPreBoundNames(names)),
+        mayBeVarCall = false,
+        location
+      )
   }
 
   case class List(patterns: Seq[ValuePattern]) extends ValuePattern {
@@ -305,6 +323,10 @@ object ValuePattern {
           )
       }
 
+    // TODO: Don't really need this, do I
     override def applyTo(value: Value, env: Environment): Option[MatchResult] = ???
+
+    // TODO: Don't really need this, do I
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern = ???
   }
 }

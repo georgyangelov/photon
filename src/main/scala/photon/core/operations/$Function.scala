@@ -118,9 +118,15 @@ case class $FunctionDef(
     )
 
   override def toAST(names: Map[VarName, String]) = {
+    val typeParamNames = params
+      .map(_.pattern)
+      .flatMap(_.names.defined)
+      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
+      .toMap
+
     val paramNames = params
       .map(_.inName)
-      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
+      .map { name => name -> findUniqueNameFor(name, typeParamNames.values.toSet) }
       .toMap
 
     ASTValue.Function(
@@ -128,10 +134,12 @@ case class $FunctionDef(
         ASTParameter(
           param.outName,
           paramNames(param.inName),
-          Some(param.pattern.toAST(names)),
+          Some(param.pattern.toASTWithPreBoundNames(names ++ typeParamNames)),
           param.location
         )
       },
+
+      // TODO: Add `typeParamNames` here if I start support use of type vals in fn body
       body = body.toAST(names ++ paramNames),
       returnType = returnType.map(_.toAST(names)),
       location
