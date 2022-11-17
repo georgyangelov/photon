@@ -320,6 +320,19 @@ class ClassTest extends FunSuite {
     )
   }
 
+  ignore("can define static methods") {
+    expectCompileTime(
+      """
+        class Person {
+          def static ivan() Person.new(name = "Ivan", age = 42)
+        }
+
+        Person.ivan.age
+      """,
+      "42"
+    )
+  }
+
 //  test("can create mutually-recursive classes") {
 //    expectCompileTime(
 //      """

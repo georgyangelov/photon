@@ -84,6 +84,29 @@ class PatternArgumentsTest extends FunSuite {
     )
   }
 
+  // TODO: Move to another file testing pattern matching on values
+  ignore("can define match functions on classes") {
+    expectCompileTime(
+      """
+        class Person {
+          def name: String
+          def age: Int
+
+          def static of$match(value: Person) {
+            MatchResult.of(name = name, age = age)
+          }
+        }
+
+        Person.of(name = val name, age = val age) = Person.new(name = "Ivan", age = 42)
+
+        age
+      """,
+      "42"
+    )
+  }
+
+  ignore("can define match functions as variables") {}
+
   ignore("can use defined variables in function body") {
     expectCompileTime(
       """

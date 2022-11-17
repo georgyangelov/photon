@@ -247,4 +247,17 @@ class InterfaceTest extends FunSuite {
       "42"
     )
   }
+
+  ignore("can define static methods") {
+    expectCompileTime(
+      """
+        interface Universe {
+          def static answer() 42
+        }
+
+        Universe.answer
+      """,
+      "42"
+    )
+  }
 }
