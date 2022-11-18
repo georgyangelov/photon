@@ -248,6 +248,36 @@ class InterfaceTest extends FunSuite {
     )
   }
 
+  ignore("can assign to interfaces with generic methods") {
+    expectCompileTime(
+      """
+        interface WithIdentity {
+          def identity(value: val T): T
+        }
+
+        class Something {
+          def identity(value: val T): T value
+        }
+
+        val s: WithIdentity = Something.new
+        s.identity(42)
+      """,
+      "42"
+    )
+
+    expectCompileTime(
+      """
+        interface WithIdentity {
+          def identity(value: val T): T
+        }
+
+        val s: WithIdentity = (value: val T): T value
+        s.identity(42)
+      """,
+      "42"
+    )
+  }
+
   ignore("can define static methods") {
     expectCompileTime(
       """
