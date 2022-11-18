@@ -3,7 +3,7 @@ package photon.core.objects
 import photon.base._
 import photon.core._
 import photon.core.operations.{$Call, $Function, FunctionRunMode, InlinePreference, TypeParameter}
-import photon.frontend.ASTValue
+import photon.frontend.{ASTValue, ValuePattern}
 import photon.lib.Lazy
 
 object $Interface extends Type {
@@ -157,28 +157,35 @@ case class $FunctionInterfaceDef(
 ) extends Value {
   override def evalMayHaveSideEffects: Boolean = false
   override def isOperation = true
-  override def unboundNames: Set[VarName] = params.flatMap(_.typ.unboundNames).toSet ++ returnType.unboundNames
+
+  override def unboundNames: Set[VarName] = {
+    val typeNames = ValuePattern.List(params.map(_.pattern)).names
+
+    typeNames.unbound ++ returnType.unboundNames
+  }
 
   // TODO: Cache this
   override def typ(scope: Scope): Type = evaluate(Environment(scope, EvalMode.CompileTimeOnly)).typ(scope)
 
   override def evaluate(env: Environment): Value = {
     // TODO: Pattern types
-    val paramTypes = params.map { param =>
-      // This is lazy because we want to be able to self-reference types we're currently defining
-      param.name -> $LazyType(Lazy.of(() => {
-        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
-      }))
-    }
+//    val paramTypes = params.map { param =>
+//      // This is lazy because we want to be able to self-reference types we're currently defining
+//      param.name -> $LazyType(Lazy.of(() => {
+//        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+//      }))
+//    }
 
     // TODO: May need this to be $LazyType as well
-    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+//    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
 
-    val signature = MethodSignature.of(
-      paramTypes,
-      actualReturnType
+    val signature = MethodSignature.ofPatterns(
+      env.scope,
+      params.map { param => param.name -> param.pattern },
+      returnType
     )
 
+    // TODO: Should this have unboundNames?
     FunctionInterface(
       signature,
       FunctionRunMode.Default,

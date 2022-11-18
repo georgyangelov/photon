@@ -8,7 +8,7 @@ import photon.lib.ScalaExtensions._
 
 case class TypeParameter(
   name: String,
-  typ: Value,
+  pattern: ValuePattern,
   location: Option[Location]
 )
 
@@ -37,33 +37,6 @@ case class $FunctionDef(
 
   // TODO: Cache this and share with `evaluate`! This gets called multiple times!
   override def typ(scope: Scope) = {
-    // TODO: Pattern types
-//    val paramTypes = params.map { param =>
-//      // This is lazy because we want to be able to self-reference types we're currently defining
-//      param.outName -> $LazyType(Lazy.of(() => {
-//        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
-//      }))
-//    }
-
-//    val actualReturnType = returnType match {
-//      // TODO: May need this to be $LazyType as well
-//      case Some(value) => value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
-//      case None =>
-//        // This is lazy because methods defined on a class need to be able to infer the return type based
-//        // on the class's other methods, which may not be defined yet
-//        $LazyType(Lazy.of(() => {
-//          val paramTypes = params
-//            .map { param => param.inName -> param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType }
-//
-//          inferReturnType(scope, paramTypes)
-//        }))
-//    }
-
-//    val signature = MethodSignature.of(
-//      args = paramTypes,
-//      returnType = actualReturnType
-//    )
-
     // TODO: The return type can be inferred for generic functions when they're used
     val actualReturnType = returnType match {
       // TODO: This evaluation needs to happen after the pattern is matched
@@ -104,12 +77,6 @@ case class $FunctionDef(
       body.typ(innerScope)
     })))
   }
-
-//  private def inferReturnType(scope: Scope, paramTypes: Seq[(VarName, Type)]) = {
-//    val innerScope = scope.newChild(paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) })
-//
-//    body.typ(innerScope)
-//  }
 
   override def evaluate(env: Environment) =
     $Object(
@@ -190,6 +157,9 @@ case class $Function(
 ) extends Type {
   val self = this
 
+  // TODO: Add `unboundNames` here because of the signature
+  override def unboundNames: Set[VarName] = ???
+
   override def typ(scope: Scope) = $FunctionMetaType(this)
   override val methods = Map(
     "call" -> new Method {
@@ -235,14 +205,6 @@ case class $Function(
       }
     }
   )
-
-  // TODO
-  def canBeAssignedFrom(other: Type): Boolean = {
-    other match {
-      case fnType: $Function => signature.canBeAssignedFrom(fnType.signature)
-      case _ => false
-    }
-  }
 
   def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
     val evalRequest = this.evalRequest(env.evalMode)

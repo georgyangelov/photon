@@ -248,7 +248,7 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  ignore("can assign to interfaces with generic methods") {
+  test("can assign to interfaces with generic methods") {
     expectCompileTime(
       """
         interface WithIdentity {

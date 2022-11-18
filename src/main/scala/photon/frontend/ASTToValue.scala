@@ -5,6 +5,7 @@ import photon.core._
 import photon.core.objects._
 import photon.core.operations._
 import photon.frontend.ASTValue.Pattern
+import photon.lib.ScalaExtensions._
 
 object ASTToValue {
   def transform(ast: ASTValue, scope: StaticScope): Value = ast match {
@@ -15,18 +16,13 @@ object ASTToValue {
     case ASTValue.Block(values, location) => $Block(values.map(transform(_, scope)), location)
 
     case ASTValue.Function(params, body, returnType, location) =>
-      val fnParamBuilder = Seq.newBuilder[Parameter]
-      var paramScope = scope
+      val (paramScope, fnParamsIterable) = params.mapWithRollingContext(scope) {
+        case scope -> astParam =>
+          val (param, newScope) = transform(astParam, scope)
 
-      params.foreach { astParam =>
-        val (param, newScope) = transform(astParam, paramScope)
-
-        paramScope = newScope
-
-        fnParamBuilder.addOne(param)
+          newScope -> param
       }
-
-      val fnParams = fnParamBuilder.result
+      val fnParams = fnParamsIterable.toSeq
 
       // TODO: Switch this to `paramScope` if the fn body needs to be able to access the pattern names
       val innerScope = scope.newChild(
@@ -39,12 +35,16 @@ object ASTToValue {
 
       $FunctionDef(fnParams, fnBody, fnReturnType, location)
 
-    // TODO: Support patterns
     case ASTValue.FunctionType(params, returnType, location) =>
-      val typeParams = params.map(transform(_, scope))
-      val returns = transform(returnType, scope)
+      val (paramTypeScope, typeParams) = params.mapWithRollingContext(scope) {
+        case scope -> pattern =>
+          val (typeParam, paramTypeScope) = transform(pattern, scope)
 
-      $FunctionInterfaceDef(typeParams, returns, location)
+          paramTypeScope -> typeParam
+      }
+      val returns = transform(returnType, paramTypeScope)
+
+      $FunctionInterfaceDef(typeParams.toSeq, returns, location)
 
     case ASTValue.Call(target, name, arguments, mayBeVarCall, location) =>
       val positionalArgs = arguments.positional.map(transform(_, scope))
@@ -119,14 +119,10 @@ object ASTToValue {
     Parameter(param.outName, varName, typ, param.location) -> newScope
   }
 
-  private def transform(param: ASTTypeParameter, scope: StaticScope): TypeParameter = {
-    val typ = param.typePattern match {
-      case Pattern.SpecificValue(value) => transform(value, scope)
-      case Pattern.Binding(name, location) => ???
-      case Pattern.Call(target, name, args, mayBeVarCall, location) => ???
-    }
+  private def transform(param: ASTTypeParameter, scope: StaticScope): (TypeParameter, StaticScope) = {
+    val (typ, newScope) = transform(param.typePattern, scope)
 
-    TypeParameter(param.name, typ, param.location)
+    TypeParameter(param.name, typ, param.location) -> newScope
   }
 
   private def transform(pattern: Pattern, scope: StaticScope): (ValuePattern, StaticScope) = {
@@ -219,6 +215,15 @@ sealed trait ValuePattern {
 
   def applyTo(value: Value, env: Environment): Option[MatchResult]
   def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern
+
+  // TODO: Compare types by isAssignableTo instead of equals. But then
+  //       I need something to actually convert between those when doing
+  //       the call.
+  def isSupersetOf(
+    otherPattern: ValuePattern,
+    selfEnv: Environment,
+    otherEnv: Environment
+  ): Boolean
 }
 object ValuePattern {
   case class Expected(expectedValue: Value, location: Option[Location]) extends ValuePattern {
@@ -236,6 +241,26 @@ object ValuePattern {
 
     override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
       ASTValue.Pattern.SpecificValue(expectedValue.toAST(names))
+
+    override def isSupersetOf(
+      otherPattern: ValuePattern,
+      selfEnv: Environment,
+      otherEnv: Environment
+    ): Boolean = otherPattern match {
+      case Expected(otherExpectedValue, _) =>
+        // TODO: Need `equals` between values here
+        expectedValue.evaluate(selfEnv) == otherExpectedValue.evaluate(otherEnv)
+
+      case Binding(name, location) => false
+      case callPattern: Call =>
+        callPattern.applyTo(expectedValue.evaluate(selfEnv), otherEnv) match {
+          case Some(matchResult) => true
+          case None => false
+        }
+
+      // TODO: Remove this case
+      case List(patterns) => ???
+    }
   }
 
   case class Binding(name: VarName, location: Option[Location]) extends ValuePattern {
@@ -252,6 +277,19 @@ object ValuePattern {
         names.getOrElse(name, throw EvalError(s"Could not find string name for $name", location)),
         location
       )
+
+    override def isSupersetOf(
+      otherPattern: ValuePattern,
+      selfEnv: Environment,
+      otherEnv: Environment
+    ): Boolean = otherPattern match {
+      case Expected(expectedValue, location) => true
+      case Binding(name, location) => true
+      case Call(target, name, args, location) => true
+
+      // TODO: Remove this case
+      case List(patterns) => ???
+    }
   }
 
   case class Call(
@@ -280,7 +318,8 @@ object ValuePattern {
         location
       ).evaluate(env) match {
         // TODO: What if the stuff conforms to this type but is wrapped?
-        case $Object(args: ArgumentsWithoutSelf[Value], _, _) => args
+        // TODO: The [Value] part is not checked, do something with the warning
+        case $Object(args: ArgumentsWithoutSelf[Value], typ, _) if typ == $MatchResult => args
         case _ => ???
       }
 
@@ -308,6 +347,49 @@ object ValuePattern {
         mayBeVarCall = false,
         location
       )
+
+    override def isSupersetOf(
+      otherPattern: ValuePattern,
+      selfEnv: Environment,
+      otherEnv: Environment
+    ): Boolean = otherPattern match {
+      case Expected(expectedValue, _) =>
+        this.applyTo(expectedValue.evaluate(otherEnv), selfEnv) match {
+          case Some(value) => true
+          case None => false
+        }
+
+      case Binding(_, _) => false
+
+      case Call(otherTarget, otherName, otherArgs, _) =>
+        // TODO: Need `equals` between values here
+        val targetsAreTheSame = target.evaluate(selfEnv) == otherTarget.evaluate(otherEnv)
+        if (!targetsAreTheSame) {
+          return false
+        }
+
+        val namesAreTheSame = name == otherName
+        if (!namesAreTheSame) {
+          return false
+        }
+
+        val argsAreTheSameSize = args.argValues.size == otherArgs.argValues.size
+        if (!argsAreTheSameSize) {
+          return false
+        }
+
+        args.argValues.zip(otherArgs.argValues).foreach { case (selfArg, otherArg) =>
+          // TODO: Argument envs
+          if (!selfArg.isSupersetOf(otherArg, selfEnv, otherEnv)) {
+            return false
+          }
+        }
+
+        true
+
+      // TODO: Remove this case
+      case List(patterns) => ???
+    }
   }
 
   case class List(patterns: Seq[ValuePattern]) extends ValuePattern {
@@ -328,5 +410,8 @@ object ValuePattern {
 
     // TODO: Don't really need this, do I
     override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern = ???
+
+    // TODO: Don't really need this, do I
+    override def isSupersetOf(otherPattern: ValuePattern, selfEnv: Environment, otherEnv: Environment): Boolean = ???
   }
 }

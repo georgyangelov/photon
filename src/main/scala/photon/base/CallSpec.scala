@@ -115,6 +115,7 @@ object MethodSignature {
       // TODO: Make the actual conversion, not just a check
       case Specific(argTypes, otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
       case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+      // TODO: Patterns
     }
   }
 
@@ -140,7 +141,99 @@ object MethodSignature {
       Patterns(fnScope, argsWithoutName.result, returnType)
     }
 
-    override def canBeAssignedFrom(other: MethodSignature): Boolean = ???
+    override def canBeAssignedFrom(moreGeneralSignature: MethodSignature): Boolean = moreGeneralSignature match {
+      // TODO: Make the actual conversion, not just a check? Because of interfaces
+      case Specific(otherArgTypes, otherReturnType) =>
+        val argumentTypesAreCompatible = argPatterns.map(Some(_))
+          .zipAll(otherArgTypes.map(Some(_)), None, None)
+          .forall {
+            case (Some(aName -> aPattern), Some(bName -> bType)) =>
+              val namesMatch = aName == bName
+
+              // TODO: Is there a case where we would be able to assign concrete-typed fn to pattern-typed fn?
+              //       Seems like it can't work unless it's 100% the same
+              val typesMatch = aPattern match {
+                case ValuePattern.Expected(aTypeValue, location) =>
+                  val aType = aTypeValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
+
+                  $Core.isTypeAssignable(bType, aType)
+
+                case _ => false
+              }
+
+              namesMatch && typesMatch
+          }
+
+        if (!argumentTypesAreCompatible) {
+          // This early-returns intentionally, because the returnType may be dependent on variables from the
+          // type patterns, and the `returnType.evaluate` below will fail.
+          return false
+        }
+
+        val realReturnType = returnType.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
+
+        $Core.isTypeAssignable(otherReturnType, realReturnType)
+
+//        val returnTypesAreCompatible = $Core.isTypeAssignable(otherReturnType, returnType)
+//
+//        val argumentTypesAreCompatible = argTypes.map(Some(_))
+//          .zipAll(otherArgTypes.map(Some(_)), None, None)
+//          .forall {
+//            case (Some(aName -> aType), Some(bName -> bType)) => aName == bName && $Core.isTypeAssignable(bType, aType)
+//            case _ => false
+//          }
+//
+//        returnTypesAreCompatible && argumentTypesAreCompatible
+
+      case patterns: Patterns => this.isSubsetOf(patterns, patterns.fnScope)
+
+//        patterns.canTypesBeUsed(
+//          ArgumentsWithoutSelf.positional(argTypes.map(_._2)),
+//          returnType
+//        )
+
+// TODO
+//      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType.evaluate(env))
+//
+//      case Patterns(fnScope, argPatterns, returnType) => ???
+    }
+
+    def isSubsetOf(otherPattern: Patterns, otherScope: Scope): Boolean = {
+      if (argPatterns.size != otherPattern.argPatterns.size) {
+        return false
+      }
+
+//      val nameMappings = argPatterns.zip(otherPattern.argPatterns)
+//        .foldLeft(Map.empty[String, ValuePattern]) {
+//          case (nameMappings, ((aName, aPattern), (bName, bPattern))) =>
+//            if (aName != bName) {
+//              return false
+//            }
+//
+//            val selfEnv = Environment(fnScope, EvalMode.CompileTimeOnly)
+//            val otherEnv = Environment(otherScope, EvalMode.CompileTimeOnly)
+//
+//            val newNameMappings = aPattern.isSupersetOf(bPattern, selfEnv, otherEnv) match {
+//              case Some(newNameMappings) => newNameMappings
+//              case None => return false
+//            }
+//
+//            nameMappings ++ newNameMappings
+//        }
+
+      argPatterns.zip(otherPattern.argPatterns)
+        .forall {
+          case ((aName, aPattern), (bName, bPattern)) =>
+            if (aName != bName) {
+              return false
+            }
+
+            val selfEnv = Environment(fnScope, EvalMode.CompileTimeOnly)
+            val otherEnv = Environment(otherScope, EvalMode.CompileTimeOnly)
+
+            aPattern.isSupersetOf(bPattern, selfEnv, otherEnv)
+        }
+    }
 
     // TODO: Duplication with #specialize below
     def canTypesBeUsed(otherArgs: ArgumentsWithoutSelf[Type], otherReturnType: Type): Boolean = {
