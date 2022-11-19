@@ -2,7 +2,7 @@ package photon.support
 
 import org.scalatest.Assertions._
 import photon.base._
-import photon.frontend.{Lexer, Parser, Unparser}
+import photon.frontend.{Lexer, ParseError, Parser, Unparser}
 import photon.interpreter._
 
 object TestHelpers {
@@ -26,6 +26,21 @@ object TestHelpers {
     val error = intercept[TypeError] {
       try {
         interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
+      } catch {
+        case error: TypeError => throw error
+        case error =>
+          println(error)
+          throw error
+      }
+    }
+
+    println(error)
+  }
+
+  def expectParseError(code: String) = {
+    val error = intercept[ParseError] {
+      try {
+        parse(code)
       } catch {
         case error: TypeError => throw error
         case error =>

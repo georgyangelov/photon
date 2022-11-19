@@ -103,7 +103,7 @@ object ASTValue {
   ) extends ASTValue {
     override def inspect = {
       val paramsAST = params
-        .map { param => s"(param ${param.name} ${param.typePattern.inspect})" }
+        .map { param => s"(param ${param.name} ${param.typ.inspect})" }
         .mkString(" ")
 
       s"(Function [$paramsAST] $returnType)"
@@ -154,7 +154,7 @@ case class ASTParameter(
 
 case class ASTTypeParameter(
   name: String,
-  typePattern: ASTValue.Pattern,
+  typ: ASTValue,
   location: Option[Location]
 )
 

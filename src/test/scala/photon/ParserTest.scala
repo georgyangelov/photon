@@ -333,8 +333,9 @@ class ParserTest extends FunSuite {
     assert(parse("(a: Int, b: String): Int") == "(Function [(param a Int) (param b String)] Int)")
   }
 
-  test("function types with argument type patterns") {
-    assert(parse("(a: val T): T") == "(Function [(param a (val T))] T)")
-    assert(parse("(a: val A, b: Optional(val B)): Optional(A)") == "(Function [(param a (val A)) (param b <Optional self (val B)>)] Optional(A))")
-  }
+//  This shouldn't be possible because that would allow dynamic dispatch to template functions which can't be done
+//  test("function types with argument type patterns") {
+//    assert(parse("(a: val T): T") == "(Function [(param a (val T))] T)")
+//    assert(parse("(a: val A, b: Optional(val B)): Optional(A)") == "(Function [(param a (val A)) (param b <Optional self (val B)>)] Optional(A))")
+//  }
 }

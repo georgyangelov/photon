@@ -248,33 +248,27 @@ class InterfaceTest extends FunSuite {
     )
   }
 
-  test("can assign to interfaces with generic methods") {
-    expectCompileTime(
+  test("cannot define interfaces with generic methods") {
+    expectParseError(
       """
         interface WithIdentity {
           def identity(value: val T): T
         }
+      """
+    )
+  }
 
-        class Something {
-          def identity(value: val T): T value
-        }
-
-        val s: WithIdentity = Something.new
-        s.identity(42)
-      """,
-      "42"
+  test("cannot define function types with generic types") {
+    expectParseError(
+      """
+        val GenericFn = (value: val T): T
+      """
     )
 
-    expectCompileTime(
+    expectParseError(
       """
-        interface WithIdentity {
-          def identity(value: val T): T
-        }
-
-        val s: WithIdentity = (value: val T): T value
-        s.identity(42)
-      """,
-      "42"
+        val fn: (value: val T): T = (value: val T): T { value }
+      """
     )
   }
 

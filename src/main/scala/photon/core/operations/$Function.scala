@@ -8,7 +8,7 @@ import photon.lib.ScalaExtensions._
 
 case class TypeParameter(
   name: String,
-  pattern: ValuePattern,
+  typ: Value,
   location: Option[Location]
 )
 

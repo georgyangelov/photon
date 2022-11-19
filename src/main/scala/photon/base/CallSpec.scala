@@ -29,6 +29,7 @@ object MethodSignature {
   def ofPatterns(fnScope: Scope, args: Seq[(String, ValuePattern)], returnType: Value) =
     Patterns(fnScope, args, returnType)
 
+  // TODO: Replace this with the Patterns case?
   case class Specific(
     argTypes: Seq[(String, Type)],
     returnType: Type
@@ -185,7 +186,8 @@ object MethodSignature {
 //
 //        returnTypesAreCompatible && argumentTypesAreCompatible
 
-      case patterns: Patterns => this.isSubsetOf(patterns, patterns.fnScope)
+      // Can't assign pattern method to anything besides specific one
+      case patterns: Patterns => false
 
 //        patterns.canTypesBeUsed(
 //          ArgumentsWithoutSelf.positional(argTypes.map(_._2)),
@@ -196,43 +198,6 @@ object MethodSignature {
 //      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType.evaluate(env))
 //
 //      case Patterns(fnScope, argPatterns, returnType) => ???
-    }
-
-    def isSubsetOf(otherPattern: Patterns, otherScope: Scope): Boolean = {
-      if (argPatterns.size != otherPattern.argPatterns.size) {
-        return false
-      }
-
-//      val nameMappings = argPatterns.zip(otherPattern.argPatterns)
-//        .foldLeft(Map.empty[String, ValuePattern]) {
-//          case (nameMappings, ((aName, aPattern), (bName, bPattern))) =>
-//            if (aName != bName) {
-//              return false
-//            }
-//
-//            val selfEnv = Environment(fnScope, EvalMode.CompileTimeOnly)
-//            val otherEnv = Environment(otherScope, EvalMode.CompileTimeOnly)
-//
-//            val newNameMappings = aPattern.isSupersetOf(bPattern, selfEnv, otherEnv) match {
-//              case Some(newNameMappings) => newNameMappings
-//              case None => return false
-//            }
-//
-//            nameMappings ++ newNameMappings
-//        }
-
-      argPatterns.zip(otherPattern.argPatterns)
-        .forall {
-          case ((aName, aPattern), (bName, bPattern)) =>
-            if (aName != bName) {
-              return false
-            }
-
-            val selfEnv = Environment(fnScope, EvalMode.CompileTimeOnly)
-            val otherEnv = Environment(otherScope, EvalMode.CompileTimeOnly)
-
-            aPattern.isSupersetOf(bPattern, selfEnv, otherEnv)
-        }
     }
 
     // TODO: Duplication with #specialize below
