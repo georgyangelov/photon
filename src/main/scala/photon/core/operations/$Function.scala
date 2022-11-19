@@ -28,7 +28,7 @@ case class $FunctionDef(
   override def evalMayHaveSideEffects = false
   override def isOperation = true
   override def unboundNames: Set[VarName] = {
-    val typeNames = ValuePattern.List(params.map(_.pattern)).names
+    val typeNames = ValuePattern.namesOfSequenceOfPatterns(params.map(_.pattern))
 
     body.unboundNames -- typeNames.defined -- params.map(_.inName) ++
       typeNames.unbound ++

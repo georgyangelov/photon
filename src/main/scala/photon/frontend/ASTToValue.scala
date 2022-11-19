@@ -212,6 +212,18 @@ sealed trait ValuePattern {
   def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern
 }
 object ValuePattern {
+  def namesOfSequenceOfPatterns(patterns: Seq[ValuePattern]): PatternNames =
+    patterns
+      .foldLeft(PatternNames(defined = Set.empty, unbound = Set.empty)) {
+        case names -> pattern =>
+          val PatternNames(defined, unbound) = pattern.names
+
+          PatternNames(
+            defined = names.defined ++ defined,
+            unbound = names.unbound ++ (unbound -- names.defined)
+          )
+      }
+
   case class Expected(expectedValue: Value, location: Option[Location]) extends ValuePattern {
     override def names = PatternNames(
       defined = Set.empty,
@@ -300,25 +312,5 @@ object ValuePattern {
         mayBeVarCall = false,
         location
       )
-  }
-
-  case class List(patterns: Seq[ValuePattern]) extends ValuePattern {
-    // TODO: Duplication with Call#names
-    override def names = patterns
-      .foldLeft(PatternNames(defined = Set.empty, unbound = Set.empty)) {
-        case names -> pattern =>
-          val PatternNames(defined, unbound) = pattern.names
-
-          PatternNames(
-            defined = names.defined ++ defined,
-            unbound = names.unbound ++ (unbound -- names.defined)
-          )
-      }
-
-    // TODO: Don't really need this, do I
-    override def applyTo(value: Value, env: Environment): Option[MatchResult] = ???
-
-    // TODO: Don't really need this, do I
-    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern = ???
   }
 }
