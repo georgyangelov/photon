@@ -2,7 +2,7 @@ package photon.core.operations
 
 import photon.base._
 import photon.core._
-import photon.frontend.{ASTParameter, ASTValue, ValuePattern}
+import photon.frontend._
 import photon.lib.Lazy
 import photon.lib.ScalaExtensions._
 

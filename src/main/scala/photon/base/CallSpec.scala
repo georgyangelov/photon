@@ -2,7 +2,6 @@ package photon.base
 
 import photon.core._
 import photon.core.objects.$Core
-import photon.frontend.ValuePattern
 import photon.lib.ScalaExtensions._
 
 import scala.reflect.ClassTag
@@ -93,20 +92,12 @@ object MethodSignature {
     }
   }
 
-//  case class Pattern(
-//    argTypes: Seq[(String, UPattern)],
-//    returnType: Value
-//  ) extends MethodSignature {
-//    def specialize(args: Arguments[Value]): CallSpec = ???
-//  }
-
   case class Any(returnType: Type) extends MethodSignature {
     def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError] =
       Left(CallSpec(
         args,
         Seq.empty,
         returnType
-        // returnType.evaluated(EvalMode.CompileTimeOnly).assertType
       ))
 
     override def withoutFirstArgumentCalled(name: String): MethodSignature = this
@@ -142,63 +133,8 @@ object MethodSignature {
       Patterns(fnScope, argsWithoutName.result, returnType)
     }
 
-    override def canBeAssignedFrom(moreGeneralSignature: MethodSignature): Boolean = moreGeneralSignature match {
-      // TODO: Make the actual conversion, not just a check? Because of interfaces
-      case Specific(otherArgTypes, otherReturnType) =>
-        val argumentTypesAreCompatible = argPatterns.map(Some(_))
-          .zipAll(otherArgTypes.map(Some(_)), None, None)
-          .forall {
-            case (Some(aName -> aPattern), Some(bName -> bType)) =>
-              val namesMatch = aName == bName
-
-              // TODO: Is there a case where we would be able to assign concrete-typed fn to pattern-typed fn?
-              //       Seems like it can't work unless it's 100% the same
-              val typesMatch = aPattern match {
-                case ValuePattern.Expected(aTypeValue, location) =>
-                  val aType = aTypeValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
-
-                  $Core.isTypeAssignable(bType, aType)
-
-                case _ => false
-              }
-
-              namesMatch && typesMatch
-          }
-
-        if (!argumentTypesAreCompatible) {
-          // This early-returns intentionally, because the returnType may be dependent on variables from the
-          // type patterns, and the `returnType.evaluate` below will fail.
-          return false
-        }
-
-        val realReturnType = returnType.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
-
-        $Core.isTypeAssignable(otherReturnType, realReturnType)
-
-//        val returnTypesAreCompatible = $Core.isTypeAssignable(otherReturnType, returnType)
-//
-//        val argumentTypesAreCompatible = argTypes.map(Some(_))
-//          .zipAll(otherArgTypes.map(Some(_)), None, None)
-//          .forall {
-//            case (Some(aName -> aType), Some(bName -> bType)) => aName == bName && $Core.isTypeAssignable(bType, aType)
-//            case _ => false
-//          }
-//
-//        returnTypesAreCompatible && argumentTypesAreCompatible
-
-      // Can't assign pattern method to anything besides specific one
-      case patterns: Patterns => false
-
-//        patterns.canTypesBeUsed(
-//          ArgumentsWithoutSelf.positional(argTypes.map(_._2)),
-//          returnType
-//        )
-
-// TODO
-//      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType.evaluate(env))
-//
-//      case Patterns(fnScope, argPatterns, returnType) => ???
-    }
+    // Can't assign to pattern types at all
+    override def canBeAssignedFrom(other: MethodSignature) = false
 
     // TODO: Duplication with #specialize below
     def canTypesBeUsed(otherArgs: ArgumentsWithoutSelf[Type], otherReturnType: Type): Boolean = {

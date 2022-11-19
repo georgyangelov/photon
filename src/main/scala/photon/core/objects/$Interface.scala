@@ -3,7 +3,7 @@ package photon.core.objects
 import photon.base._
 import photon.core._
 import photon.core.operations.{$Call, $Function, FunctionRunMode, InlinePreference, TypeParameter}
-import photon.frontend.{ASTValue, ValuePattern}
+import photon.frontend.ASTValue
 import photon.lib.Lazy
 
 object $Interface extends Type {
