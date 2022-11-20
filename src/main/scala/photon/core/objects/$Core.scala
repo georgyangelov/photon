@@ -2,7 +2,6 @@ package photon.core.objects
 
 import photon.base._
 import photon.core._
-import photon.core.operations.{$Call, $Function}
 
 object $Core extends Type {
   override def typ(scope: Scope): Type = $Type
@@ -41,15 +40,6 @@ object $Core extends Type {
         } else {
           Right(TypeError(s"Cannot assign type $fromType to interface $interface", value.location))
         }
-
-      // TODO: Replace $Function with Interface with `call` method
-//      case fnType: $Function =>
-//        if (fnType.canBeAssignedFrom(fromType)) {
-//          // TODO: This is not 100% correct
-//          Left(value)
-//        } else {
-//          Right(TypeError(s"Cannot assign type $fromType to function type $fnType", value.location))
-//        }
 
       case toType => Right(TypeError(s"Cannot assign type $fromType to $toType", value.location))
     }

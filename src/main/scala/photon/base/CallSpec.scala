@@ -136,9 +136,8 @@ object MethodSignature {
     // Can't assign to pattern types at all
     override def canBeAssignedFrom(other: MethodSignature) = false
 
-    // TODO: Duplication with #specialize below
-    def canTypesBeUsed(otherArgs: ArgumentsWithoutSelf[Type], otherReturnType: Type): Boolean = {
-      val argScope = otherArgs.matchWith(argPatterns)
+    def specializeTypes(argTypes: ArgumentsWithoutSelf[Type]): Option[Option[Type]] = {
+      val argScope = argTypes.matchWith(argPatterns)
         .foldLeft(fnScope) { (fnScope, matchedParam) =>
           val (_, (valueType, pattern)) = matchedParam
 
@@ -148,7 +147,7 @@ object MethodSignature {
               val isAssignable = $Core.isTypeAssignable(valueType, expectedType)
 
               if (!isAssignable) {
-                return false
+                return None
               }
 
               fnScope
@@ -156,7 +155,7 @@ object MethodSignature {
             case pattern =>
               val matchResult = pattern.applyTo(valueType, Environment(fnScope, EvalMode.CompileTimeOnly)) match {
                 case Some(value) => value
-                case None => return false
+                case None => return None
               }
 
               val newFnScope = fnScope.newChild(matchResult.bindings.toSeq)
@@ -165,11 +164,20 @@ object MethodSignature {
           }
         }
 
-      // TODO: Is this correct or is it the other way around?
-      $Core.isTypeAssignable(
-        returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).asType,
-        otherReturnType
-      )
+      Some(Some(returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).asType))
+    }
+
+    // TODO: Duplication with #specialize below
+    def canTypesBeUsed(otherArgs: ArgumentsWithoutSelf[Type], otherReturnType: Type): Boolean = {
+      specializeTypes(otherArgs) match {
+        case Some(Some(returnType)) =>
+          // TODO: This checks if it's assignable but doesn't actually convert it if needed
+          $Core.isTypeAssignable(returnType, otherReturnType)
+
+        // TODO: Change this when making template return types inferrable
+        case Some(_) => ???
+        case None => false
+      }
     }
 
     override def specialize(args: Arguments[Value], argScope: Scope): Either[CallSpec, TypeError] = {
