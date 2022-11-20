@@ -33,35 +33,13 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     evalue = Some(value.evaluate(innerEnv))
     val ebody = body.evaluate(innerEnv)
 
-    // Inline if the body is a direct reference to this let value
-    // case UValue.Reference(refName, _) if refName == name => evalue
-    // case _ if ebody.unboundNames.contains(name) => $Let.Value(name, evalue, ebody, location)
-    // case _ => UValue.Block(Seq(value, body), location)
     ebody match {
+      // Inline if the body is a direct reference to this let value
       case $Reference(refName, _) if refName == name => evalue.get
       case value if value.unboundNames.contains(name) => $Let(name, evalue.get, ebody, location)
       case _ if evalue.get.evalMayHaveSideEffects => $Block(Seq(evalue.get, ebody), location)
       case _ => ebody
     }
-
-    //    val unknown = $Unknown(location)
-    //    val innerScope = scope.newChild(Seq(name -> $Lazy(unknown, location)))
-    //
-    //    val evalue = evaluate(value, innerScope, mode)
-    //    innerScope.dangerouslySetValue(name, evalue)
-    //
-    //    val ebody = evaluate(body, innerScope, mode)
-    //    ebody.value match {
-    //      // Inline if the body is a direct reference to this let value
-    //      case UValue.Reference(refName, _) if refName == name => evalue
-    //      // case _ if ebody.unboundNames.contains(name) => $Let.Value(name, evalue, ebody, location)
-    //      // case _ => UValue.Block(Seq(value, body), location)
-    //      case _ =>
-    //        EValue(
-    //          UValue.Let(name, evalue.value, ebody.value, location),
-    //          ebody.typ
-    //        )
-    //    }
   }
 
   override def partialValue(env: Environment, followReferences: Boolean) =

@@ -33,15 +33,21 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
       location
     )
 
-  override def evaluate(env: Environment) = {
+  override def evaluate(env: Environment): Value = {
     val method = findMethod(env.scope)
-
     val boundArgs = args.map($ScopeBound(_, env.scope))
 
     // TODO: Memoize and share this between `typ` and `evaluate`
     val spec = method.signature.specialize(boundArgs, env.scope) match {
       case Left(value) => value
       case Right(typeError) => throw typeError
+    }
+
+    if (env.evalMode == EvalMode.PartialInnerFunctions) {
+      val evaluatedArgs = spec.args.map(_.evaluate(env))
+
+      // No need to try to call the method again, it already was tried in CompileTimeOnly mode
+      return $Call(name, evaluatedArgs, location)
     }
 
     try {
@@ -66,6 +72,6 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
     val selfType = args.self.typ(scope)
 
     selfType.method(name)
-      .getOrElse { throw EvalError(s"Cannot find method $name on $selfType", None) }
+      .getOrElse { throw TypeError(s"Cannot find method $name on $selfType", location) }
   }
 }

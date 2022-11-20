@@ -54,6 +54,9 @@ object EvalMode {
   // Running compile-time-only code
   case object CompileTimeOnly extends EvalMode
 
+  // Current code is already evaluated but we need to partially evaluate the inner functions
+  case object PartialInnerFunctions extends EvalMode
+
   // Partially evaluating code in a default function
   case object Partial extends EvalMode
 

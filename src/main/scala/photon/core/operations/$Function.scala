@@ -79,11 +79,10 @@ case class $FunctionDef(
   }
 
   override def evaluate(env: Environment) =
-    $Object(
-      Closure(env.scope, this),
-      typ(env.scope),
-      location
-    )
+    Closure(env.scope, this, typ(env.scope))
+
+  // TODO: Implement this
+  def evaluatePartially(env: Environment): $FunctionDef = this
 
   override def toAST(names: Map[VarName, String]) = {
     val typeParamNames = params
@@ -130,24 +129,41 @@ case class $FunctionDef(
   }
 }
 
-case class Closure(scope: Scope, fnDef: $FunctionDef) {
+case class Closure(scope: Scope, fnDef: $FunctionDef, typ: $Function) extends Value {
   // TODO: Add bound values from type patterns
   lazy val names = fnDef.params.map { param => param.inName.originalName -> param.inName }.toMap
+
+  override def evalMayHaveSideEffects = false
+  override def location = fnDef.location
+  override def unboundNames = fnDef.unboundNames
+
+  override def typ(scope: Scope) = typ
+
+  override def toAST(names: Map[VarName, String]) = fnDef.toAST(names)
+
+  def evaluate(env: Environment): Value = env.evalMode match {
+    case EvalMode.PartialInnerFunctions =>
+      val partialEvalMode = typ.runMode match {
+        // TODO: This should result in an error - the function was not evaluated compile-time.
+        //       Or maybe it was but wasn't removed
+        case FunctionRunMode.CompileTimeOnly => ???
+        case FunctionRunMode.Default => EvalMode.Partial
+        case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
+        case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
+      }
+
+      val innerEnv = Environment(env.scope, partialEvalMode)
+      val newFunctionDef = fnDef.evaluatePartially(innerEnv)
+
+      Closure(scope, newFunctionDef, typ)
+
+    case _ => this
+  }
 }
 
 case class $FunctionMetaType(fnT: $Function) extends Type {
   override def typ(scope: Scope): Type = $Type
-  override val methods: Map[String, Method] = Map(
-    "from" -> new DefaultMethod {
-      override val signature = MethodSignature.any(fnT)
-      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-        // TODO: Replace with pattern MethodSignature when that's available
-        val closure = spec.requirePositionalObject[Closure](env, 0)
-
-        $Object(closure, fnT, location)
-      }
-    }
-  )
+  override val methods: Map[String, Method] = Map.empty
 }
 
 case class $Function(
@@ -175,9 +191,9 @@ case class $Function(
         $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelfObject[Closure](env)
+        val closure = spec.requireSelf[Closure](env)
 
-        $Object(closure, spec.returnType, location)
+        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
       }
     },
 
@@ -187,9 +203,9 @@ case class $Function(
         $Function(self.signature, FunctionRunMode.RunTimeOnly, self.inlinePreference)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelfObject[Closure](env)
+        val closure = spec.requireSelf[Closure](env)
 
-        $Object(closure, spec.returnType, location)
+        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
       }
     },
 
@@ -199,9 +215,9 @@ case class $Function(
         $Function(self.signature, self.runMode, InlinePreference.ForceInline)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelfObject[Closure](env)
+        val closure = spec.requireSelf[Closure](env)
 
-        $Object(closure, spec.returnType, location)
+        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
       }
     }
   )
@@ -224,7 +240,7 @@ case class $Function(
 
         // TODO: Should we check that the lets wrapping this value are fully evaluated as well?
         val closure = partialSelf.value match {
-          case $Object(closure: Closure, _, _) => closure
+          case closure: Closure => closure
           case value if value.isOperation => throw EvalError(s"Cannot call '$value' compile-time because it's not fully evaluated", location)
           case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
         }
@@ -246,7 +262,7 @@ case class $Function(
         )
 
         val closure = partialSelf.value match {
-          case $Object(closure: Closure, _, _) => closure
+          case closure: Closure => closure
           case value if value.isOperation => throw DelayCall
           case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
         }

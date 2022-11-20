@@ -9,13 +9,13 @@ import scala.reflect.ClassTag
 case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Value {
   override def evalMayHaveSideEffects = false
   override def typ(scope: Scope) = typ
-  
+
+  // TODO: Don't like doing this, use traits to distinguish the objects instead
   override def toAST(names: Map[VarName, String]): ASTValue = obj match {
     case value: Int => ASTValue.Int(value, location)
     case value: Float => ASTValue.Float(value, location)
     case value: String => ASTValue.String(value, location)
     case value: Boolean => ASTValue.Boolean(value, location)
-    case value: Closure => value.fnDef.toAST(names)
     case _ => inconvertible
   }
 
@@ -26,10 +26,7 @@ case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Valu
       case _ => throw EvalError(s"Unexpected object type, expected $tag, got $obj", location)
     }
 
-  override def unboundNames = obj match {
-    case closure: Closure => closure.fnDef.unboundNames
-    case _ => Set.empty
-  }
+  override def unboundNames = Set.empty
 
   override def evaluate(env: Environment) = this
 }

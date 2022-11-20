@@ -21,11 +21,37 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
-  ignore("checks function body") {
+  test("type-checks during compile-time execution") {
     expectTypeError("""
-      val plusOne = (a: Boolean): Int a + 1
+      val badFn = (a: Boolean): Int a + 1
 
-      plusOne(true)
+      badFn(true)
+    """)
+  }
+
+  test("checks function body of uncalled functions") {
+    expectTypeError("""
+      (a: Boolean): Int a + 1
+    """)
+  }
+
+  test("checks function body of nested uncalled functions") {
+    expectTypeError("""
+      val a = {
+        {
+          (a: Boolean): Int a + 1
+        }
+      }
+    """)
+  }
+
+  ignore("checks function body of runTimeOnly functions") {
+    expectTypeError("""
+      val a = {
+        (a: Boolean): Int a + 1
+      }.runTimeOnly
+
+      a()(true)
     """)
   }
 

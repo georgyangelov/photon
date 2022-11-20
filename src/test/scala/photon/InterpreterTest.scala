@@ -89,8 +89,8 @@ class InterpreterTest extends FunSuite {
   }
 
   ignore("runtime-only functions") {
-    expectPhases("val runtime = ():Int { 42 }; runtime()", "42", "42")
-    expectPhases("val runtime = ():Int { 42 }.runTimeOnly; runtime()", "val runtime = ():Int { 42 }; runtime()", "42")
+    expectPhases("val runtime = { 42 }; runtime()", "42", "42")
+    expectPhases("val runtime = { 42 }.runTimeOnly; runtime()", "val runtime = ():Int { 42 }; runtime()", "42")
   }
 
   ignore("compile-time-only functions") {
