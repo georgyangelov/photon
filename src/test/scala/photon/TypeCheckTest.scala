@@ -37,7 +37,7 @@ class TypeCheckTest extends FunSuite {
 
   test("checks function body of nested uncalled functions") {
     expectTypeError("""
-      val a = {
+      {
         {
           (a: Boolean): Int a + 1
         }

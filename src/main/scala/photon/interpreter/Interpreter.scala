@@ -36,7 +36,7 @@ class Interpreter {
   def evaluate(value: Value, evalMode: EvalMode): Value = {
     value
       .evaluate(Environment(rootScope, evalMode))
-//      .evaluate(Environment(rootScope, EvalMode.PartialInnerFunctions))
+      .evaluate(Environment(rootScope, EvalMode.PartialInnerFunctions))
   }
 
   def toAST(value: Value): ASTValue = {

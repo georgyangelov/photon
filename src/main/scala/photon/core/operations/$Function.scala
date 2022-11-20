@@ -76,8 +76,6 @@ case class $FunctionDef(
     // This is lazy because methods defined on a class need to be able to infer the return type based
     // on the class's other methods, which may not be defined yet
     Some($LazyType(Lazy.of(() => {
-      val env = Environment(scope, EvalMode.CompileTimeOnly)
-
       val innerScope = scope.newChild(
         paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) }
       )
@@ -94,8 +92,26 @@ case class $FunctionDef(
 //    case _ => true
 //  })
 
-  // TODO: Implement this
-  def evaluatePartially(env: Environment): $FunctionDef = this
+  def evaluatePartially(env: Environment): $FunctionDef = {
+    val unknownValuesForParams = params
+      // TODO: This evaluate here is duplicated with the .typ function above
+      .map { param =>
+        param.inName -> $Unknown(
+          param.typ
+            .evaluate(Environment(env.scope, EvalMode.CompileTimeOnly))
+            .asType,
+          param.location
+        )
+      }
+
+    val innerScope = env.scope.newChild(unknownValuesForParams)
+
+    val newBody = body
+      .evaluate(Environment(innerScope, env.evalMode))
+      .evaluate(Environment(innerScope, EvalMode.PartialInnerFunctions))
+
+    $FunctionDef(params, newBody, returnType, location)
+  }
 
   override def toAST(names: Map[VarName, String]) = {
     val paramNames = params
@@ -186,7 +202,7 @@ case class Closure(scope: Scope, fnDef: $FunctionDef, typ: $Function) extends Va
         case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
       }
 
-      val innerEnv = Environment(env.scope, partialEvalMode)
+      val innerEnv = Environment(scope, partialEvalMode)
       val newFunctionDef = fnDef.evaluatePartially(innerEnv)
 
       Closure(scope, newFunctionDef, typ)
