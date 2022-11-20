@@ -15,25 +15,20 @@ object ASTToValue {
     case ASTValue.String(value, location) => $Object(value, $String, location)
     case ASTValue.Block(values, location) => $Block(values.map(transform(_, scope)), location)
 
-    case ASTValue.Function(params, body, returnType, location) =>
-      val (paramScope, fnParamsIterable) = params.mapWithRollingContext(scope) {
-        case scope -> astParam =>
-          val (param, newScope) = transform(astParam, scope)
+    case fnAST @ ASTValue.Function(params, _, _, _) =>
+      val isTemplateFunction = params.exists(_.typePattern match {
+        case Some(_: ASTValue.Pattern.SpecificValue) => false
+        case Some(_) => true
 
-          newScope -> param
+        // TODO: What if there is no parameter type - is that a normal function or a template one?
+        case None => false
+      })
+
+      if (isTemplateFunction) {
+        transformToTemplateFunction(fnAST, scope)
+      } else {
+        transformToNormalFunction(fnAST, scope)
       }
-      val fnParams = fnParamsIterable.toSeq
-
-      // TODO: Switch this to `paramScope` if the fn body needs to be able to access the pattern names
-      val innerScope = scope.newChild(
-        fnParams
-          .map { param => param.inName.originalName -> param.inName }
-          .toMap
-      )
-      val fnBody = transform(body, innerScope)
-      val fnReturnType = returnType.map(transform(_, paramScope))
-
-      $FunctionDef(fnParams, fnBody, fnReturnType, location)
 
     case ASTValue.FunctionType(params, returnType, location) =>
       val typeParams = params.map(transform(_, scope))
@@ -104,14 +99,66 @@ object ASTToValue {
     case pattern: ASTValue.Pattern => ???
   }
 
-  private def transform(param: ASTParameter, scope: StaticScope): (Parameter, StaticScope) = {
+  private def transformToNormalFunction(ast: ASTValue.Function, scope: StaticScope): $FunctionDef = {
+    val fnParams = ast.params.map(transformToSpecificParameter(_, scope))
+
+    val innerScope = scope.newChild(
+      fnParams
+        .map { param => param.inName.originalName -> param.inName }
+        .toMap
+    )
+    val fnBody = transform(ast.body, innerScope)
+    val fnReturnType = ast.returnType.map(transform(_, scope))
+
+    $FunctionDef(fnParams, fnBody, fnReturnType, ast.location)
+  }
+
+  private def transformToTemplateFunction(ast: ASTValue.Function, scope: StaticScope): $TemplateFunctionDef = {
+    val (paramScope, fnParamsIterable) = ast.params.mapWithRollingContext(scope) {
+      case scope -> astParam =>
+        val (param, newScope) = transformToTemplateParameter(astParam, scope)
+
+        newScope -> param
+    }
+    val fnParams = fnParamsIterable.toSeq
+
+    // TODO: Switch this to `paramScope` if the fn body needs to be able to access the pattern names
+    val innerScope = scope.newChild(
+      fnParams
+        .map { param => param.inName.originalName -> param.inName }
+        .toMap
+    )
+    val fnBody = transform(ast.body, innerScope)
+    val fnReturnType = ast.returnType.map(transform(_, paramScope))
+
+    $TemplateFunctionDef(fnParams, fnBody, fnReturnType, ast.location)
+  }
+
+  private def transformToSpecificParameter(param: ASTParameter, scope: StaticScope): Parameter = {
+    val varName = new VarName(param.inName)
+    val typePattern = param.typePattern
+      .getOrElse { throw EvalError("Params must have explicit types for now", param.location) }
+      match {
+        case Pattern.SpecificValue(value) => value
+
+        // TODO: Mark this as not possible somehow, because we check before calling the function
+        case Pattern.Binding(name, location) => ???
+        case Pattern.Call(target, name, args, mayBeVarCall, location) => ???
+      }
+
+    val typ = transform(typePattern, scope)
+
+    Parameter(param.outName, varName, typ, param.location)
+  }
+
+  private def transformToTemplateParameter(param: ASTParameter, scope: StaticScope): (TemplateFunctionParameter, StaticScope) = {
     val varName = new VarName(param.inName)
     val typePattern = param.typePattern
       .getOrElse { throw EvalError("Params must have explicit types for now", param.location) }
 
     val (typ, newScope) = transform(typePattern, scope)
 
-    Parameter(param.outName, varName, typ, param.location) -> newScope
+    TemplateFunctionParameter(param.outName, varName, typ, param.location) -> newScope
   }
 
   private def transform(param: ASTTypeParameter, scope: StaticScope): TypeParameter = {

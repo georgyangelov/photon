@@ -15,7 +15,7 @@ case class TypeParameter(
 case class Parameter(
   outName: String,
   inName: VarName,
-  pattern: ValuePattern,
+  typ: Value,
   location: Option[Location]
 )
 
@@ -27,48 +27,56 @@ case class $FunctionDef(
 ) extends Value {
   override def evalMayHaveSideEffects = false
   override def isOperation = true
-  override def unboundNames: Set[VarName] = {
-    val typeNames = ValuePattern.namesOfSequenceOfPatterns(params.map(_.pattern))
 
-    body.unboundNames -- typeNames.defined -- params.map(_.inName) ++
-      typeNames.unbound ++
+  override def unboundNames: Set[VarName] =
+    body.unboundNames -- params.map(_.inName) ++
+      params.map(_.typ).flatMap(_.unboundNames) ++
       returnType.map(_.unboundNames).getOrElse(Set.empty)
-  }
 
   // TODO: Cache this and share with `evaluate`! This gets called multiple times!
   override def typ(scope: Scope) = {
+    val actualParamTypes = params.map { param =>
+      val realType = $LazyType(Lazy.of(() =>
+        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+      ))
+
+      param -> realType
+    }
+
     // TODO: The return type can be inferred for generic functions when they're used
     val actualReturnType = returnType match {
-      // TODO: This evaluation needs to happen after the pattern is matched
-      //.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
-      case Some(value) => value
+      case Some(value) =>
+        $LazyType(Lazy.of(() =>
+          value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+        ))
+
       case None =>
-        inferReturnTypeIfPossible(scope) match {
+        val inParamTypes = actualParamTypes.map { case param -> typ => param.inName -> typ }
+
+        inferReturnTypeIfPossible(scope, inParamTypes) match {
           case Some(value) => value
           case None => throw EvalError("Could not infer function return type because it uses type patterns", location)
         }
     }
 
-    val signature = MethodSignature.ofPatterns(
-      scope,
-      params.map { param => param.outName -> param.pattern },
+    val signature = MethodSignature.of(
+      actualParamTypes.map { case param -> typ => param.outName -> typ },
       actualReturnType
     )
 
     $Function(signature, FunctionRunMode.Default, InlinePreference.Default)
   }
 
-  private def inferReturnTypeIfPossible(scope: Scope): Option[Type] = {
-    val concreteParamValues = params.map {
-      case Parameter(_, name, pattern: ValuePattern.Expected, _) => name -> pattern.expectedValue
-      case _ => return None
-    }
+  private def inferReturnTypeIfPossible(scope: Scope, paramTypes: Seq[(VarName, Type)]): Option[Type] = {
+//    val concreteParamValues = params.map {
+//      case Parameter(_, name, pattern: ValuePattern.Expected, _) => name -> pattern.expectedValue
+//      case _ => return None
+//    }
 
     // This is lazy because methods defined on a class need to be able to infer the return type based
     // on the class's other methods, which may not be defined yet
     Some($LazyType(Lazy.of(() => {
       val env = Environment(scope, EvalMode.CompileTimeOnly)
-      val paramTypes = concreteParamValues.map { case name -> value => name -> value.evaluate(env).asType }
 
       val innerScope = scope.newChild(
         paramTypes.map { case name -> typ => name -> $Object(null, typ, typ.location) }
@@ -81,19 +89,18 @@ case class $FunctionDef(
   override def evaluate(env: Environment) =
     Closure(env.scope, this, typ(env.scope))
 
+//  private val isTemplateFunction = params.exists(_.pattern match {
+//    case _: ValuePattern.Expected => false
+//    case _ => true
+//  })
+
   // TODO: Implement this
   def evaluatePartially(env: Environment): $FunctionDef = this
 
   override def toAST(names: Map[VarName, String]) = {
-    val typeParamNames = params
-      .map(_.pattern)
-      .flatMap(_.names.defined)
-      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
-      .toMap
-
     val paramNames = params
       .map(_.inName)
-      .map { name => name -> findUniqueNameFor(name, typeParamNames.values.toSet) }
+      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
       .toMap
 
     ASTValue.Function(
@@ -101,17 +108,44 @@ case class $FunctionDef(
         ASTParameter(
           param.outName,
           paramNames(param.inName),
-          Some(param.pattern.toASTWithPreBoundNames(names ++ typeParamNames)),
+          Some(ASTValue.Pattern.SpecificValue(param.typ.toAST(names ++ paramNames))),
           param.location
         )
       },
-
-      // TODO: Add `typeParamNames` here if I start support use of type vals in fn body
       body = body.toAST(names ++ paramNames),
       returnType = returnType.map(_.toAST(names)),
       location
     )
   }
+
+//  override def toAST(names: Map[VarName, String]) = {
+//    val typeParamNames = params
+//      .map(_.pattern)
+//      .flatMap(_.names.defined)
+//      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
+//      .toMap
+//
+//    val paramNames = params
+//      .map(_.inName)
+//      .map { name => name -> findUniqueNameFor(name, typeParamNames.values.toSet) }
+//      .toMap
+//
+//    ASTValue.Function(
+//      params.map { param =>
+//        ASTParameter(
+//          param.outName,
+//          paramNames(param.inName),
+//          Some(param.pattern.toASTWithPreBoundNames(names ++ typeParamNames)),
+//          param.location
+//        )
+//      },
+//
+//      // TODO: Add `typeParamNames` here if I start support use of type vals in fn body
+//      body = body.toAST(names ++ paramNames),
+//      returnType = returnType.map(_.toAST(names)),
+//      location
+//    )
+//  }
 
   // TODO: Deduplicate this with $Let#findUniqueName
   private def findUniqueNameFor(name: VarName, usedNames: Set[String]): String = {
