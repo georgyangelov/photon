@@ -63,7 +63,22 @@ object TestHelpers {
     assert(resultCode == expectedCode)
   }
 
-  def expectPhases(code: String, compile: String, run: String) = ???
+  def expectPhases(code: String, compile: String, run: String) = {
+    val interpreter = new Interpreter
+    val ast = parse(code)
+    val compileValue = interpreter.evaluate(ast, EvalMode.Partial)
+
+    val resultCompileCode = interpreter.toAST(compileValue).toString
+    val expectedCompileTimeCode = Unparser.unparse(parse(compile))
+
+    assert(resultCompileCode == expectedCompileTimeCode)
+
+    val runtimeValue = interpreter.evaluate(compileValue, EvalMode.RunTime)
+    val resultRunTimeCode = interpreter.toAST(runtimeValue).toString
+    val expectedRunTimeCode = Unparser.unparse(parse(run))
+
+    assert(resultRunTimeCode == expectedRunTimeCode)
+  }
 
   private def parse(code: String) = {
     val lexer = new Lexer("<test>", code)

@@ -88,12 +88,12 @@ class InterpreterTest extends FunSuite {
     expectCompileTime("(a:Int, b:Int, c:Int):Int { (20 - a + b) * c }(1, b = 2, c = 2)", "42")
   }
 
-  ignore("runtime-only functions") {
-    expectPhases("val runtime = { 42 }; runtime()", "42", "42")
-    expectPhases("val runtime = { 42 }.runTimeOnly; runtime()", "val runtime = ():Int { 42 }; runtime()", "42")
+  test("runtime-only functions") {
+    expectPhases("val runtime = { 42 }.inline; runtime()", "42", "42")
+    expectPhases("val runtime = { 42 }.runTimeOnly; runtime()", "val runtime = { 42 }; runtime.call", "42")
   }
 
-  ignore("compile-time-only functions") {
+  test("compile-time-only functions") {
     expectPhases("val fn = ():Int { 42 }.compileTimeOnly; fn()", "42", "42")
   }
 
