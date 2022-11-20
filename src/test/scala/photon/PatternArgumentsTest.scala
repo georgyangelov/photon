@@ -68,35 +68,34 @@ class PatternArgumentsTest extends FunSuite {
     )
   }
 
-//  TODO: Actually this shouldn't be possible because of the second case - can't run the function `Optional(T)` with
-//  ignore("can infer return type of generic functions") {
-//    expectCompileTime(
-//      """
-//        val identity = (value: val T) value
-//
-//        identity(true)
-//      """,
-//      "true"
-//    )
-//
-//    expectCompileTime(
-//      """
-//        val identity = (value: val T) Optional(T).of(value)
-//
-//        identity(true)
-//      """,
-//      "true"
-//    )
-//
-//    expectCompileTime(
-//      """
-//        val identity = (value: val T) value
-//
-//        identity(42)
-//      """,
-//      "42"
-//    )
-//  }
+  ignore("can infer return type of generic functions on instantiation") {
+    expectCompileTime(
+      """
+        val identity = (value: val T) value
+
+        identity(true)
+      """,
+      "true"
+    )
+
+    expectCompileTime(
+      """
+        val identity = (value: val T) value
+
+        identity(42)
+      """,
+      "42"
+    )
+
+    //    expectCompileTime(
+    //      """
+    //        val identity = (value: val T) Optional(T).of(value)
+    //
+    //        identity(true)
+    //      """,
+    //      "true"
+    //    )
+  }
 
   // TODO: Move to another file testing pattern matching on values
   ignore("can define match functions on classes") {

@@ -68,11 +68,6 @@ case class $FunctionDef(
   }
 
   private def inferReturnTypeIfPossible(scope: Scope, paramTypes: Seq[(VarName, Type)]): Option[Type] = {
-//    val concreteParamValues = params.map {
-//      case Parameter(_, name, pattern: ValuePattern.Expected, _) => name -> pattern.expectedValue
-//      case _ => return None
-//    }
-
     // This is lazy because methods defined on a class need to be able to infer the return type based
     // on the class's other methods, which may not be defined yet
     Some($LazyType(Lazy.of(() => {
@@ -86,11 +81,6 @@ case class $FunctionDef(
 
   override def evaluate(env: Environment) =
     Closure(env.scope, this, typ(env.scope))
-
-//  private val isTemplateFunction = params.exists(_.pattern match {
-//    case _: ValuePattern.Expected => false
-//    case _ => true
-//  })
 
   def evaluatePartially(env: Environment): $FunctionDef = {
     val unknownValuesForParams = params
