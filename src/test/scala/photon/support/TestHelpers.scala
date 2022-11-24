@@ -25,7 +25,8 @@ object TestHelpers {
 
     val error = intercept[TypeError] {
       try {
-        interpreter.evaluate(ast, EvalMode.CompileTimeOnly)
+        val result = interpreter.evaluate(ast, EvalMode.Partial)
+//        println(interpreter.toAST(result).toString)
       } catch {
         case error: TypeError => throw error
         case error =>

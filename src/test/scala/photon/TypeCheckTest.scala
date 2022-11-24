@@ -45,6 +45,33 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
+  test("checks function body of uncalled methods of classes") {
+    expectTypeError("""
+      class Test {
+        def a() 42
+        def b(value: Boolean): Int value + 1
+      }
+
+      Test.new.a
+    """)
+  }
+
+  test("checks function body of uncalled methods of interfaces") {
+    expectTypeError("""
+      interface Test {
+        def a: Int
+        def b(value: Boolean): Int value + 1
+      }
+
+      class Test2 {
+        def a() 42
+      }
+
+      val test: Test = Test2.new
+      test.a
+    """)
+  }
+
   ignore("checks function body of runTimeOnly functions") {
     expectTypeError("""
       val a = {

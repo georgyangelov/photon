@@ -118,8 +118,22 @@ case class Class(
         returnType = spec.returnType
       )
 
+      // TODO: Do we want to have this converted to $Call?
       callMethod.call(env, specWithSelfArgument, location)
     }
+  }
+
+  override def evaluate(env: Environment): Value = {
+    val newProps = propertyDefs.map {
+      case ClassDefinition(name, value, location) =>
+        ClassDefinition(name, value.evaluate(env), location)
+    }
+    val newMethods = methodDefs.map {
+      case ClassDefinition(name, value, location) =>
+        ClassDefinition(name, value.evaluate(env), location)
+    }
+
+    Class(newProps, newMethods, scope, location)
   }
 }
 

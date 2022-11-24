@@ -301,6 +301,7 @@ case class $Function(
           followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
         )
 
+        // TODO: This is not correct - calls not only inlined functions but also functions on classes
         val closure = partialSelf.value match {
           case closure: Closure => closure
           case value if value.isOperation => throw DelayCall
@@ -343,7 +344,9 @@ case class $Function(
       case FunctionRunMode.Default =>
         inlinePreference match {
           case InlinePreference.ForceInline => FunctionEvalRequest.InlineIfPossible
-          case InlinePreference.Default => FunctionEvalRequest.InlineIfDefinedInline
+//          TODO: Implement this another way when this does not always try to inline class methods
+//          case InlinePreference.Default => FunctionEvalRequest.InlineIfDefinedInline
+          case InlinePreference.Default => throw DelayCall
           case InlinePreference.NoInline => throw DelayCall
         }
 
