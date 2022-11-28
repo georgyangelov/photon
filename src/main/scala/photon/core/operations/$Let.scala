@@ -36,7 +36,7 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     ebody match {
       // Inline if the body is a direct reference to this let value
       case $Reference(refName, _) if refName == name => evalue.get
-      case value if value.unboundNames.contains(name) => $Let(name, evalue.get, ebody, location)
+      case value if value.unboundNames.contains(name) => $Let(name, evalue.get, value, location)
       case _ if evalue.get.evalMayHaveSideEffects => $Block(Seq(evalue.get, ebody), location)
       case _ => ebody
     }

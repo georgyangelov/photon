@@ -48,10 +48,10 @@ class InterpreterTest extends FunSuite {
   test("higher-order functions") {
     expectCompileTime(
       """
-        val hof = (fn: (a: Int): Int):Int { fn(1) }
-        val fn = (a: Int): Int { a + 41 }
+        val hof = (fn1: (a: Int): Int):Int { fn1(1) }
+        val fn2 = (a: Int): Int { a + 41 }
 
-        hof(fn)
+        hof(fn2)
       """,
       "42"
     )

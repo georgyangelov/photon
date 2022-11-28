@@ -36,7 +36,7 @@ object $Interface extends Type {
   )
 }
 
-sealed trait Interface {
+sealed trait Interface extends Type {
   def canBeAssignedFrom(other: Type): Boolean
 }
 
@@ -45,7 +45,7 @@ case class UserDefinedInterface(
   // TODO: Do I need this?
   scope: Scope,
   override val location: Option[Location]
-) extends Type with Interface {
+) extends Interface {
   val self = this
   val metaType = new Type {
     override def typ(scope: Scope) = $Type
@@ -101,9 +101,9 @@ case class UserDefinedInterface(
         new Method {
           override val signature = methodSignature
           override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
-            val self = spec.requireSelfObject[Value](env)
+            val self = spec.requireSelf[InterfaceValue](env)
 
-            $Call(definition.name, spec.args.changeSelf(self), location).evaluate(env)
+            $Call(definition.name, spec.args.changeSelf(self.value), location).evaluate(env)
           }
         }
 
@@ -127,7 +127,7 @@ case class UserDefinedInterface(
         callMethod.signature
 
     override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-      val self = spec.requireSelf[$Object](env)
+      val self = spec.requireSelf[InterfaceValue](env)
       val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
       val argsForFunction = Arguments[Value](
         // Function should be able to get its closure correctly
@@ -135,13 +135,13 @@ case class UserDefinedInterface(
         positional = spec.args.positional,
         named =
           if (hasExplicitSelfBinding || !hasSelfArgument) spec.args.named
-          else spec.args.named + ("self" -> self)
+          else spec.args.named + ("self" -> self.value)
       )
       val specWithSelfArgument = CallSpec(
         args = argsForFunction,
         bindings =
           if (hasExplicitSelfBinding || !hasSelfArgument) spec.bindings
-          else spec.bindings.appended("self" -> self),
+          else spec.bindings.appended("self" -> self.value),
         returnType = spec.returnType
       )
 
@@ -198,7 +198,7 @@ case class FunctionInterface(
   runMode: FunctionRunMode,
   inlinePreference: InlinePreference,
   override val location: Option[Location]
-) extends Type with Interface {
+) extends Interface {
   val self = this
 
   override def typ(scope: Scope): Type = $Type
@@ -215,11 +215,33 @@ case class FunctionInterface(
   private def callMethod = new Method {
     override val signature = self.signature
     override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
-      val self = spec.requireSelfObject[Value](env)
+      val self = spec.requireSelf[InterfaceValue](env)
 
-      $Call("call", spec.args.changeSelf(self), location).evaluate(env)
+      $Call("call", spec.args.changeSelf(self.value), location).evaluate(env)
     }
   }
 
   // TODO: `toAST`
+}
+
+case class InterfaceValue(
+  value: Value,
+  interface: Interface,
+  location: Option[Location]
+) extends Value {
+  override def isOperation = value.isOperation
+  override def evalMayHaveSideEffects = value.evalMayHaveSideEffects
+  override def unboundNames = value.unboundNames
+
+  override def typ(scope: Scope) = interface
+
+  // TODO: Will have problems comparing values like this
+  override def evaluate(env: Environment) =
+    InterfaceValue(
+      value.evaluate(env),
+      interface,
+      location
+    )
+
+  override def toAST(names: Map[VarName, String]) = ???
 }

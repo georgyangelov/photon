@@ -301,7 +301,7 @@ case class $Function(
           case _ => throw EvalError("Cannot call 'call' on something that's not a function", location)
         }
 
-        val execBody = buildBodyForExecution(closure, spec)
+        val execBody = buildBodyForExecution(closure, spec, env.scope)
 
         val execEnv = Environment(
           closure.scope,
@@ -328,14 +328,17 @@ case class $Function(
           closure.scope,
           env.evalMode
         )
-        val execBody = buildBodyForExecution(closure, spec)
+        val execBody = buildBodyForExecution(closure, spec, env.scope)
 
         execBody.withOuterVariables(partialSelf.variables).wrapInLets.evaluate(execEnv)
     }
   }
 
-  private def buildBodyForExecution(closure: Closure, spec: CallSpec): PartialValue = {
-    val variables = spec.bindings.map { case name -> value => closure.names(name) -> value }
+  private def buildBodyForExecution(closure: Closure, spec: CallSpec, argsScope: Scope): PartialValue = {
+    val variables = spec.bindings.map {
+      case name -> value =>
+        closure.names(name) -> $ScopeBound(value, argsScope)
+    }
 
     PartialValue(closure.fnDef.body, variables)
   }

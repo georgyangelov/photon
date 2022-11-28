@@ -240,7 +240,7 @@ class ClassTest extends FunSuite {
         define "name", String
         define "age", Int
 
-        define "nextAge", (self: classType) { age + 1 }
+        define "nextAge", (self: selfType) { age + 1 }
       }
 
       val person = Person.new(name = "Ivan", age = 42)
@@ -258,7 +258,7 @@ class ClassTest extends FunSuite {
         define "name", String
         define "age", Int
 
-        define "nextAge", (self: classType) { age + 1 }
+        define "nextAge", (self: selfType) { age + 1 }
       }
 
       val Person = Class.new("Person", classBuildFn)

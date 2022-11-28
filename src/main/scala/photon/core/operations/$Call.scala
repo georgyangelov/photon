@@ -35,16 +35,17 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
 
   override def evaluate(env: Environment): Value = {
     val method = findMethod(env.scope)
-    val boundArgs = args.map($ScopeBound(_, env.scope))
 
     // TODO: Memoize and share this between `typ` and `evaluate`
-    val spec = method.signature.specialize(boundArgs, env.scope) match {
+    val spec = method.signature.specialize(args, env.scope) match {
       case Left(value) => value
       case Right(typeError) => throw typeError
     }
 
     try {
+//      val boundArgs = args.map($ScopeBound(_, env.scope))
       val result = method.call(env, spec, location)
+
       result
     } catch {
       case DelayCall =>
