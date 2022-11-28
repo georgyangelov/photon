@@ -17,7 +17,7 @@ object $Class extends Type {
           case builderFn => (None, builderFn)
         }
 
-        Lazy.selfReferencing[Class](self => {
+        val theClass = Lazy.selfReferencing[Class](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)
           val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
@@ -29,6 +29,8 @@ object $Class extends Type {
 
           classBuilder.buildClass(env.scope)
         }).resolve
+
+        theClass.partiallyEvaluateMethods(env.scope)
       }
     }
   )
@@ -100,7 +102,8 @@ case class Class(
         callMethod.signature
 
     override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-      val self = spec.requireSelf[$Object](env)
+//      val self = spec.requireSelf[$Object](env)
+      val self = spec.self
       val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
       val argsForFunction = Arguments[Value](
         // Function should be able to get its closure correctly
@@ -135,9 +138,18 @@ case class Class(
 
     Class(newProps, newMethods, scope, location)
   }
+
+  def partiallyEvaluateMethods(scope: Scope): Value = {
+    val env = Environment(scope, EvalMode.Partial)
+
+    propertyDefs.foreach { classDef => classDef.value = classDef.value.evaluate(env) }
+    methodDefs.foreach { classDef => classDef.value = classDef.value.evaluate(env) }
+
+    this
+  }
 }
 
-case class ClassDefinition(name: String, value: Value, location: Option[Location])
+case class ClassDefinition(name: String, var value: Value, location: Option[Location])
 
 object $ClassBuilder extends Type {
   override def typ(scope: Scope) = $Type

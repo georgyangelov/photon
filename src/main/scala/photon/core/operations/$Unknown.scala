@@ -5,6 +5,8 @@ import photon.core.$Type
 import photon.frontend.ASTValue
 
 case class $Unknown(valueType: Type, location: Option[Location]) extends Value {
+  override def isOperation: Boolean = true
+
   // TODO: Is this correct?
   override def evalMayHaveSideEffects: Boolean = false
 

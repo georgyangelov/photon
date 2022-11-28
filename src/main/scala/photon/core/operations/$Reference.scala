@@ -13,8 +13,7 @@ case class $Reference(name: VarName, location: Option[Location]) extends Value {
          EvalMode.RunTime => valueInScope(env.scope).evaluate(env)
 
     // If it's in a partial mode => it's not required (yet)
-    case EvalMode.PartialInnerFunctions |
-         EvalMode.Partial |
+    case EvalMode.Partial |
          EvalMode.PartialPreferRunTime |
          EvalMode.PartialRunTimeOnly => this
   }

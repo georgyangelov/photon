@@ -96,9 +96,7 @@ case class $FunctionDef(
 
     val innerScope = env.scope.newChild(unknownValuesForParams)
 
-    val newBody = body
-      .evaluate(Environment(innerScope, env.evalMode))
-      .evaluate(Environment(innerScope, EvalMode.PartialInnerFunctions))
+    val newBody = body.evaluate(Environment(innerScope, env.evalMode))
 
     $FunctionDef(params, newBody, returnType, location)
   }
@@ -181,23 +179,41 @@ case class Closure(scope: Scope, fnDef: $FunctionDef, typ: $Function) extends Va
 
   override def toAST(names: Map[VarName, String]) = fnDef.toAST(names)
 
-  def evaluate(env: Environment): Value = env.evalMode match {
-    case EvalMode.PartialInnerFunctions =>
-      val partialEvalMode = typ.runMode match {
-        // TODO: This should result in an error - the function was not evaluated compile-time.
-        //       Or maybe it was but wasn't removed
-        case FunctionRunMode.CompileTimeOnly => ???
-        case FunctionRunMode.Default => EvalMode.Partial
-        case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
-        case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
-      }
+//  def evaluatePartially(scope: Scope): Value = {
+//      val partialEvalMode = typ.runMode match {
+//        // TODO: This should result in an error - the function was not evaluated compile-time.
+//        //       Or maybe it was but wasn't removed
+//        case FunctionRunMode.CompileTimeOnly => ???
+//        case FunctionRunMode.Default => EvalMode.Partial
+//        case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
+//        case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
+//      }
+//
+//      val innerEnv = Environment(scope, partialEvalMode)
+//      val newFunctionDef = fnDef.evaluatePartially(innerEnv)
+//
+//      Closure(scope, newFunctionDef, typ)
+//  }
 
-      val innerEnv = Environment(scope, partialEvalMode)
-      val newFunctionDef = fnDef.evaluatePartially(innerEnv)
+  override def evaluate(env: Environment): Value = {
+    // TODO: This env.evalMode == EvalMode.CompileTimeOnly skip may not be correct
+    if (env.evalMode == EvalMode.RunTime || env.evalMode == EvalMode.CompileTimeOnly) {
+      return this
+    }
 
-      Closure(scope, newFunctionDef, typ)
+    val partialEvalMode = typ.runMode match {
+      // TODO: This should result in an error - the function was not evaluated compile-time.
+      //       Or maybe it was but wasn't removed
+      case FunctionRunMode.CompileTimeOnly => EvalMode.Partial
+      case FunctionRunMode.Default => EvalMode.Partial
+      case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
+      case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
+    }
 
-    case _ => this
+    val innerEnv = Environment(scope, partialEvalMode)
+    val newFunctionDef = fnDef.evaluatePartially(innerEnv)
+
+    Closure(scope, newFunctionDef, typ)
   }
 }
 

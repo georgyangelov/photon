@@ -43,19 +43,16 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
       case Right(typeError) => throw typeError
     }
 
-    if (env.evalMode == EvalMode.PartialInnerFunctions) {
-      val evaluatedArgs = spec.args.map(_.evaluate(env))
-
-      // No need to try to call the method again, it already was tried in CompileTimeOnly mode
-      return $Call(name, evaluatedArgs, location)
-    }
-
     try {
       val result = method.call(env, spec, location)
       result
     } catch {
       case DelayCall =>
         // TODO: This should be correct, right? Or not? What about self-references here?
+        // TODO: This is wrong when doing partial evaluation because the arguments get bound to
+        //       the partial scope. These should either be unwrapped from the scope or I should
+        //       not use spec.args. But I want spec.args because that may have converted the values
+        //       during specialization.
         val evaluatedArgs = spec.args.map(_.evaluate(env))
 
         $Call(name, evaluatedArgs, location)
