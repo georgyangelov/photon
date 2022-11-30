@@ -15,7 +15,7 @@ case class $Reference(name: VarName, location: Option[Location]) extends Value {
     // If it's in a partial mode => it's not required (yet)
     case EvalMode.Partial |
          EvalMode.PartialPreferRunTime |
-         EvalMode.PartialRunTimeOnly => this
+         EvalMode.PartialRunTimeOnly => EvalResult(this, Seq.empty)
   }
 
   override def typ(scope: Scope) = valueInScope(scope).typ(scope)

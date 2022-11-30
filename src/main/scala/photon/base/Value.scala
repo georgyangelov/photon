@@ -1,11 +1,22 @@
 package photon.base
 
+import photon.core.operations.Closure
 import photon.frontend.ASTValue
 
 import scala.reflect.ClassTag
 
 class VarName(val originalName: String) {
   override def toString = s"VarName($originalName)"
+}
+
+case class EvalResult[T](
+  value: T,
+  closures: Seq[Closure]
+) {
+  def partiallyEvaluateInnerClosures(scope: Scope) = ???
+
+  def mapValue[R](fn: T => R): EvalResult[R] =
+    EvalResult(fn(value), closures)
 }
 
 trait Value {
@@ -16,7 +27,7 @@ trait Value {
   def typ(scope: Scope): Type
 
   // TODO: Memoize the result?
-  def evaluate(env: Environment): Value
+  def evaluate(env: Environment): EvalResult[Value]
 
   def inconvertible = throw EvalError(s"Could not convert $this to AST", location)
   def toAST(names: Map[VarName, String]): ASTValue
@@ -32,7 +43,7 @@ trait Value {
 trait ConcreteValue extends Value {
   override def evalMayHaveSideEffects = false
   override def unboundNames = Set.empty
-  override def evaluate(env: Environment): Value = this
+  override def evaluate(env: Environment) = EvalResult(this, Seq.empty)
 }
 
 trait Type extends ConcreteValue {

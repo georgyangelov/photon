@@ -28,5 +28,5 @@ case class $Object(obj: Any, typ: Type, location: Option[Location]) extends Valu
 
   override def unboundNames = Set.empty
 
-  override def evaluate(env: Environment) = this
+  override def evaluate(env: Environment) = EvalResult(this, Seq.empty)
 }

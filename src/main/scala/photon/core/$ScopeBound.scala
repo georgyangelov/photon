@@ -10,11 +10,13 @@ case class $ScopeBound(value: Value, scope: Scope) extends Value {
   override def typ(_scope: Scope) = value.typ(scope)
   override def evaluate(env: Environment) = {
     val evalue = value.evaluate(Environment(scope, env.evalMode))
+    val result =
+      if (evalue.value.isOperation)
+        $ScopeBound(evalue.value, scope)
+      else
+        evalue.value
 
-    if (evalue.isOperation)
-      $ScopeBound(evalue, scope)
-    else
-      evalue
+    EvalResult(result, evalue.closures)
   }
 
   override def toAST(names: Map[VarName, String]) = value.toAST(names)

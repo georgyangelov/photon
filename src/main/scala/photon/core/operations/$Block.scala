@@ -12,22 +12,26 @@ case class $Block(values: Seq[Value], location: Option[Location]) extends Value 
   override def evaluate(env: Environment) = {
     val lastIndex = values.length - 1
     val eValueBuilder = Seq.newBuilder[Value]
+    val closures = Seq.newBuilder[Closure]
 
     values.zipWithIndex.foreach { case (value, index) =>
       val evalue = value.evaluate(env)
 
-      if (evalue.evalMayHaveSideEffects || index == lastIndex) {
-        eValueBuilder.addOne(evalue)
+      if (evalue.value.evalMayHaveSideEffects || index == lastIndex) {
+        eValueBuilder.addOne(evalue.value)
+        closures.addAll(evalue.closures)
       }
     }
 
     val eValues = eValueBuilder.result
 
-    if (eValues.length == 1) {
+    val result = if (eValues.length == 1) {
       eValues.last
     } else {
       $Block(eValues, location)
     }
+
+    EvalResult(result, closures.result)
   }
 
   override def toAST(names: Map[VarName, String]): ASTValue =

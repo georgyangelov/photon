@@ -5,7 +5,7 @@ import scala.util.control.ControlThrowable
 trait Method {
   val signature: MethodSignature
 
-  def call(env: Environment, spec: CallSpec, location: Option[Location]): Value
+  def call(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value]
 }
 
 sealed trait MethodCallThrowable extends ControlThrowable
@@ -14,9 +14,9 @@ case object CannotCallCompileTimeMethodInRunTimeMethod extends MethodCallThrowab
 case object DelayCall                                  extends MethodCallThrowable
 
 abstract class CompileTimeOnlyMethod extends Method {
-  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value
+  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value]
 
-  def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+  def call(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value] = {
     env.evalMode match {
       case EvalMode.CompileTimeOnly |
            EvalMode.Partial |
@@ -31,9 +31,9 @@ abstract class CompileTimeOnlyMethod extends Method {
 }
 
 abstract class DefaultMethod extends Method {
-  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value
+  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value]
 
-  def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+  def call(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value] = {
     env.evalMode match {
       case EvalMode.CompileTimeOnly |
            EvalMode.RunTime |
@@ -48,9 +48,9 @@ abstract class DefaultMethod extends Method {
 }
 
 abstract class PreferRunTimeMethod extends Method {
-  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value
+  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value]
 
-  def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+  def call(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value] = {
     env.evalMode match {
       case EvalMode.CompileTimeOnly |
            EvalMode.RunTime =>
@@ -65,9 +65,9 @@ abstract class PreferRunTimeMethod extends Method {
 }
 
 abstract class RunTimeOnlyMethod extends Method {
-  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value
+  protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value]
 
-  def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+  def call(env: Environment, spec: CallSpec, location: Option[Location]): EvalResult[Value] = {
     env.evalMode match {
       case EvalMode.CompileTimeOnly => throw CannotCallRunTimeMethodInCompileTimeMethod
       case EvalMode.RunTime => apply(env, spec, location)

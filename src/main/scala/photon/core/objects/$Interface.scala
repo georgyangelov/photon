@@ -2,7 +2,7 @@ package photon.core.objects
 
 import photon.base._
 import photon.core._
-import photon.core.operations.{$Call, $Function, FunctionRunMode, InlinePreference, TypeParameter}
+import photon.core.operations._
 import photon.frontend.ASTValue
 import photon.lib.Lazy
 
@@ -14,23 +14,31 @@ object $Interface extends Type {
     "new" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val (interfaceName, builderFn) = spec.args.positional.head.evaluate(env) match {
-          case $Object(name: String, _, _) => (Some(name), spec.args.positional(1).evaluate(env))
+        val (interfaceName, EvalResult(builderFn, _)) = spec.args.positional.head.evaluate(env) match {
+          // Using .value should be fine since this is a compile-time only method
+          case EvalResult($Object(name: String, _, _), _) => (Some(name), spec.args.positional(1).evaluate(env))
           case builderFn => (None, builderFn)
         }
 
-        Lazy.selfReferencing[UserDefinedInterface](self => {
+        var closures: Seq[Closure] = Seq.empty
+
+        val result = Lazy.selfReferencing[UserDefinedInterface](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)
           val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
-          $Call(
+          // TODO: Is this correct, does this include the closures for the methods of the class/interface?
+          val EvalResult(_, innerClosures) = $Call(
             "call",
             Arguments.positional(builderFn, Seq(classBuilderObject)),
             location
           ).evaluate(env)
 
+          closures = innerClosures
+
           classBuilder.buildInterface(env.scope)
         }).resolve
+
+        EvalResult(result, closures)
       }
     }
   )

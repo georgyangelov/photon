@@ -19,4 +19,8 @@ object ScalaExtensions {
       (context, results)
     }
   }
+
+  implicit class SeqExtensions[T](seq: Seq[T]) {
+    def except(value: T) = seq.filterNot(_ == value)
+  }
 }

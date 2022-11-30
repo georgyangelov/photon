@@ -33,7 +33,7 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
       location
     )
 
-  override def evaluate(env: Environment): Value = {
+  override def evaluate(env: Environment) = {
     val method = findMethod(env.scope)
 
     // TODO: Memoize and share this between `typ` and `evaluate`
@@ -50,13 +50,12 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
     } catch {
       case DelayCall =>
         // TODO: This should be correct, right? Or not? What about self-references here?
-        // TODO: This is wrong when doing partial evaluation because the arguments get bound to
-        //       the partial scope. These should either be unwrapped from the scope or I should
-        //       not use spec.args. But I want spec.args because that may have converted the values
-        //       during specialization.
         val evaluatedArgs = spec.args.map(_.evaluate(env))
+        val closures = evaluatedArgs.values.flatMap(_.closures)
 
-        $Call(name, evaluatedArgs, location)
+        val result = $Call(name, evaluatedArgs.map(_.value), location)
+
+        EvalResult(result, closures)
 
       case CannotCallCompileTimeMethodInRunTimeMethod =>
         throw EvalError(s"Cannot call compile-time-only method $name inside of runtime-only method", location)

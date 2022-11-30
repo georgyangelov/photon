@@ -34,9 +34,11 @@ class Interpreter {
   }
 
   def evaluate(value: Value, evalMode: EvalMode): Value = {
-    val evaluated = value.evaluate(Environment(rootScope, evalMode))
+    val result = value.evaluate(Environment(rootScope, evalMode))
 
-    evaluated
+    result.partiallyEvaluateInnerClosures(rootScope)
+
+    result.value
   }
 
   def toAST(value: Value): ASTValue = {

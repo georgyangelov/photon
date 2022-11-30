@@ -9,17 +9,22 @@ case class PartialValue(value: Value, variables: Seq[(VarName, Value)]) {
   def withOuterVariables(outer: Seq[(VarName, Value)]) =
     PartialValue(value, outer ++ variables)
 
-  def evaluate(env: Environment) = {
-    val envWithVariables = Environment(
-      env.scope.newChild(variables),
-      env.evalMode
-    )
-
-    PartialValue(
-      value.evaluate(envWithVariables),
-      variables
-    )
-  }
+//  def evaluate(env: Environment) = {
+//    val envWithVariables = Environment(
+//      env.scope.newChild(variables),
+//      env.evalMode
+//    )
+//
+//    val result = value.evaluate(envWithVariables)
+//
+//    EvalResult(
+//      PartialValue(
+//        result.value,
+//        variables
+//      ),
+//      result.closures
+//    )
+//  }
 
   def wrapInLets: Value =
     variables.foldRight(value) { case (varName, varValue) -> result =>

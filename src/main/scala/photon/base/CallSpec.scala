@@ -222,13 +222,13 @@ case class CallSpec(
 ) {
   def self = args.self
 
-  def requireSelf[T <: Value](env: Environment)(implicit tag: ClassTag[T]): T = {
+  def requireSelf[T <: Value](env: Environment)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val self = args.self.evaluate(env)
 
     requireType[T](env, "self", Some(self))(tag)
   }
 
-  def require[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): T = {
+  def require[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val value = bindings
       .find { case varName -> _ => varName == name }
       .map(_._2)
@@ -237,18 +237,18 @@ case class CallSpec(
     requireType[T](env, name, value)(tag)
   }
 
-  def requirePositional[T <: Value](env: Environment, index: Int)(implicit tag: ClassTag[T]): T = {
+  def requirePositional[T <: Value](env: Environment, index: Int)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val value = args.positional(index).evaluate(env)
 
     requireTypePositional[T](env, index, value)(tag)
   }
 
   // TODO: Remove this once we have patterns
-  private def requireTypePositional[T <: Value](env: Environment, index: Int, value: Value)(implicit tag: ClassTag[T]): T = {
+  private def requireTypePositional[T <: Value](env: Environment, index: Int, value: EvalResult[Value])(implicit tag: ClassTag[T]): EvalResult[T] = {
     value match {
-      case value: T => value
+      case value: EvalResult[T] => value
 
-      case value if value.isOperation =>
+      case EvalResult(value, _) if value.isOperation =>
         env.evalMode match {
           case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $value even runtime", None)
           case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $value compile-time", None)
@@ -261,11 +261,11 @@ case class CallSpec(
     }
   }
 
-  private def requireType[T <: Value](env: Environment, name: String, value: Option[Value])(implicit tag: ClassTag[T]): T = {
+  private def requireType[T <: Value](env: Environment, name: String, value: Option[EvalResult[Value]])(implicit tag: ClassTag[T]): EvalResult[T] = {
     value match {
-      case Some(value: T) => value
+      case Some(value: EvalResult[T]) => value
 
-      case Some(value) if value.isOperation =>
+      case Some(EvalResult(value, _)) if value.isOperation =>
         env.evalMode match {
           case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $value even runtime", None)
           case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $value compile-time", None)
@@ -274,22 +274,22 @@ case class CallSpec(
                EvalMode.PartialPreferRunTime => throw DelayCall
         }
 
-      case Some(value) => throw EvalError(s"Invalid value type $value for name $name, expected $tag", None)
+      case Some(EvalResult(value, _)) => throw EvalError(s"Invalid value type $value for name $name, expected $tag", None)
 
       case None => throw EvalError(s"Cannot find binding $name", None)
     }
   }
 
-  def requireObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): T =
-    require[$Object](env, name).assert[T](tag)
+  def requireObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): EvalResult[T] =
+    require[$Object](env, name).mapValue(_.assert[T](tag))
 
-  def requirePositionalObject[T <: Any](env: Environment, index: Int)(implicit tag: ClassTag[T]): T =
-    requirePositional[$Object](env, index).assert[T](tag)
+  def requirePositionalObject[T <: Any](env: Environment, index: Int)(implicit tag: ClassTag[T]): EvalResult[T] =
+    requirePositional[$Object](env, index).mapValue(_.assert[T](tag))
 
-  def requireSelfObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
-    requireSelf[$Object](env).assert[T](tag)
+  def requireSelfObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): EvalResult[T] =
+    requireSelf[$Object](env).mapValue(_.assert[T](tag))
 
-  def requireSelfInlined[T <: Value](env: Environment)(implicit tag: ClassTag[T]): T = {
+  def requireSelfInlined[T <: Value](env: Environment)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val self = args.self
       .evaluate(env)
       .partialValue(env, followReferences = true)
@@ -298,7 +298,7 @@ case class CallSpec(
     requireType[T](env, "self", Some(self))(tag)
   }
 
-  def requireInlined[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): T = {
+  def requireInlined[T <: Value](env: Environment, name: String)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val value = bindings
       .find { case varName -> _ => varName == name }
       .map(_._2)
@@ -310,9 +310,9 @@ case class CallSpec(
     requireType[T](env, name, value)(tag)
   }
 
-  def requireInlinedObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): T =
-    requireInlined[$Object](env, name).assert[T](tag)
+  def requireInlinedObject[T <: Any](env: Environment, name: String)(implicit tag: ClassTag[T]): EvalResult[T] =
+    requireInlined[$Object](env, name).mapValue(_.assert[T](tag))
 
-  def requireSelfInlinedObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): T =
-    requireSelfInlined[$Object](env).assert[T](tag)
+  def requireSelfInlinedObject[T <: Any](env: Environment)(implicit tag: ClassTag[T]): EvalResult[T] =
+    requireSelfInlined[$Object](env).mapValue(_.assert[T](tag))
 }

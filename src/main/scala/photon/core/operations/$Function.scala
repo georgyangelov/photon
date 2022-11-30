@@ -37,7 +37,7 @@ case class $FunctionDef(
   override def typ(scope: Scope) = {
     val actualParamTypes = params.map { param =>
       val realType = $LazyType(Lazy.of(() =>
-        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+        param.typ.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).value.asType
       ))
 
       param -> realType
@@ -47,7 +47,7 @@ case class $FunctionDef(
     val actualReturnType = returnType match {
       case Some(value) =>
         $LazyType(Lazy.of(() =>
-          value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).asType
+          value.evaluate(Environment(scope, EvalMode.CompileTimeOnly)).value.asType
         ))
 
       case None =>
@@ -79,8 +79,11 @@ case class $FunctionDef(
     })))
   }
 
-  override def evaluate(env: Environment) =
-    Closure(env.scope, this, typ(env.scope))
+  override def evaluate(env: Environment) = {
+    val closure = Closure(env.scope, this, typ(env.scope))
+
+    EvalResult(closure, Seq(closure))
+  }
 
   def evaluatePartially(env: Environment): $FunctionDef = {
     val unknownValuesForParams = params
@@ -247,9 +250,10 @@ case class $Function(
         $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelf[Closure](env)
+        val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
 
-        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
+        EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }
     },
 
@@ -259,9 +263,10 @@ case class $Function(
         $Function(self.signature, FunctionRunMode.RunTimeOnly, self.inlinePreference)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelf[Closure](env)
+        val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
 
-        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
+        EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }
     },
 
@@ -271,9 +276,10 @@ case class $Function(
         $Function(self.signature, self.runMode, InlinePreference.ForceInline)
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val closure = spec.requireSelf[Closure](env)
+        val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
 
-        Closure(closure.scope, closure.fnDef, spec.returnType.asInstanceOf[$Function])
+        EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }
     }
   )

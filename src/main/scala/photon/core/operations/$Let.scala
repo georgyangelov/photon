@@ -15,14 +15,14 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     body.typ(innerScope)
   }
 
-  override def evaluate(env: Environment): Value = {
-    var evalue: Option[Value] = None
+  override def evaluate(env: Environment) = {
+    var evalue: Option[EvalResult[Value]] = None
     val lazyValue = $Lazy(Lazy.of(() => {
       if (evalue.isEmpty) {
         throw EvalError("Cannot evaluate self-referencing value directly", location)
       }
 
-      evalue.get
+      evalue.get.value
     }), location)
 
     val innerEnv = Environment(
@@ -33,11 +33,19 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     evalue = Some(value.evaluate(innerEnv))
     val ebody = body.evaluate(innerEnv)
 
-    ebody match {
+    ebody.value match {
       // Inline if the body is a direct reference to this let value
       case $Reference(refName, _) if refName == name => evalue.get
-      case value if value.unboundNames.contains(name) => $Let(name, evalue.get, value, location)
-      case _ if evalue.get.evalMayHaveSideEffects => $Block(Seq(evalue.get, ebody), location)
+      case value if value.unboundNames.contains(name) =>
+        val result = $Let(name, evalue.get.value, value, location)
+
+        EvalResult(result, evalue.get.closures ++ ebody.closures)
+
+      case _ if evalue.get.value.evalMayHaveSideEffects =>
+        val result = $Block(Seq(evalue.get.value, ebody.value), location)
+
+        EvalResult(result, evalue.get.closures ++ ebody.closures)
+
       case _ => ebody
     }
   }
