@@ -12,23 +12,31 @@ object $Class extends Type {
     "new" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
-        val (className, builderFn) = spec.args.positional.head.evaluate(env) match {
-          case $Object(name: String, _, _) => (Some(name), spec.args.positional(1).evaluate(env))
+        val (interfaceName, EvalResult(builderFn, _)) = spec.args.positional.head.evaluate(env) match {
+          // Using .value should be fine since this is a compile-time only method
+          case EvalResult($Object(name: String, _, _), _) => (Some(name), spec.args.positional(1).evaluate(env))
           case builderFn => (None, builderFn)
         }
 
-        Lazy.selfReferencing[Class](self => {
+        var closures: Seq[Closure] = Seq.empty
+
+        val result = Lazy.selfReferencing[Class](self => {
           val classBuilder = new ClassBuilder($Lazy(self, location), location)
           val classBuilderObject = $Object(classBuilder, $ClassBuilder, location)
 
-          $Call(
+          // TODO: Is this correct, does this include the closures for the methods of the class/interface?
+          val EvalResult(_, innerClosures) = $Call(
             "call",
             Arguments.positional(builderFn, Seq(classBuilderObject)),
             location
           ).evaluate(env)
 
+          closures = innerClosures
+
           classBuilder.buildClass(env.scope)
         }).resolve
+
+        EvalResult(result, closures)
       }
     }
   )
@@ -55,12 +63,18 @@ case class Class(
           self
         )
 
-        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
           val data = propertyDefs
+            // TODO: Require concrete value here, we shouldn't be able to execute this with unknown values
             .map { property => property.name -> spec.require[Value](env, property.name) }
             .toMap
 
-          $Object(data, self, location)
+          val closures = data.values.flatMap(_.closures).toSeq
+          val values = data.map { case key -> evalResult => key -> evalResult.value }
+
+          val result = $Object(values, self, location)
+
+          EvalResult(result, closures)
         }
       }
     )
@@ -79,6 +93,7 @@ case class Class(
     override val signature = MethodSignature.of(Seq.empty, property.value.asType)
     override def apply(env: Environment, spec: CallSpec, location: Option[Location]) =
       spec.requireSelfObject[Map[String, Value]](env)
+        .value
         .getOrElse(
           property.name,
           throw EvalError(s"Property ${property.name} not in class definition", location)
@@ -99,7 +114,7 @@ case class Class(
       else
         callMethod.signature
 
-    override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+    override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
 //      val self = spec.requireSelf[$Object](env)
       val self = spec.self
       val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
@@ -124,18 +139,18 @@ case class Class(
     }
   }
 
-  override def evaluate(env: Environment): Value = {
-    val newProps = propertyDefs.map {
-      case ClassDefinition(name, value, location) =>
-        ClassDefinition(name, value.evaluate(env), location)
-    }
-    val newMethods = methodDefs.map {
-      case ClassDefinition(name, value, location) =>
-        ClassDefinition(name, value.evaluate(env), location)
-    }
-
-    Class(newProps, newMethods, scope, location)
-  }
+//  override def evaluate(env: Environment): Value = {
+//    val newProps = propertyDefs.map {
+//      case ClassDefinition(name, value, location) =>
+//        ClassDefinition(name, value.evaluate(env), location)
+//    }
+//    val newMethods = methodDefs.map {
+//      case ClassDefinition(name, value, location) =>
+//        ClassDefinition(name, value.evaluate(env), location)
+//    }
+//
+//    Class(newProps, newMethods, scope, location)
+//  }
 }
 
 case class ClassDefinition(name: String, value: Value, location: Option[Location])
@@ -149,24 +164,26 @@ object $ClassBuilder extends Type {
         $AnyStatic
       )
 
-      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-        val self = spec.requireSelfObject[ClassBuilder](env)
-        val name = spec.requireObject[String](env, "name")
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val self = spec.requireSelfObject[ClassBuilder](env).value
+        val name = spec.requireObject[String](env, "name").value
         val definition = spec.require[Value](env, "definition")
 
-        self.definitions.addOne(ClassDefinition(name, definition, location))
+        self.definitions.addOne(ClassDefinition(name, definition.value, location))
 
         // TODO: Actual null value
-        $Object(null, $Type, location)
+        val result = $Object(null, $Type, location)
+
+        EvalResult(result, definition.closures)
       }
     },
 
     "selfType" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.of(Seq.empty, $Type)
-      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-        val self = spec.requireSelfObject[ClassBuilder](env)
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val self = spec.requireSelfObject[ClassBuilder](env).value
 
-        self.ref //.evaluate(env)
+        EvalResult(self.ref, Seq.empty) //.evaluate(env)
       }
     }
   )

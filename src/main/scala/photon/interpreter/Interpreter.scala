@@ -34,9 +34,10 @@ class Interpreter {
   }
 
   def evaluate(value: Value, evalMode: EvalMode): Value = {
-    val result = value.evaluate(Environment(rootScope, evalMode))
+    val env = Environment(rootScope, evalMode)
+    val result = value.evaluate(env)
 
-    result.partiallyEvaluateInnerClosures(rootScope)
+    result.partiallyEvaluateInnerClosures(env)
 
     result.value
   }

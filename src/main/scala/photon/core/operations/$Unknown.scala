@@ -14,7 +14,7 @@ case class $Unknown(valueType: Type, location: Option[Location]) extends Value {
 
   override def typ(scope: Scope): Type = valueType
 
-  override def evaluate(env: Environment): Value =
+  override def evaluate(env: Environment) =
     throw EvalError("Tried to eval an unknown value, this shouldn't happen", location)
 
   override def toAST(names: Map[VarName, String]): ASTValue =

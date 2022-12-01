@@ -21,7 +21,7 @@ case class Parameter(
 
 case class $FunctionDef(
   params: Seq[Parameter],
-  body: Value,
+  var body: Value,
   returnType: Option[Value],
   location: Option[Location]
 ) extends Value {
@@ -85,23 +85,28 @@ case class $FunctionDef(
     EvalResult(closure, Seq(closure))
   }
 
-  def evaluatePartially(env: Environment): $FunctionDef = {
+  // This should only be called from Closure as only it knows what the expected evalMode of the function is
+  def evaluatePartially(env: Environment): Unit = {
     val unknownValuesForParams = params
       // TODO: This evaluate here is duplicated with the .typ function above
       .map { param =>
         param.inName -> $Unknown(
           param.typ
             .evaluate(Environment(env.scope, EvalMode.CompileTimeOnly))
+            .value
             .asType,
           param.location
         )
       }
 
     val innerScope = env.scope.newChild(unknownValuesForParams)
+    val innerEnv = Environment(innerScope, env.evalMode)
 
-    val newBody = body.evaluate(Environment(innerScope, env.evalMode))
+    val newBody = body.evaluate(innerEnv)
 
-    $FunctionDef(params, newBody, returnType, location)
+    this.body = newBody.value
+
+    newBody.partiallyEvaluateInnerClosures(innerEnv)
   }
 
   override def toAST(names: Map[VarName, String]) = {
@@ -182,42 +187,46 @@ case class Closure(scope: Scope, fnDef: $FunctionDef, typ: $Function) extends Va
 
   override def toAST(names: Map[VarName, String]) = fnDef.toAST(names)
 
-//  def evaluatePartially(scope: Scope): Value = {
-//      val partialEvalMode = typ.runMode match {
-//        // TODO: This should result in an error - the function was not evaluated compile-time.
-//        //       Or maybe it was but wasn't removed
-//        case FunctionRunMode.CompileTimeOnly => ???
-//        case FunctionRunMode.Default => EvalMode.Partial
-//        case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
-//        case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
-//      }
-//
-//      val innerEnv = Environment(scope, partialEvalMode)
-//      val newFunctionDef = fnDef.evaluatePartially(innerEnv)
-//
-//      Closure(scope, newFunctionDef, typ)
-//  }
-
-  override def evaluate(env: Environment): Value = {
-    // TODO: This env.evalMode == EvalMode.CompileTimeOnly skip may not be correct
-    if (env.evalMode == EvalMode.RunTime || env.evalMode == EvalMode.CompileTimeOnly) {
-      return this
-    }
-
+  def evaluatePartially(env: Environment): Unit = {
+    // TODO: This should also depend on the parent environment, probably
     val partialEvalMode = typ.runMode match {
       // TODO: This should result in an error - the function was not evaluated compile-time.
       //       Or maybe it was but wasn't removed
-      case FunctionRunMode.CompileTimeOnly => EvalMode.Partial
+      case FunctionRunMode.CompileTimeOnly => return
       case FunctionRunMode.Default => EvalMode.Partial
       case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
       case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
     }
 
     val innerEnv = Environment(scope, partialEvalMode)
-    val newFunctionDef = fnDef.evaluatePartially(innerEnv)
-
-    Closure(scope, newFunctionDef, typ)
+    fnDef.evaluatePartially(innerEnv)
   }
+
+//  override def evaluate(env: Environment): Value = {
+//    // TODO: This env.evalMode == EvalMode.CompileTimeOnly skip may not be correct
+//    if (env.evalMode == EvalMode.RunTime || env.evalMode == EvalMode.CompileTimeOnly) {
+//      return this
+//    }
+//
+//    val partialEvalMode = typ.runMode match {
+//      // TODO: This should result in an error - the function was not evaluated compile-time.
+//      //       Or maybe it was but wasn't removed
+//      case FunctionRunMode.CompileTimeOnly => EvalMode.Partial
+//      case FunctionRunMode.Default => EvalMode.Partial
+//      case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
+//      case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
+//    }
+//
+//    val innerEnv = Environment(scope, partialEvalMode)
+//    val newFunctionDef = fnDef.evaluatePartially(innerEnv)
+//
+//    Closure(scope, newFunctionDef, typ)
+//  }
+
+  override def evaluate(env: Environment): EvalResult[Value] =
+    // TODO: Is this correct? We should have returned the closure when it was defined, but still it's weird.
+    //       Is this even being called at all?
+    EvalResult(this, Seq.empty)
 }
 
 case class $FunctionMetaType(fnT: $Function) extends Type {
@@ -295,10 +304,8 @@ case class $Function(
           forcedEvalMode(env.evalMode)
         )
 
-        val partialSelf = spec.requireSelf[Value](selfEnv).partialValue(
-          selfEnv,
-          followReferences = true
-        )
+        val EvalResult(partialSelf, partialSelfClosures) = spec.requireSelf[Value](selfEnv)
+          .mapValue(_.partialValue(selfEnv, followReferences = true))
 
         // TODO: Should we check that the lets wrapping this value are fully evaluated as well?
         val closure = partialSelf.value match {
@@ -314,14 +321,14 @@ case class $Function(
           forcedEvalMode(env.evalMode)
         )
 
-        execBody.wrapInLets.evaluate(execEnv)
+        val result = execBody.wrapInLets.evaluate(execEnv)
+
+        EvalResult(result.value, partialSelfClosures ++ result.closures)
 
       case FunctionEvalRequest.InlineIfPossible |
            FunctionEvalRequest.InlineIfDefinedInline =>
-        val partialSelf = spec.requireSelf[Value](env).partialValue(
-          env,
-          followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible
-        )
+        val EvalResult(partialSelf, partialSelfClosures) = spec.requireSelf[Value](env)
+          .mapValue(_.partialValue(env, followReferences = evalRequest == FunctionEvalRequest.InlineIfPossible))
 
         // TODO: This is not correct - calls not only inlined functions but also functions on classes
         val closure = partialSelf.value match {
@@ -336,7 +343,9 @@ case class $Function(
         )
         val execBody = buildBodyForExecution(closure, spec, env.scope)
 
-        execBody.withOuterVariables(partialSelf.variables).wrapInLets.evaluate(execEnv)
+        val result = execBody.withOuterVariables(partialSelf.variables).wrapInLets.evaluate(execEnv)
+
+        EvalResult(result.value, partialSelfClosures ++ result.closures)
     }
   }
 

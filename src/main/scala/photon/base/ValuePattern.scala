@@ -80,6 +80,11 @@ object ValuePattern {
         }
 
     override def applyTo(value: Value, env: Environment): Option[MatchResult] = {
+      // TODO: Handle this run-time
+      if (env.evalMode != EvalMode.CompileTimeOnly) {
+        throw EvalError("Cannot evaluate call pattern unless it's compile-time (yet)", location)
+      }
+
       // TODO: DelayCall if this needs to be done runtime
       val resultArgs = $Call(
         s"$name$$match",
@@ -88,7 +93,7 @@ object ValuePattern {
       ).evaluate(env) match {
         // TODO: What if the stuff conforms to this type but is wrapped?
         // TODO: The [Value] part is not checked, do something with the warning
-        case $Object(args: ArgumentsWithoutSelf[Value], typ, _) if typ == $MatchResult => args
+        case EvalResult($Object(args: ArgumentsWithoutSelf[Value], typ, _), _) if typ == $MatchResult => args
         case _ => ???
       }
 

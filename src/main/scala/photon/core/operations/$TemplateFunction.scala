@@ -31,7 +31,7 @@ case class $TemplateFunctionDef(
   override def typ(scope: Scope) = $TemplateFunction
 
   override def evaluate(env: Environment) =
-    TemplateClosure(env.scope, this)
+    EvalResult(TemplateClosure(env.scope, this), Seq.empty)
 
   // TODO: Implement this
   override def toAST(names: Map[VarName, String]) = ???
@@ -42,8 +42,8 @@ object $TemplateFunction extends Type {
   override val methods = Map(
     "call" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
-      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-        val templateClosure = spec.requireSelf[TemplateClosure](env)
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val EvalResult(templateClosure, templateClosureClosures) = spec.requireSelf[TemplateClosure](env)
 
         // TODO: Calculate this once - move to the TemplateClosure class
         val innerSignature = MethodSignature.ofPatterns(
@@ -73,19 +73,21 @@ object $TemplateFunction extends Type {
           Some(callSpec.returnType)
         )
 
-        $Call(
+        val result = $Call(
           "call",
           callSpec.args.changeSelf(fnInstance),
           location
         ).evaluate(env)
+
+        EvalResult(result.value, templateClosureClosures ++ result.closures)
       }
     },
 
     "instantiate" -> new CompileTimeOnlyMethod {
       override val signature = MethodSignature.any($AnyStatic)
 
-      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
-        val closure = spec.requireSelf[TemplateClosure](env)
+      override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+        val EvalResult(closure, closureClosures) = spec.requireSelf[TemplateClosure](env)
         val types = spec.args.map(_.asType).positional
 
         val innerSignature = MethodSignature.ofPatterns(
@@ -103,7 +105,9 @@ object $TemplateFunction extends Type {
           case None => throw TypeError("Template function cannot be instantiated with these types", closure.location)
         }
 
-        instantiate(closure, types, returnType).evaluate(env)
+        val result = instantiate(closure, types, returnType).evaluate(env)
+
+        EvalResult(result.value, closureClosures ++ result.closures)
       }
     }
   )
@@ -134,7 +138,7 @@ case class TemplateClosure(scope: Scope, fnDef: $TemplateFunctionDef) extends Va
   override def typ(scope: Scope) = $TemplateFunction
 
   // TODO: Figure this out
-  override def evaluate(env: Environment) = this
+  override def evaluate(env: Environment) = EvalResult(this, Seq.empty)
 
   override def toAST(names: Map[VarName, String]) = fnDef.toAST(names)
 }

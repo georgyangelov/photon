@@ -109,7 +109,7 @@ case class UserDefinedInterface(
         new Method {
           override val signature = methodSignature
           override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
-            val self = spec.requireSelf[InterfaceValue](env)
+            val self = spec.requireSelf[InterfaceValue](env).value
 
             $Call(definition.name, spec.args.changeSelf(self.value), location).evaluate(env)
           }
@@ -134,7 +134,7 @@ case class UserDefinedInterface(
       else
         callMethod.signature
 
-    override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value = {
+    override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
       val self = spec.requireSelf[InterfaceValue](env)
       val hasExplicitSelfBinding = spec.bindings.exists { case (name, _) => name == "self" }
       val argsForFunction = Arguments[Value](
@@ -170,18 +170,18 @@ case class $FunctionInterfaceDef(
     params.map(_.typ).flatMap(_.unboundNames).toSet ++ returnType.unboundNames
 
   // TODO: Cache this
-  override def typ(scope: Scope): Type = evaluate(Environment(scope, EvalMode.CompileTimeOnly)).typ(scope)
+  override def typ(scope: Scope): Type = evaluate(Environment(scope, EvalMode.CompileTimeOnly)).value.typ(scope)
 
-  override def evaluate(env: Environment): Value = {
+  override def evaluate(env: Environment) = {
     val paramTypes = params.map { param =>
       // This is lazy because we want to be able to self-reference types we're currently defining
       param.name -> $LazyType(Lazy.of(() => {
-        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+        param.typ.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).value.asType
       }))
     }
 
     // TODO: May need this to be $LazyType as well
-    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).asType
+    val actualReturnType = returnType.evaluate(Environment(env.scope, EvalMode.CompileTimeOnly)).value.asType
 
     val signature = MethodSignature.of(
       paramTypes,
@@ -189,12 +189,14 @@ case class $FunctionInterfaceDef(
     )
 
     // TODO: Should this have unboundNames?
-    FunctionInterface(
+    val result = FunctionInterface(
       signature,
       FunctionRunMode.Default,
       InlinePreference.Default,
       location
     )
+
+    EvalResult(result, Seq.empty)
   }
 
   // TODO
@@ -223,7 +225,7 @@ case class FunctionInterface(
   private def callMethod = new Method {
     override val signature = self.signature
     override def call(env: Environment, spec: CallSpec, location: Option[Location]) = {
-      val self = spec.requireSelf[InterfaceValue](env)
+      val self = spec.requireSelf[InterfaceValue](env).value
 
       $Call("call", spec.args.changeSelf(self.value), location).evaluate(env)
     }
@@ -244,12 +246,12 @@ case class InterfaceValue(
   override def typ(scope: Scope) = interface
 
   // TODO: Will have problems comparing values like this
-  override def evaluate(env: Environment) =
-    InterfaceValue(
-      value.evaluate(env),
-      interface,
-      location
-    )
+  override def evaluate(env: Environment) = {
+    val EvalResult(newValue, closures) = value.evaluate(env)
+    val result = InterfaceValue(newValue, interface, location)
+
+    EvalResult(result, closures)
+  }
 
   override def toAST(names: Map[VarName, String]) = ???
 }

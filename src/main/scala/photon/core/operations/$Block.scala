@@ -16,10 +16,10 @@ case class $Block(values: Seq[Value], location: Option[Location]) extends Value 
 
     values.zipWithIndex.foreach { case (value, index) =>
       val evalue = value.evaluate(env)
+      closures.addAll(evalue.closures)
 
       if (evalue.value.evalMayHaveSideEffects || index == lastIndex) {
         eValueBuilder.addOne(evalue.value)
-        closures.addAll(evalue.closures)
       }
     }
 

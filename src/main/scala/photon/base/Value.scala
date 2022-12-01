@@ -13,7 +13,11 @@ case class EvalResult[T](
   value: T,
   closures: Seq[Closure]
 ) {
-  def partiallyEvaluateInnerClosures(scope: Scope) = ???
+  def partiallyEvaluateInnerClosures(env: Environment): Unit = {
+    val uniqueClosures = closures.toSet
+
+    uniqueClosures.foreach(_.evaluatePartially(env))
+  }
 
   def mapValue[R](fn: T => R): EvalResult[R] =
     EvalResult(fn(value), closures)

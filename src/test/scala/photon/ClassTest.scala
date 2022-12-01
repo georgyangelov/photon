@@ -252,6 +252,7 @@ class ClassTest extends FunSuite {
   }
 
   test("can create classes when we don't have a direct reference to the name") {
+    // TODO: Create a test that it throws an error if this function is not `compileTimeOnly`, or make it work
     expectCompileTime(
       """
       val classBuildFn = (self: ClassBuilder) {
@@ -259,7 +260,7 @@ class ClassTest extends FunSuite {
         define "age", Int
 
         define "nextAge", (self: selfType) { age + 1 }
-      }
+      }.compileTimeOnly
 
       val Person = Class.new("Person", classBuildFn)
 

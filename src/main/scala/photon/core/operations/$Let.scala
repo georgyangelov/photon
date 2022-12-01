@@ -33,21 +33,19 @@ case class $Let(name: VarName, value: Value, body: Value, location: Option[Locat
     evalue = Some(value.evaluate(innerEnv))
     val ebody = body.evaluate(innerEnv)
 
-    ebody.value match {
+    val result = ebody.value match {
       // Inline if the body is a direct reference to this let value
-      case $Reference(refName, _) if refName == name => evalue.get
+      case $Reference(refName, _) if refName == name => evalue.get.value
       case value if value.unboundNames.contains(name) =>
-        val result = $Let(name, evalue.get.value, value, location)
-
-        EvalResult(result, evalue.get.closures ++ ebody.closures)
+        $Let(name, evalue.get.value, value, location)
 
       case _ if evalue.get.value.evalMayHaveSideEffects =>
-        val result = $Block(Seq(evalue.get.value, ebody.value), location)
+        $Block(Seq(evalue.get.value, ebody.value), location)
 
-        EvalResult(result, evalue.get.closures ++ ebody.closures)
-
-      case _ => ebody
+      case _ => ebody.value
     }
+
+    EvalResult(result, evalue.get.closures ++ ebody.closures)
   }
 
   override def partialValue(env: Environment, followReferences: Boolean) =

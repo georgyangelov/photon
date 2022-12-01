@@ -11,7 +11,7 @@ object $Core extends Type {
     // CompileTimeOnlyMethod implementation)
     "typeCheck" -> new Method {
       override val signature = MethodSignature.any($AnyStatic)
-      override def call(env: Environment, spec: CallSpec, location: Option[Location]): Value =
+      override def call(env: Environment, spec: CallSpec, location: Option[Location]) =
         typeCheck(env, spec, location).evaluate(env)
     }
   )
@@ -52,7 +52,9 @@ object $Core extends Type {
 
     val requiredType = spec.args.positional(1)
       // The type must be known at compile-time
+      // TODO: .evaluate(compileTime).value.asType => .evaluateType(scope)
       .evaluate(Environment(env.scope, EvalMode.CompileTimeOnly))
+      .value
       .asType
 
     checkAndConvertTypes(value, valueType, requiredType) match {

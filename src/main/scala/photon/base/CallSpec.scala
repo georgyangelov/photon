@@ -143,7 +143,7 @@ object MethodSignature {
 
           pattern match {
             case ValuePattern.Expected(expectedValue, _) =>
-              val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
+              val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).value.asType
               val isAssignable = $Core.isTypeAssignable(valueType, expectedType)
 
               if (!isAssignable) {
@@ -164,7 +164,7 @@ object MethodSignature {
           }
         }
 
-      Some(Some(returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).asType))
+      Some(Some(returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).value.asType))
     }
 
     // TODO: Duplication with #specialize below
@@ -188,7 +188,7 @@ object MethodSignature {
 
           pattern match {
             case ValuePattern.Expected(expectedValue, _) =>
-              val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).asType
+              val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).value.asType
               val convertedValue = $Core.checkAndConvertTypes(value, valueType, expectedType) match {
                 case Left(value) => value
                 case Right(typeError) => return Right(typeError)
@@ -208,7 +208,7 @@ object MethodSignature {
           }
         }
 
-      val realReturnType = returnType.evaluate(Environment(bindingScope, EvalMode.CompileTimeOnly)).asType
+      val realReturnType = returnType.evaluate(Environment(bindingScope, EvalMode.CompileTimeOnly)).value.asType
 
       Left(CallSpec(args, bindings.toSeq, realReturnType))
     }
@@ -246,7 +246,7 @@ case class CallSpec(
   // TODO: Remove this once we have patterns
   private def requireTypePositional[T <: Value](env: Environment, index: Int, value: EvalResult[Value])(implicit tag: ClassTag[T]): EvalResult[T] = {
     value match {
-      case value: EvalResult[T] => value
+      case EvalResult(value: T, closures) => EvalResult(value, closures)
 
       case EvalResult(value, _) if value.isOperation =>
         env.evalMode match {
@@ -263,7 +263,7 @@ case class CallSpec(
 
   private def requireType[T <: Value](env: Environment, name: String, value: Option[EvalResult[Value]])(implicit tag: ClassTag[T]): EvalResult[T] = {
     value match {
-      case Some(value: EvalResult[T]) => value
+      case Some(EvalResult(value: T, closures)) => EvalResult(value, closures)
 
       case Some(EvalResult(value, _)) if value.isOperation =>
         env.evalMode match {
@@ -291,10 +291,11 @@ case class CallSpec(
 
   def requireSelfInlined[T <: Value](env: Environment)(implicit tag: ClassTag[T]): EvalResult[T] = {
     val self = args.self
+      // TODO: This is NOT correct in some way or the other
       .evaluate(env)
-      .partialValue(env, followReferences = true)
-      .value
+      .mapValue(_.partialValue(env, followReferences = true).value)
 
+    // TODO: It's probably not correct to use partialValue without passing `closures` through it
     requireType[T](env, "self", Some(self))(tag)
   }
 
@@ -303,9 +304,9 @@ case class CallSpec(
       .find { case varName -> _ => varName == name }
       .map(_._2)
       .map(_.evaluate(env))
+      // TODO: This is NOT correct in some way or the other
       // TODO: Should I check for empty variables?
-      .map(_.partialValue(env, followReferences = true))
-      .map(_.value)
+      .map(_.mapValue(_.partialValue(env, followReferences = true).value))
 
     requireType[T](env, name, value)(tag)
   }

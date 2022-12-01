@@ -9,12 +9,15 @@ object $MatchResult extends Type {
     override val methods: Map[String, Method] = Map(
       "of" -> new DefaultMethod {
         override val signature = MethodSignature.any($MatchResult)
-        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]): Value =
-          $Object(
-            ArgumentsWithoutSelf(spec.args.positional, spec.args.named),
-            $MatchResult,
-            location
-          )
+        override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
+          // TODO: This needs to eval the arguments so that we get the closures
+          ???
+//          $Object(
+//            ArgumentsWithoutSelf(spec.args.positional, spec.args.named),
+//            $MatchResult,
+//            location
+//          )
+        }
       }
     )
   }
