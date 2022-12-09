@@ -10,6 +10,7 @@ object Interpreter {
   def macroHandler(name: String, parser: Parser, location: Location): Option[ASTValue] =
     name match {
       case "class" => Some(ClassMacro.classMacro(parser, location))
+      case "object" => Some(ClassMacro.objectMacro(parser, location))
       case "interface" => Some(ClassMacro.interfaceMacro(parser, location))
       case "def" => Some(ClassMacro.defMacro(parser, location))
       case _ => None
@@ -23,8 +24,11 @@ class Interpreter {
     new VarName("String") -> $String,
     new VarName("Core") -> $Object(null, $Core, None),
     new VarName("Class") -> $Object(null, $Class, None),
+    new VarName("Object") -> $Object(null, $ObjectSingleton, None),
     new VarName("Interface") -> $Object(null, $Interface, None),
-    new VarName("ClassBuilder") -> $ClassBuilder
+    new VarName("ClassBuilder") -> $ClassBuilder,
+    new VarName("NativeHandle") -> $NativeHandle,
+    new VarName("Internal") -> $Internal,
   ))
 
   def evaluate(ast: ASTValue, evalMode: EvalMode): Value = {

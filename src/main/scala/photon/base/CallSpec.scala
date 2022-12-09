@@ -243,6 +243,28 @@ case class CallSpec(
     requireTypePositional[T](env, index, value)(tag)
   }
 
+  def requireAllConcretePositional(env: Environment): EvalResult[Seq[Value]] = {
+    val results = args.positional.map(_.evaluate(env))
+    val values = results.map(_.value)
+
+    values.find(_.isOperation) match {
+      case Some(value) =>
+        env.evalMode match {
+          case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $value even runtime", None)
+          case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $value compile-time", None)
+          case EvalMode.Partial |
+               EvalMode.PartialRunTimeOnly |
+               EvalMode.PartialPreferRunTime => throw DelayCall
+        }
+
+      case None =>
+    }
+
+    val closures = results.flatMap(_.closures)
+
+    EvalResult(values, closures)
+  }
+
   // TODO: Remove this once we have patterns
   private def requireTypePositional[T <: Value](env: Environment, index: Int, value: EvalResult[Value])(implicit tag: ClassTag[T]): EvalResult[T] = {
     value match {

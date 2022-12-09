@@ -321,11 +321,53 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("can define singleton objects without macro") {
+    expectCompileTime(
+      """
+        val Something = Object.new "Something", (self: ClassBuilder) {
+          def answer() 42
+        }
+
+        Something.answer
+      """,
+      "42"
+    )
+  }
+
+  test("can define singleton objects") {
+    expectCompileTime(
+      """
+        object Something {
+          def answer() 42
+        }
+
+        Something.answer
+      """,
+      "42"
+    )
+  }
+
+  ignore("can create generic classes") {
+    expectCompileTime(
+      """
+        class Something(T: Type) {
+          def identity(a: T): T { a }
+        }
+
+        val something = Something(Int).new
+        something.identity(42)
+      """,
+      "42"
+    )
+  }
+
   ignore("can define static methods") {
     expectCompileTime(
       """
         class Person {
-          def static ivan() Person.new(name = "Ivan", age = 42)
+          static {
+            def ivan() Person.new(name = "Ivan", age = 42)
+          }
         }
 
         Person.ivan.age

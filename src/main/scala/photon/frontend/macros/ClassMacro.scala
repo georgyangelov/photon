@@ -4,6 +4,9 @@ import photon.base.Location
 import photon.frontend._
 
 object ClassMacro {
+  def objectMacro(parser: Parser, location: Location): ASTValue =
+    classBuilderMacro("Object", parser, location)
+
   def classMacro(parser: Parser, location: Location): ASTValue =
     classBuilderMacro("Class", parser, location)
 

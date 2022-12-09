@@ -9,7 +9,7 @@ class CompileTimeEvaluationTest extends FunSuite {
 //    expectEvalCompileTime("val a = 1; val fn = (b:Int):Int a + b; fn.call(41)", "42")
   }
 
-  test("inlines unnamed inline functions") {
+  ignore("inlines unnamed inline functions") {
     expectPartial("(a: Int) { (b:Int) { a + b } }(1)(41)", "42")
   }
 
@@ -210,7 +210,7 @@ class CompileTimeEvaluationTest extends FunSuite {
     )
   }
 
-  test("variables are kept if the value is unknown and uses them") {
+  ignore("variables are kept if the value is unknown and uses them") {
     expectPartial(
       "val a = 42; { a }",
       "val a = 42; { a }"
