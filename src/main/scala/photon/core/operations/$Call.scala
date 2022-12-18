@@ -38,7 +38,7 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
 
   override def evaluate(env: Environment) = {
     // TODO: Should I do this with the other arguments as well?
-    val (self, selfType) = args.self.typ(env.scope) match {
+    val (self, selfType) = args.self.typ(env.scope).resolvedType match {
       case value if value == $AnyStatic =>
         // Should be ok to skip closures here because it's a compile-time only eval value
         val EvalResult(evaluatedSelf, _) = args.self.evaluate(env)
@@ -81,6 +81,6 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
 
   private def findMethod(selfType: Type) = {
     selfType.method(name)
-      .getOrElse { throw TypeError(s"Cannot find method $name on $selfType", location) }
+      .getOrElse { throw TypeError(s"Cannot find method $name on ${selfType.resolvedType}", location) }
   }
 }

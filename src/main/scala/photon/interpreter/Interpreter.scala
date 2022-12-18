@@ -1,7 +1,7 @@
 package photon.interpreter
 
 import photon.base._
-import photon.core.$Object
+import photon.core._
 import photon.core.objects._
 import photon.frontend._
 import photon.frontend.macros.ClassMacro
@@ -19,6 +19,7 @@ object Interpreter {
 
 class Interpreter {
   val rootScope = Scope.newRoot(Seq(
+    new VarName("Type") -> $Type,
     new VarName("Boolean") -> $Boolean,
     new VarName("Int") -> $Int,
     new VarName("String") -> $String,
@@ -28,7 +29,7 @@ class Interpreter {
     new VarName("Interface") -> $Object(null, $Interface, None),
     new VarName("ClassBuilder") -> $ClassBuilder,
     new VarName("NativeHandle") -> $NativeHandle,
-    new VarName("Internal") -> $Internal,
+    new VarName("Internal") -> $Object(null, $Internal, None),
   ))
 
   def evaluate(ast: ASTValue, evalMode: EvalMode): Value = {

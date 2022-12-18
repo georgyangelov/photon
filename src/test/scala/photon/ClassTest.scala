@@ -347,6 +347,22 @@ class ClassTest extends FunSuite {
     )
   }
 
+  test("can create generic classes manually") {
+    expectCompileTime(
+      """
+        object Something {
+          def call(T: Type) Internal.cacheType Something, T, () class {
+            def identity(a: T): T { a }
+          }
+        }
+
+        val something = Something(Int).new
+        something.identity(42)
+      """,
+      "42"
+    )
+  }
+
   ignore("can create generic classes") {
     expectCompileTime(
       """
