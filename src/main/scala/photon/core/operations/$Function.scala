@@ -120,7 +120,7 @@ case class $FunctionDef(
         ASTParameter(
           param.outName,
           paramNames(param.inName),
-          Some(ASTValue.Pattern.SpecificValue(param.typ.toAST(names ++ paramNames))),
+          Some(Pattern.SpecificValue(param.typ.toAST(names ++ paramNames))),
           param.location
         )
       },

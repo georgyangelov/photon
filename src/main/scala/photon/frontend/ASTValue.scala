@@ -109,52 +109,86 @@ object ASTValue {
       s"(Function [$paramsAST] $returnType)"
     }
   }
+}
 
-  sealed trait Pattern extends ASTValue {
-    def inspect: java.lang.String
+sealed trait Pattern {
+  def location: Option[Location]
+  def inspect: java.lang.String
+}
+object Pattern {
+  case class SpecificValue(value: ASTValue) extends Pattern {
+    override def location = value.location
+    override def inspect = value.inspect
   }
-  object Pattern {
-    case class SpecificValue(value: ASTValue) extends Pattern {
-      override def location = value.location
-      override def inspect = value.inspect
-    }
 
-    case class Binding(name: java.lang.String, location: Option[Location]) extends Pattern {
-      override def inspect = s"(val $name)"
-    }
+  case class Binding(name: java.lang.String, location: Option[Location]) extends Pattern {
+    override def inspect = s"(val $name)"
+  }
 
-    case class Call(
-      target: ASTValue,
-      name: java.lang.String,
-      args: ArgumentsWithoutSelf[Pattern],
-      mayBeVarCall: scala.Boolean,
-      location: Option[Location]
-    ) extends Pattern {
-      override def inspect = {
-        val positionalArguments = args.positional.map(_.inspect)
-        val namedArguments = args.named.map { case (name, value) => s"(param $name ${value.inspect})" }
-        val argumentStrings = positionalArguments ++ namedArguments
+  case class Call(
+    target: ASTValue,
+    name: java.lang.String,
+    arguments: ArgumentsWithoutSelf[Pattern],
+    mayBeVarCall: scala.Boolean,
+    location: Option[Location]
+  ) extends Pattern {
+    override def inspect = {
+      val positionalArguments = arguments.positional.map(_.inspect)
+      val namedArguments = arguments.named.map { case (name, value) => s"(param $name ${value.inspect})" }
+      val argumentStrings = positionalArguments ++ namedArguments
 
-        if (argumentStrings.isEmpty) {
-          s"<$name ${target.inspect}>"
-        } else {
-          s"<$name ${target.inspect} ${argumentStrings.mkString(" ")}>"
-        }
+      if (argumentStrings.isEmpty) {
+        s"<$name ${target.inspect}>"
+      } else {
+        s"<$name ${target.inspect} ${argumentStrings.mkString(" ")}>"
       }
     }
+  }
+
+  case class FunctionType(
+    params: Seq[ASTPatternParameter],
+    returnType: Pattern,
+    location: Option[Location]
+  ) extends Pattern {
+    override def inspect = {
+      val paramsAST = params
+        .map { param => s"(param ${param.name} ${param.typ.inspect})" }
+        .mkString(" ")
+
+      s"(Function [$paramsAST] ${returnType.inspect})"
+    }
+  }
+}
+
+sealed abstract class ASTValueOrPattern {
+  def location: Option[Location]
+}
+object ASTValueOrPattern {
+  case class Value(value: ASTValue) extends ASTValueOrPattern {
+    def location = value.location
+  }
+
+  case class Pattern(pattern: photon.frontend.Pattern) extends ASTValueOrPattern {
+    def location = pattern.location
   }
 }
 
 case class ASTParameter(
   outName: String,
   inName: String,
-  typePattern: Option[ASTValue.Pattern],
+  typePattern: Option[Pattern],
   location: Option[Location]
 )
 
 case class ASTTypeParameter(
   name: String,
   typ: ASTValue,
+  location: Option[Location]
+)
+
+case class ASTPatternParameter(
+  name: String,
+  typ: Pattern,
   location: Option[Location]
 )
 

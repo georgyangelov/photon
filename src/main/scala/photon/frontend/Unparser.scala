@@ -46,20 +46,22 @@ object Unparser {
         blockString
       }
 
-    case ASTValue.Pattern.SpecificValue(value) => unparse(value)
-    case ASTValue.Pattern.Binding(name, _) => s"val $name"
-    case ASTValue.Pattern.Call(t, name, arguments, _, _) =>
+    case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
+  }
+
+  def unparsePattern(pattern: Pattern): String = pattern match {
+    case Pattern.SpecificValue(value) => unparse(value)
+    case Pattern.Binding(name, _) => s"val $name"
+    case Pattern.Call(t, name, arguments, _, _) =>
       val target = unparse(t, expectSingleValue = true)
 
-      s"${if (target == "self") "" else s"$target."}$name(${unparse(arguments)})"
-
-    case _ => throw new Exception(s"Cannot unparse value ${value.inspect}")
+      s"${if (target == "self") "" else s"$target."}$name(${unparsePattern(arguments)})"
   }
 
   def unparse(parameter: ASTParameter): String = {
     parameter match {
-      case ASTParameter(outName, inName, Some(typ), _) if outName == inName => s"$outName: ${unparse(typ)}"
-      case ASTParameter(outName, inName, Some(typ), _) => s"$outName as $inName: ${unparse(typ)}"
+      case ASTParameter(outName, inName, Some(typ), _) if outName == inName => s"$outName: ${unparsePattern(typ)}"
+      case ASTParameter(outName, inName, Some(typ), _) => s"$outName as $inName: ${unparsePattern(typ)}"
       case ASTParameter(outName, inName, None, _) if outName == inName => outName
       case ASTParameter(outName, inName, None, _) => s"$outName as $inName"
     }
@@ -68,6 +70,13 @@ object Unparser {
   def unparse(args: ArgumentsWithoutSelf[ASTValue]): String = {
     val positionalArguments = args.positional.map(unparse(_, expectSingleValue = false))
     val namedArguments = args.named.map { case (name, value) => s"$name = ${unparse(value, expectSingleValue = false)}" }
+
+    (positionalArguments ++ namedArguments).mkString(", ")
+  }
+
+  def unparsePattern(args: ArgumentsWithoutSelf[Pattern]): String = {
+    val positionalArguments = args.positional.map(unparsePattern)
+    val namedArguments = args.named.map { case (name, value) => s"$name = ${unparsePattern(value)}" }
 
     (positionalArguments ++ namedArguments).mkString(", ")
   }

@@ -3,7 +3,7 @@ package photon.base
 import photon.core.$Object
 import photon.core.objects.$MatchResult
 import photon.core.operations.$Call
-import photon.frontend.ASTValue
+import photon.frontend._
 
 case class PatternNames(defined: Set[VarName], unbound: Set[VarName])
 
@@ -13,7 +13,7 @@ sealed trait ValuePattern {
   def names: PatternNames
 
   def applyTo(value: Value, env: Environment): Option[MatchResult]
-  def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern
+  def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern
 }
 object ValuePattern {
   def namesOfSequenceOfPatterns(patterns: Seq[ValuePattern]): PatternNames =
@@ -41,8 +41,8 @@ object ValuePattern {
         Some(MatchResult(Map.empty))
       } else None
 
-    override def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern =
-      ASTValue.Pattern.SpecificValue(expectedValue.toAST(names))
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      Pattern.SpecificValue(expectedValue.toAST(names))
   }
 
   case class Binding(name: VarName, location: Option[Location]) extends ValuePattern {
@@ -54,8 +54,8 @@ object ValuePattern {
     override def applyTo(value: Value, env: Environment) =
       Some(MatchResult(Map(name -> value)))
 
-    override def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern =
-      ASTValue.Pattern.Binding(
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      Pattern.Binding(
         names.getOrElse(name, throw EvalError(s"Could not find string name for $name", location)),
         location
       )
@@ -113,11 +113,11 @@ object ValuePattern {
       Some(MatchResult(result))
     }
 
-    override def toASTWithPreBoundNames(names: Map[VarName, String]): ASTValue.Pattern =
-      ASTValue.Pattern.Call(
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      Pattern.Call(
         target.toAST(names),
         name,
-        args = args.map(_.toASTWithPreBoundNames(names)),
+        arguments = args.map(_.toASTWithPreBoundNames(names)),
         mayBeVarCall = false,
         location
       )

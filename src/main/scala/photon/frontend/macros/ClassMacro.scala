@@ -29,7 +29,7 @@ object ClassMacro {
           ASTParameter(
             "self",
             "self",
-            Some(ASTValue.Pattern.SpecificValue(ASTValue.NameReference("ClassBuilder", Some(location)))),
+            Some(Pattern.SpecificValue(ASTValue.NameReference("ClassBuilder", Some(location)))),
             Some(location)
           )
         ),
@@ -127,7 +127,7 @@ object ClassMacro {
     )
 
     ASTValue.Function(
-      params = Seq(ASTParameter("self", "self", Some(ASTValue.Pattern.SpecificValue(selfTypeCall)), fn.location)) ++ fn.params,
+      params = Seq(ASTParameter("self", "self", Some(Pattern.SpecificValue(selfTypeCall)), fn.location)) ++ fn.params,
       body = fn.body,
       returnType = returnType.orElse(fn.returnType),
       location = fn.location

@@ -6,34 +6,36 @@
 #   }
 # }
 
-class Stream(T: Type) {
-  def foreach: (each: (value: T): Nothing): Nothing
+object Stream
+  def call(T: Type) Internal.cacheType Something, T, () class {
+    def foreach: (each: (value: T): Nothing): Nothing
 
-  def map(fn: (item: T): val R) {
-    Stream(R).new (next: (value: R): Nothing) {
-      foreach (item) {
-        next fn(item)
+    def map(fn: (item: T): val R) {
+      Stream(R).new (next: (value: R): Nothing) {
+        foreach (item) {
+          next fn(item)
+        }
       }
     }
-  }
 
-  def reduce(initial: val R, fn: (result: R, item: T): R): R {
-    val result = Ref(R).new(initial)
+    def reduce(initial: val R, fn: (result: R, item: T): R): R {
+      val result = Ref(R).new(initial)
 
-    foreach (item) {
-      result.set fn(result.get, item)
+      foreach (item) {
+        result.set fn(result.get, item)
+      }
+
+      result.get
     }
 
-    result.get
-  }
+    def sum: Int {
+      reduce 0, (a, b) a + b
+    }
 
-  def sum: Int {
-    reduce 0, (a, b) a + b
-  }
-
-  def max: Optional(Int) {
-    reduce 0, (a: Int, b: Int) {
-      if (b > a) b else a
+    def max: Optional(Int) {
+      reduce 0, (a: Int, b: Int) {
+        if (b > a) b else a
+      }
     }
   }
 }

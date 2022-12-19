@@ -333,6 +333,14 @@ class ParserTest extends FunSuite {
     assert(parse("(a: Int, b: String): Int") == "(Function [(param a Int) (param b String)] Int)")
   }
 
+  test("generic functions with patterns in lambda types") {
+    assert(parse("val fn = (a: (n: val T): T) a(42); fn((a) a)") == "(let fn (lambda [(param a (Function [(param n (val T))] T))] (a self 42)) (fn self (lambda [(param a)] a)))")
+  }
+
+  test("generic functions with patterns in lambda return type") {
+    assert(parse("val fn = (a: (): val T) a(); fn(() 42)") == "(let fn (lambda [(param a (Function [] (val T)))] (a self)) (fn self (lambda [] 42)))")
+  }
+
 //  This shouldn't be possible because that would allow dynamic dispatch to template functions which can't be done
 //  test("function types with argument type patterns") {
 //    assert(parse("(a: val T): T") == "(Function [(param a (val T))] T)")

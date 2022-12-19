@@ -4,7 +4,6 @@ import photon.base._
 import photon.core._
 import photon.core.objects._
 import photon.core.operations._
-import photon.frontend.ASTValue.Pattern
 import photon.lib.ScalaExtensions._
 
 object ASTToValue {
@@ -17,7 +16,7 @@ object ASTToValue {
 
     case fnAST @ ASTValue.Function(params, _, _, _) =>
       val isTemplateFunction = params.exists(_.typePattern match {
-        case Some(_: ASTValue.Pattern.SpecificValue) => false
+        case Some(_: Pattern.SpecificValue) => false
         case Some(_) => true
 
         // TODO: What if there is no parameter type - is that a normal function or a template one?
@@ -93,10 +92,6 @@ object ASTToValue {
         transform(block, innerScope),
         location
       )
-
-    // TODO: This shouldn't be possible, right?
-    //       Maybe I don't need Pattern to be instance of ASTValue
-    case pattern: ASTValue.Pattern => ???
   }
 
   private def transformToNormalFunction(ast: ASTValue.Function, scope: StaticScope): $FunctionDef = {
