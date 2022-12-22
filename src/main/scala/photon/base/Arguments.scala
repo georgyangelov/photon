@@ -8,7 +8,6 @@ case class ArgumentsWithoutSelf[+T](positional: Seq[T], named: Map[String, T]) {
     named.view.mapValues(f).toMap
   )
 
-  // TODO: Duplication with Arguments[T]
   def matchWith[T1](params: Seq[(String, T1)]): Seq[(String, (T, T1))] = {
     val (namedParams, positionalParams) = params.partition { case (name, _) => named.contains(name) }
 
@@ -48,6 +47,7 @@ case class Arguments[+T](
 
   def count = positional.size + named.size
 
+  def withoutSelf = ArgumentsWithoutSelf[T](positional, named)
   def changeSelf[R >: T](value: R) = Arguments[R](value, positional, named)
 
   def map[R](f: T => R) = Arguments(
@@ -81,17 +81,6 @@ case class Arguments[+T](
     }
   }
 
-//  def toPositional(params: Seq[EParameter]) = {
-//    // TODO: Optional parameters?
-//    val namedParamsInOrder = params.drop(positional.length)
-//      .map { param => named.get(param.name) }
-//
-//    Arguments.positional(
-//      self,
-//      positional ++ namedParamsInOrder
-//    )
-//  }
-
   def matchWithNamesUnordered(paramNames: Seq[String]): Seq[(String, T)] = {
     val positionalNames = paramNames.filterNot(named.contains)
 
@@ -100,87 +89,7 @@ case class Arguments[+T](
 
     positionalParams ++ namedParams
   }
-
-  def matchWith[T1](params: Seq[(String, T1)]): Seq[(String, (T, T1))] = {
-    val (namedParams, positionalParams) = params.partition { case (name, _) => named.contains(name) }
-
-    val positionalWithT1 = positionalParams
-      .zip(positional)
-      .map { case ((name, t1), value) => (name, (value, t1)) }
-
-    val namedWithT1 = namedParams
-      .map { case (name, t1) => (name, (named(name), t1)) }
-
-    positionalWithT1 ++ namedWithT1
-  }
-
-//  def matchInOrder(paramNames: Seq[String]): Seq[(String, EValue)] = {
-//
-//
-//    paramNames.map { name =>  }
-//
-//
-//    val positionalNames = paramNames.filterNot(named.contains)
-//
-//
-//    val positionalParams = positionalNames.zip(positional)
-//    val namedParams = paramNames named.toSeq
-//
-//  }
-
-  //  override def toString = Unparser.unparse(
-  //    ValueToAST.transformForInspection(
-  //      this.asInstanceOf[Arguments[Value]]
-  //    )
-  //  )
 }
-
-//object ArgumentExtensions {
-//  implicit class GetEval(self: Arguments[EValue]) {
-//    def selfEval[T <: EValue](implicit tag: ClassTag[T]) = getEval[T](0, "self")(tag)
-//
-//    def getEval[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
-//      self.get(index, name).evaluated match {
-//        case value: T => value
-//        case UnknownValue(_, _) => throw DelayCall
-//        case value =>
-//          if (value.isOperation) {
-//            // TODO: We probably don't need this if all values respect the EvalMode
-//            EValue.context.evalMode match {
-//              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
-//              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
-//              case EvalMode.Partial |
-//                   EvalMode.PartialRunTimeOnly |
-//                   EvalMode.PartialPreferRunTime => throw DelayCall
-//            }
-//          } else {
-//            // TODO: Do I need this? Won't the typechecks handle this already?
-//            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
-//          }
-//      }
-//
-//    def selfEvalInlined[T <: EValue](implicit tag: ClassTag[T]) = getEvalInlined[T](0, "self")(tag)
-//
-//    def getEvalInlined[T <: EValue](index: Int, name: String)(implicit tag: ClassTag[T]) =
-//      self.get(index, name).evaluated.inlinedValue match {
-//        case value: T => value
-//        case UnknownValue(_, _) => throw DelayCall
-//        case value =>
-//          if (value.isOperation) {
-//            EValue.context.evalMode match {
-//              case EvalMode.RunTime => throw EvalError(s"Cannot evaluate $self even runtime", None)
-//              case EvalMode.CompileTimeOnly => throw EvalError(s"Cannot evaluate $self compile-time", None)
-//              case EvalMode.Partial |
-//                   EvalMode.PartialRunTimeOnly |
-//                   EvalMode.PartialPreferRunTime => throw DelayCall
-//            }
-//          } else {
-//            // TODO: Do I need this? Won't the typechecks handle this already?
-//            throw EvalError(s"Invalid value type $value, expected a $tag value", None)
-//          }
-//      }
-//  }
-//}
 
 object Arguments {
   def empty[T](self: T): Arguments[T] = Arguments(self, Seq.empty, Map.empty)

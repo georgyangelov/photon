@@ -72,7 +72,7 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
-  ignore("checks function body of runTimeOnly functions") {
+  test("checks function body of runTimeOnly functions") {
     expectTypeError("""
       val a = {
         (a: Boolean): Int a + 1
@@ -82,11 +82,22 @@ class TypeCheckTest extends FunSuite {
     """)
   }
 
-  ignore("checks generic function body on use") {
+  test("checks generic function body on use") {
     expectTypeError("""
       val plusOne = (a: val T): Int a + 1
 
       plusOne(true)
     """)
+  }
+
+  test("can use function type patterns") {
+    expectCompileTime(
+      """
+         val callFn = (fn: (): val T): T { fn() }
+
+         callFn(() 42)
+      """,
+      "42"
+    )
   }
 }

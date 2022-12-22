@@ -130,35 +130,6 @@ case class $FunctionDef(
     )
   }
 
-//  override def toAST(names: Map[VarName, String]) = {
-//    val typeParamNames = params
-//      .map(_.pattern)
-//      .flatMap(_.names.defined)
-//      .map { name => name -> findUniqueNameFor(name, names.values.toSet) }
-//      .toMap
-//
-//    val paramNames = params
-//      .map(_.inName)
-//      .map { name => name -> findUniqueNameFor(name, typeParamNames.values.toSet) }
-//      .toMap
-//
-//    ASTValue.Function(
-//      params.map { param =>
-//        ASTParameter(
-//          param.outName,
-//          paramNames(param.inName),
-//          Some(param.pattern.toASTWithPreBoundNames(names ++ typeParamNames)),
-//          param.location
-//        )
-//      },
-//
-//      // TODO: Add `typeParamNames` here if I start support use of type vals in fn body
-//      body = body.toAST(names ++ paramNames),
-//      returnType = returnType.map(_.toAST(names)),
-//      location
-//    )
-//  }
-
   // TODO: Deduplicate this with $Let#findUniqueName
   private def findUniqueNameFor(name: VarName, usedNames: Set[String]): String = {
     // TODO: Define `Value#unboundNames` and check if the duplicate name is actually used before renaming
@@ -201,27 +172,6 @@ case class Closure(scope: Scope, fnDef: $FunctionDef, typ: $Function) extends Va
     val innerEnv = Environment(scope, partialEvalMode)
     fnDef.evaluatePartially(innerEnv)
   }
-
-//  override def evaluate(env: Environment): Value = {
-//    // TODO: This env.evalMode == EvalMode.CompileTimeOnly skip may not be correct
-//    if (env.evalMode == EvalMode.RunTime || env.evalMode == EvalMode.CompileTimeOnly) {
-//      return this
-//    }
-//
-//    val partialEvalMode = typ.runMode match {
-//      // TODO: This should result in an error - the function was not evaluated compile-time.
-//      //       Or maybe it was but wasn't removed
-//      case FunctionRunMode.CompileTimeOnly => EvalMode.Partial
-//      case FunctionRunMode.Default => EvalMode.Partial
-//      case FunctionRunMode.PreferRunTime => EvalMode.PartialPreferRunTime
-//      case FunctionRunMode.RunTimeOnly => EvalMode.PartialRunTimeOnly
-//    }
-//
-//    val innerEnv = Environment(scope, partialEvalMode)
-//    val newFunctionDef = fnDef.evaluatePartially(innerEnv)
-//
-//    Closure(scope, newFunctionDef, typ)
-//  }
 
   override def evaluate(env: Environment): EvalResult[Value] =
     // TODO: Is this correct? We should have returned the closure when it was defined, but still it's weird.

@@ -7,12 +7,12 @@
 # }
 
 object Stream
-  def call(T: Type) Internal.cacheType Something, T, () class {
+  def call(T: Type) Internal.cacheType Stream, T, () class {
     def foreach: (each: (value: T): Nothing): Nothing
 
     def map(fn: (item: T): val R) {
       Stream(R).new (next: (value: R): Nothing) {
-        foreach (item) {
+        foreach (item: T) {
           next fn(item)
         }
       }
@@ -21,7 +21,7 @@ object Stream
     def reduce(initial: val R, fn: (result: R, item: T): R): R {
       val result = Ref(R).new(initial)
 
-      foreach (item) {
+      foreach (item: T) {
         result.set fn(result.get, item)
       }
 
@@ -29,7 +29,7 @@ object Stream
     }
 
     def sum: Int {
-      reduce 0, (a, b) a + b
+      reduce 0, (a: Int, b: Int) a + b
     }
 
     def max: Optional(Int) {

@@ -219,6 +219,9 @@ object ASTToValue {
           ValuePattern.Call(realTarget, realName, valueArgs, location),
           argScope
         )
+
+      case Pattern.FunctionType(params, returnType, location) =>
+
     }
   }
 }

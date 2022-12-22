@@ -16,7 +16,8 @@ sealed trait MethodSignature {
   def withoutFirstArgumentCalled(name: String): MethodSignature
   def hasArgumentCalled(name: String): Boolean
 
-  def canBeAssignedFrom(other: MethodSignature): Boolean
+  def canBeAssignedFrom(other: MethodSignature): Boolean = assignFrom(other).isDefined
+  def assignFrom(other: MethodSignature): Option[MatchResult]
 }
 
 object MethodSignature {
@@ -34,7 +35,7 @@ object MethodSignature {
     returnType: Type
   ) extends MethodSignature {
     def specialize(args: Arguments[Value], scope: Scope): Either[CallSpec, TypeError] = {
-      val bindings = args.matchWith(argTypes)
+      val bindings = args.withoutSelf.matchWith(argTypes)
         .map { case (name, (value, expectedType)) =>
           val valueType = value.typ(scope)
           val convertedValue = $Core.checkAndConvertTypes(value, valueType, expectedType) match {
@@ -68,27 +69,34 @@ object MethodSignature {
 
     override def hasArgumentCalled(name: String): Boolean = argTypes.exists { case (argName, _) => argName == name }
 
-    override def canBeAssignedFrom(moreGeneralSignature: MethodSignature): Boolean = moreGeneralSignature match {
-      // TODO: Make the actual conversion, not just a check? Because of interfaces
-      case Specific(otherArgTypes, otherReturnType) =>
-        val returnTypesAreCompatible = $Core.isTypeAssignable(otherReturnType, returnType)
+    override def assignFrom(moreGeneralSignature: MethodSignature) = {
+      val assignableFromOther = moreGeneralSignature match {
+        // TODO: Make the actual conversion, not just a check? Because of interfaces
+        case Specific(otherArgTypes, otherReturnType) =>
+          val returnTypesAreCompatible = $Core.isTypeAssignable(otherReturnType, returnType)
 
-        val argumentTypesAreCompatible = argTypes.map(Some(_))
-          .zipAll(otherArgTypes.map(Some(_)), None, None)
-          .forall {
-            case (Some(aName -> aType), Some(bName -> bType)) => aName == bName && $Core.isTypeAssignable(bType, aType)
-            case _ => false
-          }
+          val argumentTypesAreCompatible = argTypes.map(Some(_))
+            .zipAll(otherArgTypes.map(Some(_)), None, None)
+            .forall {
+              case (Some(aName -> aType), Some(bName -> bType)) => aName == bName && $Core.isTypeAssignable(bType, aType)
+              case _ => false
+            }
 
-        returnTypesAreCompatible && argumentTypesAreCompatible
+          returnTypesAreCompatible && argumentTypesAreCompatible
 
-      case patterns: Patterns =>
-        patterns.canTypesBeUsed(
-          ArgumentsWithoutSelf.positional(argTypes.map(_._2)),
-          returnType
-        )
+        case patterns: Patterns =>
+          patterns.canTypesBeUsed(
+            ArgumentsWithoutSelf.positional(argTypes.map(_._2)),
+            returnType
+          )
 
-      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+        case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+      }
+
+      if (assignableFromOther)
+        Some(MatchResult(Map.empty))
+      else
+        None
     }
   }
 
@@ -103,11 +111,18 @@ object MethodSignature {
     override def withoutFirstArgumentCalled(name: String): MethodSignature = this
     override def hasArgumentCalled(name: String): Boolean = true
 
-    override def canBeAssignedFrom(other: MethodSignature): Boolean = other match {
-      // TODO: Make the actual conversion, not just a check
-      case Specific(argTypes, otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
-      case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
-      // TODO: Patterns
+    override def assignFrom(other: MethodSignature) = {
+      val assignableFromOther = other match {
+        // TODO: Make the actual conversion, not just a check
+        case Specific(argTypes, otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+        case Any(otherReturnType) => $Core.isTypeAssignable(otherReturnType, returnType)
+        // TODO: Patterns
+      }
+
+      if (assignableFromOther)
+        Some(MatchResult(Map.empty))
+      else
+        None
     }
   }
 
@@ -133,44 +148,71 @@ object MethodSignature {
       Patterns(fnScope, argsWithoutName.result, returnType)
     }
 
-    // Can't assign to pattern types at all
-    override def canBeAssignedFrom(other: MethodSignature) = false
+    override def assignFrom(other: MethodSignature) = other match {
+      // TODO: Should be able to do this in some cases, depends on the patterns
+      case Any(returnType) => None
 
-    def specializeTypes(argTypes: ArgumentsWithoutSelf[Type]): Option[Option[Type]] = {
-      val argScope = argTypes.matchWith(argPatterns)
-        .foldLeft(fnScope) { (fnScope, matchedParam) =>
-          val (_, (valueType, pattern)) = matchedParam
+      // TODO: Should be able to do this as well, depends on the patterns
+      case Patterns(fnScope, argPatterns, returnType) => None
 
-          pattern match {
-            case ValuePattern.Expected(expectedValue, _) =>
-              val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).value.asType
-              val isAssignable = $Core.isTypeAssignable(valueType, expectedType)
+      case Specific(argTypes, returnType) =>
+        val types = argTypes.zip(argPatterns)
+          .map { case ((givenName, givenType), (expectedName, expectedType)) =>
+            if (givenName != expectedName) {
+              return None
+            }
 
-              if (!isAssignable) {
-                return None
-              }
-
-              fnScope
-
-            case pattern =>
-              val matchResult = pattern.applyTo(valueType, Environment(fnScope, EvalMode.CompileTimeOnly)) match {
-                case Some(value) => value
-                case None => return None
-              }
-
-              val newFnScope = fnScope.newChild(matchResult.bindings.toSeq)
-
-              newFnScope
+            givenName -> (givenType -> expectedType)
           }
-        }
 
-      Some(Some(returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).value.asType))
+        specializeTypes1(types)
+    }
+
+    def specializeTypes(args: ArgumentsWithoutSelf[Type]): Option[Option[Type]] =
+      specializeTypes1(args.matchWith(argPatterns)).map { case (matchResult, returnType) => returnType }
+
+    // TODO: Duplication with #specialize?
+    private def specializeTypes1(types: Seq[(String, (Type, ValuePattern))]): Option[(MatchResult, Option[Type])] = {
+      val (argScope, matchResult) = types.foldLeft((fnScope, MatchResult.empty)) { case ((fnScope, matchResult), matchedParam) =>
+        val (_, (valueType, pattern)) = matchedParam
+
+        pattern match {
+          case ValuePattern.Expected(expectedValue, _) =>
+            val expectedType = expectedValue.evaluate(Environment(fnScope, EvalMode.CompileTimeOnly)).value.asType
+            val isAssignable = $Core.isTypeAssignable(valueType, expectedType)
+
+            if (!isAssignable) {
+              return None
+            }
+
+            (fnScope, matchResult)
+
+          case pattern =>
+            val newMatchResult = pattern.applyTo(valueType, Environment(fnScope, EvalMode.CompileTimeOnly)) match {
+              case Some(value) => value
+              case None => return None
+            }
+
+            val newFnScope = fnScope.newChild(newMatchResult.bindings.toSeq)
+
+            (newFnScope, matchResult + newMatchResult)
+        }
+      }
+
+      Some(
+        (
+          matchResult,
+          Some(returnType.evaluate(Environment(argScope, EvalMode.CompileTimeOnly)).value.asType)
+        )
+      )
     }
 
     // TODO: Duplication with #specialize below
     def canTypesBeUsed(otherArgs: ArgumentsWithoutSelf[Type], otherReturnType: Type): Boolean = {
-      specializeTypes(otherArgs) match {
-        case Some(Some(returnType)) =>
+      val types = otherArgs.matchWith(argPatterns)
+
+      specializeTypes(types) match {
+        case Some((_, Some(returnType))) =>
           // TODO: This checks if it's assignable but doesn't actually convert it if needed
           $Core.isTypeAssignable(returnType, otherReturnType)
 
@@ -181,7 +223,7 @@ object MethodSignature {
     }
 
     override def specialize(args: Arguments[Value], argScope: Scope): Either[CallSpec, TypeError] = {
-      val (bindingScope, bindings) = args.matchWith(argPatterns)
+      val (bindingScope, bindings) = args.withoutSelf.matchWith(argPatterns)
         .mapWithRollingContext(fnScope) { (fnScope, matchedParam) =>
           val (name, (value, pattern)) = matchedParam
           val valueType = value.typ(argScope)

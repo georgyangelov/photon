@@ -1,13 +1,18 @@
 package photon.base
 
 import photon.core.$Object
-import photon.core.objects.$MatchResult
-import photon.core.operations.$Call
+import photon.core.objects.{$MatchResult, FunctionInterface}
+import photon.core.operations.{$Call, $Function}
 import photon.frontend._
 
 case class PatternNames(defined: Set[VarName], unbound: Set[VarName])
 
-case class MatchResult(bindings: Map[VarName, Value])
+case class MatchResult(bindings: Map[VarName, Value]) {
+  def +(other: MatchResult) = MatchResult(bindings ++ other.bindings)
+}
+object MatchResult {
+  def empty = MatchResult(Map.empty)
+}
 
 sealed trait ValuePattern {
   def names: PatternNames
@@ -37,7 +42,7 @@ object ValuePattern {
     override def applyTo(value: Value, env: Environment) =
     // TODO: Need `equals` between values here
     // TODO: DelayCall if this needs to be done runtime
-      if (value == expectedValue.evaluate(env)) {
+      if (value == expectedValue.evaluate(env).value) {
         Some(MatchResult(Map.empty))
       } else None
 
@@ -119,6 +124,50 @@ object ValuePattern {
         name,
         arguments = args.map(_.toASTWithPreBoundNames(names)),
         mayBeVarCall = false,
+        location
+      )
+  }
+
+  case class FunctionTypeParam(
+    name: String,
+    typ: ValuePattern,
+    location: Option[Location]
+  )
+
+  case class FunctionType(
+    params: Seq[FunctionTypeParam],
+    returns: ValuePattern,
+    location: Option[Location]
+  ) extends ValuePattern {
+    override def names =
+      (params.map(_.typ) :+ returns)
+        .map(_.names)
+        .foldLeft(PatternNames(defined = Set.empty, unbound = Set.empty)) {
+          case a -> b =>
+            PatternNames(
+              defined = a.defined ++ b.defined,
+              unbound = a.unbound ++ (b.unbound -- a.defined)
+            )
+        }
+
+    override def applyTo(value: Value, env: Environment): Option[MatchResult] = {
+      val signature = value match {
+        case fn: $Function => fn.signature
+        case fn: FunctionInterface => fn.signature
+        case _ => return None
+      }
+
+//      val thisSignature = MethodSignature.ofPatterns(
+//        env.scope,
+//        params.map { case FunctionTypeParam(name, pattern, location) => name -> pattern },
+//
+//      )
+    }
+
+    override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =
+      Pattern.FunctionType(
+        params.map { param => ASTPatternParameter(param.name, param.typ.toASTWithPreBoundNames(names), param.location) },
+        returns.toASTWithPreBoundNames(names),
         location
       )
   }
