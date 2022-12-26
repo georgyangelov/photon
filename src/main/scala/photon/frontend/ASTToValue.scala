@@ -1,5 +1,6 @@
 package photon.frontend
 
+import photon.base.ValuePattern.FunctionTypeParam
 import photon.base._
 import photon.core._
 import photon.core.objects._
@@ -220,7 +221,26 @@ object ASTToValue {
           argScope
         )
 
-      case Pattern.FunctionType(params, returnType, location) => ???
+      case Pattern.FunctionType(params, returnType, location) =>
+        var argScope = scope
+
+        val fnTypeParams = params.map { param =>
+          val (valuePattern, newScope) = transform(param.typ, argScope)
+
+          argScope = newScope
+
+          FunctionTypeParam(param.name, valuePattern, param.location)
+        }
+
+        val (returnPattern, finalScope) = transform(returnType, argScope)
+
+        val fnType = ValuePattern.FunctionType(
+          fnTypeParams,
+          returnPattern,
+          location
+        )
+
+        (fnType, finalScope)
     }
   }
 }

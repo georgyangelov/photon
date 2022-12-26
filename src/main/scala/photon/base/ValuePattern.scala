@@ -150,19 +150,45 @@ object ValuePattern {
             )
         }
 
+    // TODO: Provide explanations as to why the match failed
     override def applyTo(value: Value, env: Environment): Option[MatchResult] = {
-      val signature = value match {
+      val signatureToMatchAgainst = value match {
         case fn: $Function => fn.signature
         case fn: FunctionInterface => fn.signature
         case _ => return None
       }
 
-//      val thisSignature = MethodSignature.ofPatterns(
-//        env.scope,
-//        params.map { case FunctionTypeParam(name, pattern, location) => name -> pattern },
-//
-//      )
-      ???
+      signatureToMatchAgainst match {
+        // TODO: Maybe this can match if we don't have bindings on the params
+        case MethodSignature.Any(_) => None
+        // TODO: Maybe this can match if we don't have conflicting bindings
+        case MethodSignature.Template(fnScope, argPatterns, returnType) => None
+
+        case MethodSignature.Concrete(otherArgTypes, otherReturnType) =>
+          if (params.size != otherArgTypes.size) {
+            return None
+          }
+
+          val paramMatchResult = params.zip(otherArgTypes).foldLeft(MatchResult.empty) {
+            case (matchResult, (FunctionTypeParam(paramName, pattern, _), (otherParamName, otherType))) =>
+              if (paramName != otherParamName) return None
+
+              val innerEnv = Environment(env.scope.newChild(matchResult.bindings.toSeq), env.evalMode)
+
+              pattern.applyTo(otherType, innerEnv) match {
+                case Some(matchResult) => matchResult
+                case None => return None
+              }
+          }
+
+          val innerEnv = Environment(env.scope.newChild(paramMatchResult.bindings.toSeq), env.evalMode)
+          val returnTypeMatchResult = returns.applyTo(otherReturnType, innerEnv) match {
+            case Some(value) => value
+            case None => return None
+          }
+
+          Some(paramMatchResult + returnTypeMatchResult)
+      }
     }
 
     override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =

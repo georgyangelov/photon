@@ -6,6 +6,11 @@ abstract class Lazy[+T] {
 
   def map[R](transform: T => R): Lazy[R]
   def flatMap[R](transform: T => Lazy[R]): Lazy[R]
+
+  override def equals(obj: Any): Boolean = obj match {
+    case that: Lazy[T] => resolve == that.resolve
+    case _ => false
+  }
 }
 
 class LazyFn[+T] private (
