@@ -12,7 +12,7 @@ object $Internal extends Type {
   override def typ(scope: Scope): Type = $Type
   override val methods: Map[String, Method] = Map(
     "arrayNew" -> new DefaultMethod {
-      override val signature = MethodSignature.any($NativeHandle)
+      override val signature = MethodSignature.Any($NativeHandle)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val items = spec.requireAllConcretePositional(env)
 
@@ -22,7 +22,7 @@ object $Internal extends Type {
     },
 
     "cacheType" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val keys = spec.args.positional.dropRight(1).map(_.evaluate(env).value)
         val typeFn = spec.args.positional.last.evaluate(env)

@@ -12,7 +12,7 @@ object $Interface extends Type {
     // Interface.new
     // TODO: Duplication with $Class.new
     "new" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val (interfaceName, EvalResult(builderFn, _)) = spec.args.positional.head.evaluate(env) match {
           // Using .value should be fine since this is a compile-time only method
@@ -45,7 +45,7 @@ object $Interface extends Type {
 }
 
 sealed trait Interface extends Type {
-  def canBeAssignedFrom(other: Type): Boolean
+  def assignableFrom(other: Type): Either[Value.Wrapper, TypeError]
 }
 
 case class UserDefinedInterface(
@@ -73,8 +73,8 @@ case class UserDefinedInterface(
   }
 
   // TODO: Fix duplication with methodForDefinition
-  def canBeAssignedFrom(other: Type): Boolean =
-    definitions.forall { case ClassDefinition(methodName, value, location) =>
+  def assignableFrom(other: Type): Either[Value.Wrapper, TypeError] = {
+    definitions.foreach { case ClassDefinition(methodName, value, location) =>
       value match {
         case returnType: Type =>
           val interfaceSignature = returnType.resolvedType match {
@@ -83,15 +83,22 @@ case class UserDefinedInterface(
           }
 
           val otherSignature = other.method(methodName)
-            .getOrElse { return false }
+            .getOrElse { return Right(TypeError(s"Cannot find method $methodName in the type we're assigning from", other.location)) }
             .signature
 
-          interfaceSignature.canBeAssignedFrom(otherSignature)
+          // TODO: Handle conversions
+          interfaceSignature.assignableFrom(otherSignature) match {
+            case Left(_) => ()
+            case Right(typeError) => return Right(typeError)
+          }
 
         // This is a method defined on the interface, no need to check for that
-        case _ => true
+        case _ => ()
       }
     }
+
+    Left(value => InterfaceValue(value, this, location))
+  }
 
   override def typ(scope: Scope): Type = metaType
   override val methods: Map[String, Method] = definitions
@@ -126,11 +133,11 @@ case class UserDefinedInterface(
       .method("call")
       .getOrElse { throw EvalError(s"Class method ${fnDef.name} is not callable", location) }
 
-    private val hasSelfArgument = callMethod.signature.hasArgumentCalled("self")
+    private val hasSelfArgument = callMethod.signature.hasSelfArgument
 
     override val signature: MethodSignature =
       if (hasSelfArgument)
-        callMethod.signature.withoutFirstArgumentCalled("self")
+        callMethod.signature.withoutSelfArgument
       else
         callMethod.signature
 
@@ -204,7 +211,7 @@ case class $FunctionInterfaceDef(
 }
 
 case class FunctionInterface(
-  signature: MethodSignature,
+  signature: MethodSignature.Concrete,
   runMode: FunctionRunMode,
   inlinePreference: InlinePreference,
   override val location: Option[Location]
@@ -214,12 +221,17 @@ case class FunctionInterface(
   override def typ(scope: Scope): Type = $Type
   override val methods = Map("call" -> callMethod)
 
-  override def canBeAssignedFrom(other: Type): Boolean = {
+  override def assignableFrom(other: Type): Either[Value.Wrapper, TypeError] = {
     val otherSignature = other.method("call")
-      .getOrElse { return false }
+      .getOrElse { return Right(TypeError(s"Values assigned to function types need to be callable", other.location)) }
       .signature
 
-    signature.canBeAssignedFrom(otherSignature)
+    // TODO: Handle conversions
+    signature.assignableFrom(otherSignature) match {
+      case Left(_) => Left(value => value)
+      // TODO: String -> TypeError & compose TypeErrors to provide a trace
+      case Right(typeError) => Right(typeError)
+    }
   }
 
   private def callMethod = new Method {

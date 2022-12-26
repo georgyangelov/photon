@@ -7,6 +7,11 @@ import photon.frontend.{ASTArguments, ASTValue}
 import photon.lib.ScalaExtensions.IterableSetExtensions
 
 case class $Call(name: String, args: Arguments[Value], location: Option[Location]) extends Value {
+  case class StaticCallDescription(
+    method: Method,
+    callSpec: CallSpec
+  )
+
   override def isOperation = true
   override def evalMayHaveSideEffects = true
   override def unboundNames =
@@ -14,15 +19,7 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
       .map(_.unboundNames)
       .unionSets
 
-  override def typ(scope: Scope) = {
-    // TODO: Need to eval self here if it's $AnyStatic
-    findMethod(args.self.typ(scope))
-      .signature
-      .specialize(args.map($ScopeBound(_, scope)), scope) match {
-      case Left(value) => value.returnType
-      case Right(typeError) => throw typeError
-    }
-  }
+  override def typ(scope: Scope) = staticCallDescription(scope).callSpec.returnType
 
   override def toAST(names: Map[VarName, String]) =
     ASTValue.Call(
@@ -36,35 +33,46 @@ case class $Call(name: String, args: Arguments[Value], location: Option[Location
       location
     )
 
-  override def evaluate(env: Environment) = {
-    // TODO: Should I do this with the other arguments as well?
-    val (self, selfType) = args.self.typ(env.scope).resolvedType match {
-      case value if value == $AnyStatic =>
-        // Should be ok to skip closures here because it's a compile-time only eval value
-        val EvalResult(evaluatedSelf, _) = args.self.evaluate(env)
+  private def staticCallDescription(scope: Scope): StaticCallDescription = {
+    val env = Environment(scope, EvalMode.CompileTimeOnly)
+    val argsWithTypes = args.map(valueWithType(_, env))
+    val method = findMethod(argsWithTypes.self._2)
 
-        (evaluatedSelf, evaluatedSelf.typ(env.scope))
-
-      case typ => (args.self, typ)
-    }
-
-    val method = findMethod(selfType)
-
-    // TODO: Memoize and share this between `typ` and `evaluate`
-    val spec = method.signature.specialize(args.changeSelf(self), env.scope) match {
+    val concreteSignature = method.signature
+      .instantiate(argsWithTypes.withoutSelf.map(_._2)) match {
       case Left(value) => value
       case Right(typeError) => throw typeError
     }
 
+    concreteSignature.specialize(argsWithTypes) match {
+      case Left(callSpec) => StaticCallDescription(method, callSpec)
+      case Right(typeError) => throw typeError
+    }
+  }
+
+  private def valueWithType(value: Value, env: Environment): (Value, Type) =
+    value.typ(env.scope).resolvedType match {
+      case valueType if valueType == $AnyStatic =>
+        // Should be ok to skip closures here because it's a compile-time only eval value
+        val EvalResult(evaluatedSelf, _) = value.evaluate(env)
+
+        (evaluatedSelf, evaluatedSelf.typ(env.scope))
+
+      case typ => (value, typ)
+    }
+
+  override def evaluate(env: Environment) = {
+    // TODO: Memoize and share this between `typ` and `evaluate`
+    val StaticCallDescription(method, spec) = staticCallDescription(env.scope)
+
     try {
-//      val boundArgs = args.map($ScopeBound(_, env.scope))
       val result = method.call(env, spec, location)
 
       result
     } catch {
       case DelayCall =>
         // TODO: This should be correct, right? Or not? What about self-references here?
-        val evaluatedArgs = spec.args.changeSelf(self).map(_.evaluate(env))
+        val evaluatedArgs = spec.args.map(_.evaluate(env))
         val closures = evaluatedArgs.values.flatMap(_.closures)
 
         val result = $Call(name, evaluatedArgs.map(_.value), location)

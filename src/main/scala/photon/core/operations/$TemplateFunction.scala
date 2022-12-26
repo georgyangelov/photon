@@ -41,26 +41,37 @@ object $TemplateFunction extends Type {
   override def typ(scope: Scope) = $Type
   override val methods = Map(
     "call" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val EvalResult(templateClosure, templateClosureClosures) = spec.requireSelf[TemplateClosure](env)
 
-        // TODO: Calculate this once - move to the TemplateClosure class
-        val innerSignature = MethodSignature.ofPatterns(
-          templateClosure.scope,
-          templateClosure.fnDef.params.map { param => param.outName -> param.pattern },
-          templateClosure.fnDef.returnType
-            // TODO: This can be inferred after the parameters are specialized
-            .getOrElse { throw EvalError("Template function needs to have a return type", templateClosure.location) }
-        )
+        val argTypes = spec.args
+          .withoutSelf
+          .map(_.typ(env.scope))
 
-        val callSpec = innerSignature.specialize(spec.args, env.scope) match {
+        // TODO: Calculate this once - move to the TemplateClosure class
+//        val innerSignature = MethodSignature.Template(
+//          templateClosure.scope,
+//          templateClosure.fnDef.params.map { param => param.outName -> param.pattern },
+//          templateClosure.fnDef.returnType
+//            // TODO: This can be inferred after the parameters are specialized
+//            .getOrElse { throw EvalError("Template function needs to have a return type", templateClosure.location) }
+//        )
+
+        val concreteSignature = templateClosure.signature.instantiate(argTypes) match {
+          case Left(concreteSignature) => concreteSignature
+          case Right(typeError) => throw typeError
+        }
+
+        val argsWithTypes = spec.args.map { value => value -> value.typ(env.scope) }
+        val callSpec = concreteSignature.specialize(argsWithTypes) match {
           case Left(callSpec) => callSpec
           case Right(typeError) => throw typeError
         }
 
         val paramTypes = callSpec.args
           .map(_.typ(env.scope))
+          .withoutSelf
           .matchWith(templateClosure.fnDef.params.map { param => param.outName -> param.pattern })
           .map { case name -> (realType -> _) => name -> realType }.toMap
 
@@ -84,28 +95,22 @@ object $TemplateFunction extends Type {
     },
 
     "instantiate" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
 
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val EvalResult(closure, closureClosures) = spec.requireSelf[TemplateClosure](env)
         val types = spec.args.map(_.asType).positional
 
-        val innerSignature = MethodSignature.ofPatterns(
-          closure.scope,
-          closure.fnDef.params.map { param => param.outName -> param.pattern },
-          closure.fnDef.returnType
-            // TODO: This can be inferred after the parameters are specialized
-            .getOrElse { throw EvalError("Template function needs to have a return type", closure.location) }
-        )
-
-        val returnType = innerSignature.specializeTypes(
+        val concreteSignature = closure.signature.instantiate(
           ArgumentsWithoutSelf.positional(types)
         ) match {
-          case Some(returnType) => returnType
-          case None => throw TypeError("Template function cannot be instantiated with these types", closure.location)
+          case Left(concreteSignature) => concreteSignature
+          case Right(typeError) => throw typeError
         }
 
-        val result = instantiate(closure, types, returnType).evaluate(env)
+        val returnType = concreteSignature.returnType
+
+        val result = instantiate(closure, types, Some(returnType)).evaluate(env)
 
         EvalResult(result.value, closureClosures ++ result.closures)
       }
@@ -136,6 +141,14 @@ case class TemplateClosure(scope: Scope, fnDef: $TemplateFunctionDef) extends Va
   override def unboundNames = fnDef.unboundNames
 
   override def typ(scope: Scope) = $TemplateFunction
+
+  val signature = MethodSignature.Template(
+    scope,
+    fnDef.params.map { param => param.outName -> param.pattern },
+    fnDef.returnType
+      // TODO: This can be inferred after the parameters are specialized
+      .getOrElse { throw EvalError("Template function needs to have a return type", location) }
+  )
 
   // TODO: Figure this out
   override def evaluate(env: Environment) = EvalResult(this, Seq.empty)

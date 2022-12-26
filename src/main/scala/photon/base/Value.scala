@@ -23,6 +23,10 @@ case class EvalResult[T](
     EvalResult(fn(value), closures)
 }
 
+object Value {
+  type Wrapper = Value => Value
+}
+
 trait Value {
   def isOperation: Boolean = false
   def evalMayHaveSideEffects: Boolean

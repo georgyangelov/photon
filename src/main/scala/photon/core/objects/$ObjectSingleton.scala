@@ -9,7 +9,7 @@ object $ObjectSingleton extends Type {
   override val methods = Map(
     // Object.new
     "new" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val klass = $Call(
           "new",

@@ -204,39 +204,45 @@ case class $Function(
     },
 
     "compileTimeOnly" -> new CompileTimeOnlyMethod {
+      private lazy val returnType = $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
+
       override lazy val signature = MethodSignature.of(
-        args = Seq.empty,
-        $Function(self.signature, FunctionRunMode.CompileTimeOnly, self.inlinePreference)
+        Seq.empty,
+        returnType
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
-        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, returnType)
 
         EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }
     },
 
     "runTimeOnly" -> new CompileTimeOnlyMethod {
+      private lazy val returnType = $Function(self.signature, FunctionRunMode.RunTimeOnly, self.inlinePreference)
+
       override lazy val signature = MethodSignature.of(
-        args = Seq.empty,
-        $Function(self.signature, FunctionRunMode.RunTimeOnly, self.inlinePreference)
+        Seq.empty,
+        returnType
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
-        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, returnType)
 
         EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }
     },
 
     "inline" -> new CompileTimeOnlyMethod {
+      private lazy val returnType = $Function(self.signature, self.runMode, InlinePreference.ForceInline)
+
       override lazy val signature = MethodSignature.of(
-        args = Seq.empty,
-        $Function(self.signature, self.runMode, InlinePreference.ForceInline)
+        Seq.empty,
+        returnType
       )
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val EvalResult(oldClosure, closures) = spec.requireSelf[Closure](env)
-        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, spec.returnType.asInstanceOf[$Function])
+        val newClosure = Closure(oldClosure.scope, oldClosure.fnDef, returnType)
 
         EvalResult(newClosure, closures.except(oldClosure) :+ newClosure)
       }

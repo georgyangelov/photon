@@ -10,39 +10,28 @@ object $Core extends Type {
     // switched to CompileTimeOnly mode and I can't evaluate it in the original mode (since that's lost by the
     // CompileTimeOnlyMethod implementation)
     "typeCheck" -> new Method {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override def call(env: Environment, spec: CallSpec, location: Option[Location]) =
         typeCheck(env, spec, location).evaluate(env)
     }
   )
 
-  def isTypeAssignable(from: Type, to: Type): Boolean = {
+  def isTypeAssignable(from: Type, to: Type): Either[Value.Wrapper, TypeError] = {
     val fromType = from.resolvedType
 
     to.resolvedType match {
-      case toType if toType == $AnyStatic => true
-      case toType if toType == fromType => true
-      case interface: Interface => interface.canBeAssignedFrom(fromType)
-      case _ => false
+      case toType if toType == $AnyStatic => Left(value => value)
+      case toType if toType == fromType => Left(value => value)
+      case interface: Interface => interface.assignableFrom(fromType)
+      case _ => Right(TypeError(s"Cannot assign type $from to $to", from.location))
     }
   }
 
   // This method should only be called compile-time
   def checkAndConvertTypes(value: Value, from: Type, to: Type): Either[Value, TypeError] = {
-    val fromType = from.resolvedType
-
-    to.resolvedType match {
-      case toType if toType == $AnyStatic => Left(value)
-      case toType if toType == fromType => Left(value)
-
-      case interface: Interface =>
-        if (interface.canBeAssignedFrom(fromType)) {
-          Left(InterfaceValue(value, interface, location))
-        } else {
-          Right(TypeError(s"Cannot assign type $fromType to interface $interface", value.location))
-        }
-
-      case toType => Right(TypeError(s"Cannot assign type $fromType to $toType", value.location))
+    isTypeAssignable(from, to) match {
+      case Left(wrapper) => Left(wrapper(value))
+      case Right(typeError) => Right(typeError)
     }
   }
 

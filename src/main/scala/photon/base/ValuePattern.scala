@@ -162,6 +162,7 @@ object ValuePattern {
 //        params.map { case FunctionTypeParam(name, pattern, location) => name -> pattern },
 //
 //      )
+      ???
     }
 
     override def toASTWithPreBoundNames(names: Map[VarName, String]): Pattern =

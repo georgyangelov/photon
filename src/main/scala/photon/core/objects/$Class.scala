@@ -10,7 +10,7 @@ object $Class extends Type {
   override val methods = Map(
     // Class.new
     "new" -> new CompileTimeOnlyMethod {
-      override val signature = MethodSignature.any($AnyStatic)
+      override val signature = MethodSignature.Any($AnyStatic)
       override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
         val (interfaceName, EvalResult(builderFn, _)) = spec.args.positional.head.evaluate(env) match {
           // Using .value should be fine since this is a compile-time only method
@@ -106,11 +106,11 @@ case class Class(
       .method("call")
       .getOrElse { throw EvalError(s"Class method ${fnDef.name} is not callable", location) }
 
-    private val hasSelfArgument = callMethod.signature.hasArgumentCalled("self")
+    private val hasSelfArgument = callMethod.signature.hasSelfArgument
 
     override val signature: MethodSignature =
       if (hasSelfArgument)
-        callMethod.signature.withoutFirstArgumentCalled("self")
+        callMethod.signature.withoutSelfArgument
       else
         callMethod.signature
 

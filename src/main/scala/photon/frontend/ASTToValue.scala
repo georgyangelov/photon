@@ -220,8 +220,7 @@ object ASTToValue {
           argScope
         )
 
-      case Pattern.FunctionType(params, returnType, location) =>
-
+      case Pattern.FunctionType(params, returnType, location) => ???
     }
   }
 }

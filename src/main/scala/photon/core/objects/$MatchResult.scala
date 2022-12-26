@@ -8,7 +8,7 @@ object $MatchResult extends Type {
     override def typ(scope: Scope): Type = $Type
     override val methods: Map[String, Method] = Map(
       "of" -> new DefaultMethod {
-        override val signature = MethodSignature.any($MatchResult)
+        override val signature = MethodSignature.Any($MatchResult)
         override protected def apply(env: Environment, spec: CallSpec, location: Option[Location]) = {
           // TODO: This needs to eval the arguments so that we get the closures
           ???
