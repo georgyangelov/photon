@@ -27,7 +27,9 @@ class SimpleTest extends AnyFunSuite {
   def expect[T <: AnyRef](code: String, expected: T)(implicit tag: ClassTag[T]): Unit = {
     val context = Context.newBuilder(PhotonLanguage.id).build()
     val source = Source.newBuilder(PhotonLanguage.id, code, "test.y").build()
+    val result = context.eval(source)
+    val resultOfType = result.as(tag.runtimeClass)
 
-    assert(context.eval(source).as(tag.runtimeClass) == expected)
+    assert(resultOfType == expected)
   }
 }

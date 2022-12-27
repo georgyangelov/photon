@@ -8,6 +8,7 @@ import com.oracle.truffle.api.nodes.Node.{Child, Children}
 import com.oracle.truffle.api.nodes.{BlockNode, ExplodeLoop, Node}
 import photon.frontend.ASTValue
 import photon.libraries.PhotonLibrary
+import photon.objects.PhotonInt
 
 abstract class Value extends Node {
   def executeGeneric(frame: VirtualFrame): AnyRef
@@ -57,7 +58,8 @@ case class $Call(
   @Children arguments: Array[Value]
 ) extends Value {
   @Child
-  val interop = LibraryFactory.resolve(classOf[PhotonLibrary]).createDispatched(3)
+//  val interop = LibraryFactory.resolve(classOf[PhotonLibrary]).createDispatched(3)
+  val interop = InteropLibrary.getFactory.createDispatched(3)
 
   @ExplodeLoop
   override def executeGeneric(frame: VirtualFrame): AnyRef = {
@@ -75,7 +77,7 @@ case class $Call(
       i += 1
     }
 
-    interop.invokeMember(evaluatedTarget, name, evaluatedArguments)
+    interop.invokeMember(evaluatedTarget, name, evaluatedArguments: _*)
   }
 }
 
@@ -87,7 +89,7 @@ case class $Call(
 object ASTToTruffleNode {
   def transform(ast: ASTValue): Value = ast match {
     case ASTValue.Boolean(value, location) => $Literal(value)
-    case ASTValue.Int(value, location) => $Literal(value)
+    case ASTValue.Int(value, location) => new PhotonInt(value)
     case ASTValue.Float(value, location) => $Literal(value)
     case ASTValue.String(value, location) => $Literal(value)
 
