@@ -1,6 +1,5 @@
 package photon.frontend
 
-import photon.base._
 import photon.frontend
 import photon.lib.PushbackStringReader
 

@@ -1,6 +1,5 @@
 package photon.frontend
 
-import photon.base._
 import photon.lib.LookAheadReader
 
 import scala.reflect.ClassTag

@@ -1,4 +1,4 @@
-package photon.base
+package photon.frontend
 
 object Location {
   def beginningOfFile(fileName: String): Location =
@@ -9,12 +9,12 @@ object Location {
 }
 
 case class Location(
-  fileName: String,
-  startLine: Int,
-  startCol: Int,
-  endLine: Int,
-  endCol: Int
-) {
+                     fileName: String,
+                     startLine: Int,
+                     startCol: Int,
+                     endLine: Int,
+                     endCol: Int
+                   ) {
   def extendWith(other: Location): Location = {
     if (fileName != other.fileName) {
       throw new IllegalArgumentException("Locations are not of the same file")
