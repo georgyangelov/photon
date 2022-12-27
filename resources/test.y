@@ -6,7 +6,7 @@
 #   }
 # }
 
-object Stream
+object Stream {
   def call(T: Type) Internal.cacheType Stream, T, () class {
     def foreach: (each: (value: T): Nothing): Nothing
 
