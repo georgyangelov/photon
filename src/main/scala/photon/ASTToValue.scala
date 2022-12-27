@@ -9,20 +9,39 @@ import com.oracle.truffle.api.nodes.{BlockNode, ExplodeLoop, Node}
 import photon.frontend.ASTValue
 import photon.libraries.PhotonLibrary
 import photon.objects.PhotonInt
+import photon.types.IntType
+
+import java.lang.reflect.Method
+import java.util
 
 abstract class Value extends Node {
+  def typeOf(frame: VirtualFrame): Type
   def executeGeneric(frame: VirtualFrame): AnyRef
 }
 
+abstract class Type extends Value {
+  def methods: java.util.Map[String, Method]
+}
+
+object RootType extends Type {
+  override def typeOf(frame: VirtualFrame): Type = this
+  override def executeGeneric(frame: VirtualFrame): AnyRef = this
+
+  override val methods: util.Map[String, Method] = util.Map.of()
+}
+
 case class $Literal(obj: Object) extends Value {
+  override def typeOf(frame: VirtualFrame): Type = RootType
   override def executeGeneric(frame: VirtualFrame): AnyRef = obj
 }
 
 case class $Block(nodes: Seq[Value]) extends Value with BlockNode.ElementExecutor[Value] {
   @Child
-  val bodyBlock =
+  val bodyBlock: BlockNode[Value] =
     if (nodes.isEmpty) null
     else BlockNode.create(nodes.toArray, this)
+
+  override def typeOf(frame: VirtualFrame): Type = RootType
 
   override def executeGeneric(frame: VirtualFrame): AnyRef =
     if (bodyBlock != null)
@@ -68,17 +87,20 @@ case class $Call(
     val evaluatedTarget = target.executeGeneric(frame)
 //    val target = TestObject
 
-    val evaluatedArguments = new Array[AnyRef](arguments.length)
+    val evaluatedArguments = new Array[AnyRef](arguments.length + 1)
+    evaluatedArguments(0) = evaluatedTarget
 
     var i = 0
     while (i < arguments.length) {
-      evaluatedArguments(i) = arguments(i).executeGeneric(frame)
+      evaluatedArguments(i + 1) = arguments(i).executeGeneric(frame)
 
       i += 1
     }
 
     interop.invokeMember(evaluatedTarget, name, evaluatedArguments: _*)
   }
+
+  override def typeOf(frame: VirtualFrame): Type = ???
 }
 
 //case class $Let(
@@ -89,7 +111,7 @@ case class $Call(
 object ASTToTruffleNode {
   def transform(ast: ASTValue): Value = ast match {
     case ASTValue.Boolean(value, location) => $Literal(value)
-    case ASTValue.Int(value, location) => new PhotonInt(value)
+    case ASTValue.Int(value, location) => new PhotonObject(value, IntType.instance)
     case ASTValue.Float(value, location) => $Literal(value)
     case ASTValue.String(value, location) => $Literal(value)
 
