@@ -8,7 +8,7 @@ import java.lang.reflect.InvocationTargetException
 
 @ExportLibrary(value = InteropLibrary::class, delegateTo = "object")
 class PObject<T>(
-  val `object`: T,
+  @JvmField val `object`: T,
   val typeObject: Type
 ): Value(), TruffleObject {
   override fun typeOf(frame: VirtualFrame): Type {

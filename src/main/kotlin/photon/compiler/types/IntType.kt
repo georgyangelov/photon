@@ -6,7 +6,6 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import photon.compiler.core.*
 
-@ExportLibrary(InteropLibrary::class)
 object IntType: Type(), TruffleObject {
   override val methods = mapOf(
     Pair("+", IntType.javaClass.getMethod("plus", PObject::class.java, PObject::class.java))

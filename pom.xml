@@ -73,25 +73,25 @@
                 <artifactId>kotlin-maven-plugin</artifactId>
                 <version>${kotlin.version}</version>
                 <executions>
-<!--                    <execution>-->
-<!--                        <id>kapt</id>-->
-<!--                        <goals>-->
-<!--                            <goal>kapt</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <sourceDirs>-->
-<!--                                <sourceDir>src/main/kotlin</sourceDir>-->
-<!--                            </sourceDirs>-->
-<!--                            <annotationProcessorPaths>-->
-<!--                                &lt;!&ndash; Specify your annotation processors here. &ndash;&gt;-->
-<!--                                <annotationProcessorPath>-->
-<!--                                    <groupId>com.google.auto.service</groupId>-->
-<!--                                    <artifactId>auto-service</artifactId>-->
-<!--                                    <version>1.0-rc4</version>-->
-<!--                                </annotationProcessorPath>-->
-<!--                            </annotationProcessorPaths>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
+                    <execution>
+                        <id>kapt</id>
+                        <goals>
+                            <goal>kapt</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                            </sourceDirs>
+                            <annotationProcessorPaths>
+                                <!-- Specify your annotation processors here. -->
+                                <annotationProcessorPath>
+                                    <groupId>com.google.auto.service</groupId>
+                                    <artifactId>auto-service</artifactId>
+                                    <version>1.0-rc4</version>
+                                </annotationProcessorPath>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>compile</id>
                         <phase>process-sources</phase>
@@ -101,7 +101,6 @@
                         <configuration>
                             <sourceDirs>
                                 <source>src/main/kotlin</source>
-                                <source>target/generated-sources/kapt</source>
                             </sourceDirs>
                         </configuration>
                     </execution>
@@ -122,37 +121,35 @@
                     <jvmTarget>17</jvmTarget>
                 </configuration>
             </plugin>
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-compiler-plugin</artifactId>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>compile</id>-->
-<!--                        <phase>compile</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>compile</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                    <execution>-->
-<!--                        <id>testCompile</id>-->
-<!--                        <phase>test-compile</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>testCompile</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--                <configuration>-->
-<!--                    <source>11</source>-->
-<!--                    <target>11</target>-->
-<!--                    <compilerArgs>-->
-<!--                        <arg>&#45;&#45;add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED</arg>-->
-<!--                        <arg>&#45;&#45;add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED</arg>-->
-<!--                        <arg>&#45;&#45;add-exports=org.graalvm.truffle/com.oracle.truffle.api.library=ALL-UNNAMED</arg>-->
-<!--                        <arg>&#45;&#45;add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED</arg>-->
-<!--                        <arg>&#45;&#45;add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED</arg>-->
-<!--                    </compilerArgs>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <compileSourceRoots>
+                                <compileSourceRoot>target/generated-sources/kapt</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                    <compilerArgs>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.library=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>
