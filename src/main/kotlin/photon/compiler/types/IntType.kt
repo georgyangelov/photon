@@ -1,21 +1,21 @@
 package photon.compiler.types
 
-import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.library.ExportLibrary
 import photon.compiler.core.*
 
-object IntType: Type(), TruffleObject {
+object IntType: Type() {
   override val methods = mapOf(
-    Pair("+", IntType.javaClass.getMethod("plus", PObject::class.java, PObject::class.java))
+    Pair("+", PlusMethod)
   )
 
-  override fun typeOf(frame: VirtualFrame): Type = RootType
-  override fun executeGeneric(frame: VirtualFrame): Any = this
+  object PlusMethod: Method.Default() {
+    override val signature: Signature = Signature.Concrete(
+      listOf(Pair("other", IntType)),
+      IntType
+    )
 
-  @JvmStatic
-  fun plus(a: PObject<Int>, b: PObject<Int>): PObject<Int> {
-    return PObject(a.`object` + b.`object`, IntType)
+    @Suppress("unused")
+    fun call(a: PObject<Int>, b: PObject<Int>): Any {
+      return PObject(a.`object` + b.`object`, IntType)
+    }
   }
 }

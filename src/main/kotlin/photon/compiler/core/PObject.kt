@@ -15,7 +15,7 @@ class PObject<T>(
     return typeObject
   }
 
-  override fun executeGeneric(frame: VirtualFrame): Any {
+  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
     return this
   }
 
@@ -37,12 +37,13 @@ class PObject<T>(
 
   @ExportMessage
   @Throws(UnknownIdentifierException::class)
-  fun invokeMember(member: String?, vararg arguments: Any?): Any {
+  fun invokeMember(member: String, vararg arguments: Any): Any {
     val method = typeObject.methods[member]
 
     if (method != null) {
       return try {
-        method.invoke(null, *arguments)
+        // TODO: Pass EvalMode through
+        method.callMethod(arguments, EvalMode.CompileTimeOnly)
       } catch (e: IllegalAccessException) {
         throw RuntimeException(e)
       } catch (e: InvocationTargetException) {
