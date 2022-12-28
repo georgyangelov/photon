@@ -1,4 +1,4 @@
-package photon.libraries
+package photon.compiler.libraries
 
 import com.oracle.truffle.api.library.GenerateLibrary
 import com.oracle.truffle.api.library.Library

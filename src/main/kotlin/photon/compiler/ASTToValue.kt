@@ -1,6 +1,5 @@
 package photon.compiler
 
-import photon.PObject
 import photon.compiler.core.Value
 import photon.frontend.ASTValue
 

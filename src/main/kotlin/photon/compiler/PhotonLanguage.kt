@@ -1,30 +1,31 @@
-package photon;
+package photon.compiler
 
-import com.oracle.truffle.api.CallTarget;
-import com.oracle.truffle.api.TruffleLanguage;
-import photon.compiler.ASTToValue;
-import photon.compiler.core.Value;
-import photon.frontend.ASTValue;
-import photon.frontend.Lexer;
-import photon.frontend.Parser;
+import com.oracle.truffle.api.CallTarget
+import com.oracle.truffle.api.TruffleLanguage
+import photon.compiler.ASTToValue.transform
+import photon.frontend.Lexer
+import photon.frontend.Parser
+import photon.frontend.Parser.Companion.BlankMacroHandler
 
-class PhotonContext {}
+class PhotonContext
 
 @TruffleLanguage.Registration(id = "photon", name = "Photon")
-public class PhotonLanguage extends TruffleLanguage<PhotonContext> {
-    public static final String id = "photon";
+class PhotonLanguage: TruffleLanguage<PhotonContext>() {
+  companion object {
+    const val id = "photon"
+  }
 
-    public PhotonContext createContext(final TruffleLanguage.Env env) {
-        return new PhotonContext();
-    }
+  public override fun createContext(env: Env): PhotonContext {
+    return PhotonContext()
+  }
 
-    public CallTarget parse(final TruffleLanguage.ParsingRequest request) {
-        CharSequence source = request.getSource().getCharacters();
-        Lexer lexer = new Lexer("test.y", source.toString());
-        Parser parser = new Parser(lexer, Parser.Companion.getBlankMacroHandler());
-        ASTValue rootAST = parser.parseRoot();
-        Value value = ASTToValue.INSTANCE.transform(rootAST);
-        PhotonRootNode root = new PhotonRootNode(this, value);
-        return root.getCallTarget();
-    }
+  public override fun parse(request: ParsingRequest): CallTarget {
+    val source = request.source.characters
+    val lexer = Lexer("test.y", source.toString())
+    val parser = Parser(lexer, BlankMacroHandler)
+    val rootAST = parser.parseRoot()
+    val value = transform(rootAST)
+    val root = PhotonRootNode(this, value)
+    return root.callTarget
+  }
 }

@@ -58,7 +58,8 @@ sealed class ASTValue {
   data class String(val value: kotlin.String, override val location: Location?) : ASTValue() {
     override fun inspect(): kotlin.String {
       val escapedString = value
-        .replace("([\"\\\\])", "\\\\$1")
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
         .replace("\n", "\\n")
 
       return '"' + escapedString + '"'
@@ -100,7 +101,7 @@ sealed class ASTValue {
       }.joinToString(" ")
 
       val returnTypeAST =
-        if (returnType != null) "$returnType "
+        if (returnType != null) "${returnType.inspect()} "
         else ""
 
       return "(lambda [$paramsAST] $returnTypeAST$bodyAST)"
@@ -120,9 +121,9 @@ sealed class ASTValue {
       val argumentStrings = positionalArguments + namedArguments
 
       return if (argumentStrings.isEmpty()) {
-        "<$name ${target.inspect()}>"
+        "($name ${target.inspect()})"
       } else {
-        "<$name ${target.inspect()} ${argumentStrings.joinToString(" ")}>"
+        "($name ${target.inspect()} ${argumentStrings.joinToString(" ")})"
       }
     }
   }

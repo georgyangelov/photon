@@ -1,57 +1,55 @@
-package photon;
+package photon.compiler.core
 
-import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.interop.InteropLibrary;
-import com.oracle.truffle.api.interop.TruffleObject;
-import com.oracle.truffle.api.interop.UnknownIdentifierException;
-import com.oracle.truffle.api.interop.UnsupportedMessageException;
-import com.oracle.truffle.api.library.ExportLibrary;
-import com.oracle.truffle.api.library.ExportMessage;
-import photon.compiler.core.*;
+import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.*
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
+import java.lang.reflect.InvocationTargetException
 
-import java.lang.reflect.InvocationTargetException;
+@ExportLibrary(value = InteropLibrary::class, delegateTo = "object")
+class PObject<T>(
+  val `object`: T,
+  val typeObject: Type
+): Value(), TruffleObject {
+  override fun typeOf(frame: VirtualFrame): Type {
+    return typeObject
+  }
 
-@ExportLibrary(value = InteropLibrary.class, delegateTo = "object")
-public final class PObject<T> extends Value implements TruffleObject {
-    public final T object;
-    public final Type typeObject;
+  override fun executeGeneric(frame: VirtualFrame): Any {
+    return this
+  }
 
-    public PObject(T object, Type typeObject) {
-        this.object = object;
-        this.typeObject = typeObject;
+  @ExportMessage
+  fun hasMembers(): Boolean {
+    return true
+  }
+
+  @ExportMessage
+  @Throws(UnsupportedMessageException::class)
+  fun getMembers(includeInternal: Boolean): Any? {
+    return null
+  }
+
+  @ExportMessage
+  fun isMemberInvocable(member: String?): Boolean {
+    return typeObject.methods.containsKey(member)
+  }
+
+  @ExportMessage
+  @Throws(UnknownIdentifierException::class)
+  fun invokeMember(member: String?, vararg arguments: Any?): Any {
+    val method = typeObject.methods[member]
+
+    if (method != null) {
+      return try {
+        method.invoke(null, *arguments)
+      } catch (e: IllegalAccessException) {
+        throw RuntimeException(e)
+      } catch (e: InvocationTargetException) {
+        throw RuntimeException(e)
+      }
     }
 
-    @Override
-    public Type typeOf(VirtualFrame frame) {
-        return typeObject;
-    }
-
-    @Override
-    public Object executeGeneric(VirtualFrame frame) {
-        return this;
-    }
-
-    @ExportMessage
-    final boolean hasMembers() { return true; }
-
-    @ExportMessage final Object getMembers(boolean includeInternal) throws UnsupportedMessageException { return null; }
-
-    @ExportMessage final boolean isMemberInvocable(String member) {
-        return typeObject.getMethods().containsKey(member);
-    }
-
-    @ExportMessage
-    final Object invokeMember(String member, Object... arguments) throws UnknownIdentifierException {
-        var method = typeObject.getMethods().get(member);
-
-        if (method != null) {
-            try {
-                return method.invoke(null, arguments);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        throw UnknownIdentifierException.create(member);
-    }
+    throw UnknownIdentifierException.create(member)
+  }
 }

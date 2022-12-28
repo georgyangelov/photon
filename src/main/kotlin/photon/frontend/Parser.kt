@@ -22,6 +22,7 @@ class Parser(
   val reader = LookAheadReader { lexer.nextToken() }
 
   lateinit var token: Token
+
   var atStart = true
   lateinit var lastLocation: Location
   var newline: Boolean = false
@@ -754,7 +755,7 @@ class Parser(
   private fun read(): Token {
     newline = false
 
-    val oldToken = token
+    val oldToken = if (!atStart) token else Token(TokenType.Name, "this should not happen", Location.beginningOfFile("unknown"), false)
     var nextToken = reader.next()
 
     while (nextToken.tokenType == TokenType.NewLine) {
