@@ -2,7 +2,6 @@ package photon.compiler
 
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
-import photon.compiler.ASTToValue.transform
 import photon.frontend.Lexer
 import photon.frontend.Parser
 import photon.frontend.Parser.Companion.BlankMacroHandler
@@ -22,10 +21,14 @@ class PhotonLanguage: TruffleLanguage<PhotonContext>() {
   public override fun parse(request: ParsingRequest): CallTarget {
     val source = request.source.characters
     val lexer = Lexer("test.y", source.toString())
+
     val parser = Parser(lexer, BlankMacroHandler)
     val rootAST = parser.parseRoot()
-    val value = transform(rootAST)
-    val root = PhotonRootNode(this, value)
+
+    val astToValue = ASTToValue(this)
+
+    val root = astToValue.transformFunctionBody(rootAST)
+
     return root.callTarget
   }
 }

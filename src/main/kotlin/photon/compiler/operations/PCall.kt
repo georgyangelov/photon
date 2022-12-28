@@ -17,6 +17,8 @@ class PCall(
 //  val interop = PhotonLibraryGen
   var interop = InteropLibrary.getFactory().createDispatched(3)
 
+  override fun isOperation(): Boolean = true
+
   override fun typeOf(frame: VirtualFrame): Type {
     return arguments[arguments.size - 1].typeOf(frame)
   }

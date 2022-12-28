@@ -10,15 +10,11 @@ import photon.compiler.libraries.PhotonLibrary
 @ExportLibrary(value = PhotonLibrary::class)
 class PObject<T>(
   @JvmField val value: T,
-  val typeObject: Type
+  private val typeObject: Type
 ): Value(), TruffleObject {
-  override fun typeOf(frame: VirtualFrame): Type {
-    return typeObject
-  }
-
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
-    return this
-  }
+  override fun isOperation(): Boolean = false
+  override fun typeOf(frame: VirtualFrame): Type = typeObject
+  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any = this
 
   @ExportMessage
   fun hasMembers(): Boolean {

@@ -1,12 +1,12 @@
-package photon.frontend
+package photon
 
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
-import org.junit.jupiter.api.Assertions.*
 import photon.compiler.PhotonLanguage
+
 import kotlin.test.*
 
-internal class SimpleTest {
+internal class CompilerTest {
   @Test
   fun testCompilesLiterals() {
     expect("42", 42)
@@ -15,9 +15,15 @@ internal class SimpleTest {
     expect("false", false)
   }
 
-  @Test()
+  @Test
   fun testCompilesMethodCalls() {
     expect("41 + 1", 42)
+  }
+
+  @Test
+  fun testAssignment() {
+    expect("val answer = 42; answer", 42)
+    expect("val answer = 42; val another = 11; answer", 42)
   }
 
   private fun expect(code: String, expected: Int): Unit {
@@ -38,6 +44,6 @@ internal class SimpleTest {
     val result = context.eval(source)
     val resultOfType = result.`as`(cls)
 
-    assert(resultOfType == expected)
+    assertEquals(resultOfType, expected)
   }
 }

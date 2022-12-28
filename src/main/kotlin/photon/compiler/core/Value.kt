@@ -21,8 +21,10 @@ sealed class EvalMode {
 }
 
 abstract class Value: Node() {
+  // TODO: Probably need to use a Library for these for performance
   abstract fun typeOf(frame: VirtualFrame): Type
   abstract fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any
+  abstract fun isOperation(): Boolean
 }
 
 typealias ValueWrapper = (Value) -> Value
