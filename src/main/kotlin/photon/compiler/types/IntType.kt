@@ -14,6 +14,7 @@ object IntType: Type(), TruffleObject {
   override fun typeOf(frame: VirtualFrame): Type = RootType
   override fun executeGeneric(frame: VirtualFrame): Any = this
 
+  @JvmStatic
   fun plus(a: PObject<Int>, b: PObject<Int>): PObject<Int> {
     return PObject(a.`object` + b.`object`, IntType)
   }

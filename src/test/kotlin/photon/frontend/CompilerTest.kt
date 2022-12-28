@@ -15,6 +15,7 @@ internal class SimpleTest {
     expect("false", false)
   }
 
+  @Test()
   fun testCompilesMethodCalls() {
     expect("41 + 1", 42)
   }
