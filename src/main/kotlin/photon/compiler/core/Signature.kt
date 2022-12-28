@@ -40,8 +40,6 @@ sealed class Signature {
   }
 
   class Concrete(val argTypes: List<Pair<String, Type>>, val returnType: Type): Signature() {
-//    constructor(vararg argTypes: Pair<String, Type>, returnType: Type): this(argTypes.toList(), returnType)
-
     override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete> = PossibleTypeError.Success(this)
 
     override fun hasSelfArgument(): Boolean {

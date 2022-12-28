@@ -68,6 +68,40 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <compileSourceRoots>
+                                <compileSourceRoot>src/main/java</compileSourceRoot>
+                                <compileSourceRoot>target/generated-sources/kapt/compile</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                    <compilerArgs>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.library=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.dsl=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.utilities=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
@@ -75,11 +109,13 @@
                 <executions>
                     <execution>
                         <id>kapt</id>
+                        <phase>process-sources</phase>
                         <goals>
                             <goal>kapt</goal>
                         </goals>
                         <configuration>
                             <sourceDirs>
+                                <sourceDir>target/generated-sources/kapt/compile</sourceDir>
                                 <sourceDir>src/main/kotlin</sourceDir>
                             </sourceDirs>
                             <annotationProcessorPaths>
@@ -92,6 +128,7 @@
                             </annotationProcessorPaths>
                         </configuration>
                     </execution>
+
                     <execution>
                         <id>compile</id>
                         <phase>process-sources</phase>
@@ -100,10 +137,12 @@
                         </goals>
                         <configuration>
                             <sourceDirs>
+                                <source>target/generated-sources/kapt/compile</source>
                                 <source>src/main/kotlin</source>
                             </sourceDirs>
                         </configuration>
                     </execution>
+
                     <execution>
                         <id>test-compile</id>
                         <phase>test-compile</phase>
@@ -119,35 +158,6 @@
                 </executions>
                 <configuration>
                     <jvmTarget>17</jvmTarget>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>compile</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                        <configuration>
-                            <compileSourceRoots>
-                                <compileSourceRoot>target/generated-sources/kapt</compileSourceRoot>
-                            </compileSourceRoots>
-                        </configuration>
-                    </execution>
-                </executions>
-                <configuration>
-                    <source>11</source>
-                    <target>11</target>
-                    <compilerArgs>
-                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED</arg>
-                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED</arg>
-                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.library=ALL-UNNAMED</arg>
-                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED</arg>
-                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

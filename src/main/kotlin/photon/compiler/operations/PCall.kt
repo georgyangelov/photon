@@ -5,6 +5,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
+import photon.compiler.libraries.PhotonLibrary
 
 class PCall(
   @JvmField @Child var target: Value,
@@ -13,6 +14,7 @@ class PCall(
 ): Value() {
   @JvmField
   @Child
+//  val interop = PhotonLibraryGen
   var interop = InteropLibrary.getFactory().createDispatched(3)
 
   override fun typeOf(frame: VirtualFrame): Type {

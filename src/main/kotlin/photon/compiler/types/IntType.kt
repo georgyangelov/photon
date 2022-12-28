@@ -14,8 +14,8 @@ object IntType: Type() {
     )
 
     @Suppress("unused")
-    fun call(a: PObject<Int>, b: PObject<Int>): Any {
-      return PObject(a.`object` + b.`object`, IntType)
+    fun call(a: PObject<Int>, b: PObject<Int>): PObject<Int> {
+      return PObject(a.value + b.value, IntType)
     }
   }
 }

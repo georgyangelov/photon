@@ -4,11 +4,12 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.*
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
-import java.lang.reflect.InvocationTargetException
+import photon.compiler.libraries.PhotonLibrary
 
-@ExportLibrary(value = InteropLibrary::class, delegateTo = "object")
+@ExportLibrary(value = InteropLibrary::class, delegateTo = "value")
+@ExportLibrary(value = PhotonLibrary::class)
 class PObject<T>(
-  @JvmField val `object`: T,
+  @JvmField val value: T,
   val typeObject: Type
 ): Value(), TruffleObject {
   override fun typeOf(frame: VirtualFrame): Type {
@@ -35,22 +36,17 @@ class PObject<T>(
     return typeObject.methods.containsKey(member)
   }
 
-  @ExportMessage
+  @ExportMessage(library = InteropLibrary::class)
   @Throws(UnknownIdentifierException::class)
   fun invokeMember(member: String, vararg arguments: Any): Any {
-    val method = typeObject.methods[member]
+    return invokeMemberWithEvalMode(EvalMode.RunTime, member, *arguments)
+  }
 
-    if (method != null) {
-      return try {
-        // TODO: Pass EvalMode through
-        method.callMethod(arguments, EvalMode.CompileTimeOnly)
-      } catch (e: IllegalAccessException) {
-        throw RuntimeException(e)
-      } catch (e: InvocationTargetException) {
-        throw RuntimeException(e)
-      }
-    }
+  @ExportMessage(name = "invokeMember", library = PhotonLibrary::class)
+  @Throws(UnknownIdentifierException::class)
+  fun invokeMemberWithEvalMode(evalMode: EvalMode, member: String, vararg arguments: Any): Any {
+    val method = typeObject.methods[member] ?: throw UnknownIdentifierException.create(member)
 
-    throw UnknownIdentifierException.create(member)
+    return method.callMethod(arguments, evalMode)
   }
 }

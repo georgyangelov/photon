@@ -1,14 +1,13 @@
 package photon.compiler.libraries
 
-import com.oracle.truffle.api.library.GenerateLibrary
-import com.oracle.truffle.api.library.Library
+import com.oracle.truffle.api.interop.*
+import com.oracle.truffle.api.library.*
+import photon.compiler.core.EvalMode
 
 @GenerateLibrary
-//@GenerateLibrary.DefaultExport(
-//  IntegerMethods::class
-//)
-abstract class PhotonLibrary : Library() {
-  open fun invokeMember(receiver: Any, member: String, vararg arguments: Any): Any {
-    return false
+abstract class PhotonLibrary: Library() {
+  @Throws(UnknownIdentifierException::class)
+  open fun invokeMember(receiver: Any, evalMode: EvalMode, member: String, vararg arguments: Any): Any {
+    throw UnsupportedMessageException.create()
   }
 }
