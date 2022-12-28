@@ -1,4 +1,4 @@
-package photon.frontend
+package photonscala.frontend
 
 object Location {
   def beginningOfFile(fileName: String): Location =

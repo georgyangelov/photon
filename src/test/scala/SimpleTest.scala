@@ -1,5 +1,4 @@
 import org.graalvm.polyglot.{Context, Source}
-import photon.PhotonLanguage
 import org.scalatest.funsuite._
 
 import scala.reflect.ClassTag

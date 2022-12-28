@@ -1,4 +1,4 @@
-package photon.frontend
+package photonscala.frontend
 
 class PhotonError(
   message: String,

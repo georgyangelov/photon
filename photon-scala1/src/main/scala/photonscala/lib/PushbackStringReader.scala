@@ -1,4 +1,4 @@
-package photon.lib
+package photonscala.lib
 
 import java.io.{FilterReader, Reader}
 import java.nio.CharBuffer

@@ -1,7 +1,4 @@
-package photon.frontend
-
-import photon.frontend
-import photon.lib.PushbackStringReader
+package photonscala.frontend
 
 import java.io._
 import scala.util.control.Breaks._

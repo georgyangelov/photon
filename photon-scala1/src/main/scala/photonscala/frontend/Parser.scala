@@ -1,6 +1,4 @@
-package photon.frontend
-
-import photon.lib.LookAheadReader
+package photonscala.frontend
 
 import scala.reflect.ClassTag
 import scala.util.control.Breaks._

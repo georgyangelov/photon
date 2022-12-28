@@ -4,7 +4,8 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.interop.InteropLibrary;
 import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.library.ExportLibrary;
-import photon.*;
+import photon.PObject;
+import photon.compiler.core.Type;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -26,11 +27,11 @@ public class IntType extends Type implements TruffleObject {
     private IntType() throws NoSuchMethodException {}
 
     private final Map<String, Method> _methods = Map.ofEntries(
-        entry("+", IntType.class.getMethod("plus", PhotonObject.class, PhotonObject.class))
+        entry("+", IntType.class.getMethod("plus", PObject.class, PObject.class))
     );
 
-    public static PhotonObject<Integer> plus(PhotonObject<Integer> a, PhotonObject<Integer> b) {
-        return new PhotonObject<>(a.object + b.object, IntType.instance);
+    public static PObject<Integer> plus(PObject<Integer> a, PObject<Integer> b) {
+        return new PObject<>(a.object + b.object, IntType.instance);
     }
 
     @Override
@@ -44,5 +45,5 @@ public class IntType extends Type implements TruffleObject {
     }
 
     @Override
-    public final Map<String, Method> methods() { return _methods; }
+    public final Map<String, Method> getMethods() { return _methods; }
 }

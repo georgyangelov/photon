@@ -6,11 +6,16 @@
 
     <groupId>net.gangelov</groupId>
     <artifactId>photon</artifactId>
+    <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
+    <modules>
+        <module>photon-scala</module>
+    </modules>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <kotlin.version>1.7.21</kotlin.version>
     </properties>
 
     <build>
@@ -67,11 +72,87 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <executions>
+<!--                    <execution>-->
+<!--                        <id>kapt</id>-->
+<!--                        <goals>-->
+<!--                            <goal>kapt</goal>-->
+<!--                        </goals>-->
+<!--                        <configuration>-->
+<!--                            <sourceDirs>-->
+<!--                                <sourceDir>src/main/kotlin</sourceDir>-->
+<!--                            </sourceDirs>-->
+<!--                            <annotationProcessorPaths>-->
+<!--                                &lt;!&ndash; Specify your annotation processors here. &ndash;&gt;-->
+<!--                                <annotationProcessorPath>-->
+<!--                                    <groupId>com.google.auto.service</groupId>-->
+<!--                                    <artifactId>auto-service</artifactId>-->
+<!--                                    <version>1.0-rc4</version>-->
+<!--                                </annotationProcessorPath>-->
+<!--                            </annotationProcessorPaths>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+                    <execution>
+                        <id>compile</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <source>target/generated-sources/kapt</source>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <source>src/test/kotlin</source>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jvmTarget>17</jvmTarget>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
-                    <source>10</source>
-                    <target>10</target>
+                    <source>11</source>
+                    <target>11</target>
+                    <compilerArgs>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.library=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED</arg>
+                        <arg>--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>
@@ -108,10 +189,15 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_2.13</artifactId>
-            <version>3.2.10</version>
-            <scope>provided</scope>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib-jdk8</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test-junit5</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

@@ -1,6 +1,4 @@
-package photon.frontend
-
-import photon.frontend
+package photonscala.frontend
 
 sealed abstract class ASTValue {
   def location: Option[Location]

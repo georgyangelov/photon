@@ -1,4 +1,4 @@
-package photon
+package photonscala
 
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -6,10 +6,7 @@ import com.oracle.truffle.api.interop.{InteropLibrary, TruffleObject}
 import com.oracle.truffle.api.library.{ExportLibrary, ExportMessage, LibraryFactory}
 import com.oracle.truffle.api.nodes.Node.{Child, Children}
 import com.oracle.truffle.api.nodes.{BlockNode, ExplodeLoop, Node}
-import photon.frontend.ASTValue
-import photon.libraries.PhotonLibrary
-import photon.objects.PhotonInt
-import photon.types.IntType
+import photonscala.frontend.ASTValue
 
 import java.lang.reflect.Method
 import java.util
@@ -111,7 +108,7 @@ case class $Call(
 object ASTToTruffleNode {
   def transform(ast: ASTValue): Value = ast match {
     case ASTValue.Boolean(value, location) => $Literal(value)
-    case ASTValue.Int(value, location) => new PhotonObject(value, IntType.instance)
+    case ASTValue.Int(value, location) => ??? // new PObject(value, IntType.instance)
     case ASTValue.Float(value, location) => $Literal(value)
     case ASTValue.String(value, location) => $Literal(value)
 

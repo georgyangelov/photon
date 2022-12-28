@@ -7,15 +7,16 @@ import com.oracle.truffle.api.interop.UnknownIdentifierException;
 import com.oracle.truffle.api.interop.UnsupportedMessageException;
 import com.oracle.truffle.api.library.ExportLibrary;
 import com.oracle.truffle.api.library.ExportMessage;
+import photon.compiler.core.*;
 
 import java.lang.reflect.InvocationTargetException;
 
 @ExportLibrary(value = InteropLibrary.class, delegateTo = "object")
-public final class PhotonObject<T> extends Value implements TruffleObject {
+public final class PObject<T> extends Value implements TruffleObject {
     public final T object;
     public final Type typeObject;
 
-    public PhotonObject(T object, Type typeObject) {
+    public PObject(T object, Type typeObject) {
         this.object = object;
         this.typeObject = typeObject;
     }
@@ -36,12 +37,12 @@ public final class PhotonObject<T> extends Value implements TruffleObject {
     @ExportMessage final Object getMembers(boolean includeInternal) throws UnsupportedMessageException { return null; }
 
     @ExportMessage final boolean isMemberInvocable(String member) {
-        return typeObject.methods().containsKey(member);
+        return typeObject.getMethods().containsKey(member);
     }
 
     @ExportMessage
     final Object invokeMember(String member, Object... arguments) throws UnknownIdentifierException {
-        var method = typeObject.methods().get(member);
+        var method = typeObject.getMethods().get(member);
 
         if (method != null) {
             try {
