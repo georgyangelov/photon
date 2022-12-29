@@ -15,7 +15,9 @@ class PReference(
     val referencedType = if (isArgument) {
       context.argumentTypes[slot]
     } else {
-      context.localTypes[slot]
+      val partialValue = frame.getAuxiliarySlot(slot) as Value
+
+      partialValue.type
     }
 
     if (referencedType == null) {
@@ -24,13 +26,14 @@ class PReference(
 
     type = referencedType
 
-    // TODO: Inlining request
+    // TODO: Inlining request?
     return this
   }
 
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     return if (isArgument) {
-      frame.arguments[slot]
+      // First slot is the captures
+      frame.arguments[slot + 1]
     } else {
       val value = frame.getObject(slot)
 

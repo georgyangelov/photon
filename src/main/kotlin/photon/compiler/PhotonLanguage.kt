@@ -26,12 +26,10 @@ class PhotonContext(
     Pair("Int", IntType)
   )
 
-  internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope {
-    val frameDescriptorBuilder = FrameDescriptor.newBuilder()
-
-    return LexicalScope.newRoot(params, frameDescriptorBuilder).apply {
+  internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {
+    return LexicalScope.newFunction(params).apply {
       for ((name, _) in globals) {
-        defineNew(name)
+        defineName(name)
       }
     }
   }
@@ -39,6 +37,13 @@ class PhotonContext(
   fun setGlobalsToFrame(frame: VirtualFrame) {
     for ((index, global) in globals.withIndex()) {
       frame.setObject(index, global.second)
+    }
+  }
+
+  fun setGlobalsToPartialFrame(frame: VirtualFrame) {
+    for ((index, global) in globals.withIndex()) {
+      frame.setObject(index, global.second)
+      frame.setAuxiliarySlot(index, global.second)
     }
   }
 }

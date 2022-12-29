@@ -1,10 +1,12 @@
 package photon.compiler
 
+import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.core.EvalMode
 import photon.compiler.core.PhotonFunction
@@ -13,7 +15,7 @@ import photon.frontend.ASTValue
 class PhotonModule(
   language: TruffleLanguage<*>,
   val main: PhotonFunction
-): RootNode(language, main.body.frameDescriptor) {
+): RootNode(language, main.frameDescriptor) {
   @CompilationFinal
   private var partiallyEvaluated = false
 
@@ -29,19 +31,21 @@ class PhotonModule(
   }
 
   private fun executePartial() {
-    main.body.executePartial(this)
+    main.executePartial(this)
 
     // We're iterating like this on purpose because any executePartial call may define additional functions
     // which we'll need to also execute partially.
     // We're also using the assumption that we'll only be appending to the end of the list
     var i = 0
     while (i < functions.size) {
-      functions[i].body.executePartial(this)
+      functions[i].executePartial(this)
 
       i++
     }
   }
 
+  @Suppress("UNCHECKED_CAST")
+  @ExplodeLoop
   override fun execute(frame: VirtualFrame): Any {
     // TODO: Should this be thread-safe?
     if (!partiallyEvaluated) {
@@ -51,6 +55,16 @@ class PhotonModule(
       partiallyEvaluated = true
     }
 
-    return main.body.callTarget.call(frame.arguments)
+    PhotonContext.currentFor(this).setGlobalsToFrame(frame)
+
+    val requiredCaptures = main.requiredCaptures
+    CompilerAsserts.compilationConstant<Int>(requiredCaptures.size)
+
+    val capturedValues = arrayOfNulls<Any>(requiredCaptures.size)
+    for (i in capturedValues.indices) {
+      capturedValues[i] = frame.getObject(requiredCaptures[i].toSlot)
+    }
+
+    return main.call(capturedValues as Array<Any>, frame.arguments)
   }
 }

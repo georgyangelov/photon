@@ -8,5 +8,5 @@ class PartialContext(
   val evalMode: EvalMode,
   val argumentTypes: List<Type>,
 ) {
-  val localTypes = mutableMapOf<Int, Type>()
+//  val localTypes = mutableMapOf<Int, Type>()
 }

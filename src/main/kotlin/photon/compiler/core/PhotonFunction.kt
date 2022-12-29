@@ -1,11 +1,22 @@
 package photon.compiler.core
 
-import photon.compiler.PhotonFunctionRootNode
+import com.oracle.truffle.api.frame.FrameDescriptor
+import photon.compiler.*
 
 class PhotonFunction(
-  val body: PhotonFunctionRootNode
+  private val body: PhotonFunctionRootNode
 ) {
-  fun call(vararg arguments: Any): Any {
-    return body.callTarget.call(*arguments)
+  val requiredCaptures: List<NameCapture>
+    get() = body.captures
+
+  val frameDescriptor: FrameDescriptor
+    get() = body.frameDescriptor
+
+  fun executePartial(module: PhotonModule) {
+    body.executePartial(module)
+  }
+
+  fun call(captures: Array<Any>, vararg arguments: Any): Any {
+    return body.callTarget.call(captures, *arguments)
   }
 }

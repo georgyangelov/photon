@@ -18,7 +18,7 @@ class PLet(
 
     val valueResult = value.executePartial(frame, context)
 
-    context.localTypes[slot] = valueResult.type
+    frame.setAuxiliarySlot(slot, valueResult)
 
     if (!valueResult.isOperation()) {
       frame.setObject(slot, valueResult)

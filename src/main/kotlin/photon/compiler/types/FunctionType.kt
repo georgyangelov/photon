@@ -1,6 +1,7 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
+import photon.compiler.operations.PClosure
 
 class FunctionType: Type() {
   override val methods = mapOf(
@@ -12,9 +13,9 @@ class FunctionType: Type() {
     override fun signature() = Signature.Any(AnyStatic)
 
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-      val function = target as PhotonFunction
+      val closure = target as PClosure
 
-      return function.call(*args)
+      return closure.function.call(closure.captures, *args)
     }
   }
 }

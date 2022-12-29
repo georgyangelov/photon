@@ -17,28 +17,35 @@ class ModuleReader(
   }
 
   private fun transformMainFunction(ast: ASTValue): PhotonFunction {
-//    val rootScope = LexicalScope.newRoot(emptyList(), frameBuilder)
     val rootScope = context.newGlobalLexicalScope()
 
     val innerNode = transform(ast, rootScope)
 
     val frameDescriptor = rootScope.frameDescriptor()
-    val rootNode = PhotonFunctionRootNode(context.language, emptyList(), innerNode, frameDescriptor, null)
+    val rootNode = PhotonFunctionRootNode(
+      language = context.language,
+      unevaluatedArgumentTypes = emptyList(),
+      body = innerNode,
+      frameDescriptor = frameDescriptor,
+      captures = emptyList(),
+      parentPartialFrame = null,
+      isMainModuleFunction = true
+    )
 
     return PhotonFunction(rootNode)
   }
 
   private fun transformFunctionDefinition(ast: ASTValue.Function, scope: LexicalScope): PFunctionDefinition {
-    val paramNames = ast.params.map { it.inName }
-//    val rootScope = LexicalScope.newRoot(paramNames, frameBuilder)
-    val rootScope = context.newGlobalLexicalScope(paramNames)
+    val argumentNames = ast.params.map { it.inName }
+    val functionScope = scope.newChildFunction(argumentNames)
 
     val paramTypes = ast.params.map { transform(assertSpecificValue(it.typePattern), scope) }
-    val body = transform(ast.body, rootScope)
+    val body = transform(ast.body, functionScope)
 
-    val frameDescriptor = rootScope.frameDescriptor()
+    val frameDescriptor = functionScope.frameDescriptor()
+    val captures = functionScope.captures()
 
-    return PFunctionDefinition(paramTypes, body, frameDescriptor)
+    return PFunctionDefinition(paramTypes, body, frameDescriptor, captures)
   }
 
   // TODO: Remove this once I have pattern support
@@ -61,7 +68,7 @@ class ModuleReader(
     )
 
     is ASTValue.Let -> {
-      val (innerScope, slot) = scope.newChildWithName(ast.name)
+      val (innerScope, slot) = scope.newChildBlockWithName(ast.name)
       val value = transform(ast.value, innerScope)
       val body = transform(ast.block, innerScope)
 
@@ -69,9 +76,14 @@ class ModuleReader(
     }
 
     is ASTValue.NameReference -> {
-      val name = scope.find(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
+      val name = scope.accessName(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
 
-      PReference(ast.name, name.isArgument, name.slotOrArgumentIndex, ast.location)
+      PReference(
+        ast.name,
+        isArgument = name.type == Name.Type.Argument,
+        name.slotOrArgumentIndex,
+        ast.location
+      )
     }
 
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)
