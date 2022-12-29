@@ -31,6 +31,11 @@ internal class CompilerTest {
     expect("val plusOne = (a: Int) a + 1; plusOne.call(41)", 42)
   }
 
+  @Test
+  fun testCanReassignGlobalsForFunctionTypes() {
+    expect("val myInt = Int; val plusOne = (a: myInt) a + 1; plusOne.call(41)", 42)
+  }
+
   private fun expect(code: String, expected: Int): Unit {
     expect(Int::class.java, code, expected)
   }

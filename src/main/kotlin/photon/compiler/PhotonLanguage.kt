@@ -3,7 +3,6 @@ package photon.compiler
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
-import com.oracle.truffle.api.frame.FrameDescriptor.Builder
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.core.Value

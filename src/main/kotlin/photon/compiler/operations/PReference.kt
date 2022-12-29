@@ -32,7 +32,13 @@ class PReference(
     return if (isArgument) {
       frame.arguments[slot]
     } else {
-      frame.getObject(slot)
+      val value = frame.getObject(slot)
+
+      // TODO: This should only be called when we have a frame for partial evaluation
+      if (value == null) {
+        val partialValue = frame.getAuxiliarySlot(slot) as Value
+        partialValue.executeCompileTimeOnly(frame)
+      } else value
     }
   }
 }

@@ -20,10 +20,11 @@ class PLet(
 
     context.localTypes[slot] = valueResult.type
 
-//    TODO: Do I need something like this?
-//    if (!valueResult.isOperation()) {
-//      frame.setObject(slot, valueResult)
-//    }
+    if (!valueResult.isOperation()) {
+      frame.setObject(slot, valueResult)
+    } else {
+      frame.setAuxiliarySlot(slot, valueResult)
+    }
 
     val bodyResult = body.executePartial(frame, context)
 

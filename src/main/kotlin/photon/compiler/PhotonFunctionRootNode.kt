@@ -43,8 +43,19 @@ class PhotonFunctionRootNode(
     val language = PhotonContext.currentFor(this).language
     val context = PartialContext(module, evalMode, evaluatedArgumentTypes)
 
+    // TODO: Change this once I support closures
+    for ((index, global) in PhotonContext.currentFor(this).globals.withIndex()) {
+      context.localTypes[index] = global.second.type
+    }
+
+    // The auxiliary slots are used to store operations where needed
+    val partialFrameDescriptor = frameDescriptor.copy()
+    for (slot in 0 until frameDescriptor.numberOfSlots) {
+      partialFrameDescriptor.findOrAddAuxiliarySlot(slot)
+    }
+
     // TODO: This can have arguments
-    val partialRootNode = PhotonFunctionRootNodePartial(language, body, frameDescriptor, context)
+    val partialRootNode = PhotonFunctionRootNodePartial(language, body, partialFrameDescriptor, context)
 
     body = partialRootNode.callTarget.call() as Value
   }
