@@ -36,6 +36,11 @@ internal class CompilerTest {
     expect("val myInt = Int; val plusOne = (a: myInt) a + 1; plusOne.call(41)", 42)
   }
 
+  @Test
+  fun testClosures() {
+    expect("val one = 1; val plusOne = (a: Int) a + one; plusOne.call(41)", 42)
+  }
+
   private fun expect(code: String, expected: Int): Unit {
     expect(Int::class.java, code, expected)
   }
