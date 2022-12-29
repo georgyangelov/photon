@@ -7,7 +7,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.libraries.PhotonLibrary
 
 @ExportLibrary(value = InteropLibrary::class, delegateTo = "value")
-@ExportLibrary(value = PhotonLibrary::class)
+//@ExportLibrary(value = PhotonLibrary::class)
 class PObject<T : Any>(
   @JvmField val value: T,
 
@@ -20,43 +20,43 @@ class PObject<T : Any>(
   override fun typeOf(frame: VirtualFrame): Type = typeObject
   override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any = this
 
-  @ExportMessage
-  fun hasMembers(): Boolean {
-    return true
-  }
+//  @ExportMessage
+//  fun hasMembers(): Boolean {
+//    return true
+//  }
 
-  @ExportMessage
-  @Throws(UnsupportedMessageException::class)
-  fun getMembers(includeInternal: Boolean): Any? {
-    return null
-  }
+//  @ExportMessage
+//  @Throws(UnsupportedMessageException::class)
+//  fun getMembers(includeInternal: Boolean): Any? {
+//    return null
+//  }
 
-  @ExportMessage
-  fun isMemberInvocable(member: String?): Boolean {
-    // TODO: Cache this
-    if (member == "call" && value is PhotonFunction) {
-      return true
-    }
+//  @ExportMessage
+//  fun isMemberInvocable(member: String?): Boolean {
+//    // TODO: Cache this
+//    if (member == "call" && value is PhotonFunction) {
+//      return true
+//    }
+//
+//    return typeObject.methods.containsKey(member)
+//  }
 
-    return typeObject.methods.containsKey(member)
-  }
+//  @ExportMessage(library = InteropLibrary::class)
+//  @Throws(UnknownIdentifierException::class)
+//  fun invokeMember(member: String, vararg arguments: Any): Any {
+//    return invokeMemberWithEvalMode(EvalMode.RunTime, member, *arguments)
+//  }
 
-  @ExportMessage(library = InteropLibrary::class)
-  @Throws(UnknownIdentifierException::class)
-  fun invokeMember(member: String, vararg arguments: Any): Any {
-    return invokeMemberWithEvalMode(EvalMode.RunTime, member, *arguments)
-  }
-
-  @ExportMessage(name = "invokeMember", library = PhotonLibrary::class)
-  @Throws(UnknownIdentifierException::class)
-  fun invokeMemberWithEvalMode(evalMode: EvalMode, member: String, vararg arguments: Any): Any {
-    // TODO: Cache this
-    if (member == "call" && value is PhotonFunction) {
-      return value.call(*arguments)
-    }
-
-    val method = typeObject.methods[member] ?: throw UnknownIdentifierException.create(member)
-
-    return method.callMethod(this, arguments, evalMode)
-  }
+//  @ExportMessage(name = "invokeMember", library = PhotonLibrary::class)
+//  @Throws(UnknownIdentifierException::class)
+//  fun invokeMemberWithEvalMode(evalMode: EvalMode, member: String, vararg arguments: Any): Any {
+//    // TODO: Cache this
+//    if (member == "call" && value is PhotonFunction) {
+//      return value.call(*arguments)
+//    }
+//
+//    val method = typeObject.methods[member] ?: throw UnknownIdentifierException.create(member)
+//
+//    return method.callMethod(this, arguments, evalMode)
+//  }
 }

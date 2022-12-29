@@ -16,13 +16,15 @@ sealed class PossibleTypeError<T> {
 }
 
 sealed class Signature {
+  abstract val returnType: Type
+
   abstract fun hasSelfArgument(): Boolean
   abstract fun withoutSelfArgument(): Signature
 
   abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete>
   abstract fun assignableFrom(other: Signature): PossibleTypeError<Unit>
 
-  class Any(val returnType: Type): Signature() {
+  class Any(override val returnType: Type): Signature() {
     override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete> {
       val argsWithNames = types.positional.withIndex().map { Pair("_${it.index}", it.value) }
 
@@ -39,7 +41,7 @@ sealed class Signature {
     }
   }
 
-  class Concrete(val argTypes: List<Pair<String, Type>>, val returnType: Type): Signature() {
+  class Concrete(val argTypes: List<Pair<String, Type>>, override val returnType: Type): Signature() {
     override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete> = PossibleTypeError.Success(this)
 
     override fun hasSelfArgument(): Boolean {

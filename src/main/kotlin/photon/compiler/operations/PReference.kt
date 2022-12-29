@@ -13,6 +13,7 @@ class PReference(
   override fun isOperation(): Boolean = true
 
   override fun typeOf(frame: VirtualFrame): Type {
+    // This is probably not correct as we will get a value, or it won't be assigned yet
     val value = frame.getValue(slot)
 
     if (value is Value) {

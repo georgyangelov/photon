@@ -29,10 +29,10 @@ class ModuleReader(
   }
 
   private fun transform(ast: ASTValue, scope: LexicalScope): Value = when (ast) {
-    is ASTValue.Boolean -> PObject(ast.value, RootType)
-    is ASTValue.Int -> PObject(ast.value, IntType)
-    is ASTValue.Float -> TODO()
-    is ASTValue.String -> PObject(ast.value, RootType)
+    is ASTValue.Boolean -> PLiteral(ast.value, RootType, ast.location)
+    is ASTValue.Int -> PLiteral(ast.value, IntType, ast.location)
+    is ASTValue.Float -> PLiteral(ast.value, RootType, ast.location)
+    is ASTValue.String -> PLiteral(ast.value, RootType, ast.location)
 
     is ASTValue.Call -> PCall(
       target = transform(ast.target, scope),
@@ -62,7 +62,7 @@ class ModuleReader(
       functions.add(fn)
 
       // TODO: FunctionType
-      PObject(fn, RootType)
+      PLiteral(fn, RootType, ast.location)
     }
 
     is ASTValue.Block -> TODO()
