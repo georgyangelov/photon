@@ -27,7 +27,8 @@ class ModuleReader(
       unevaluatedArgumentTypes = emptyList(),
       body = innerNode,
       frameDescriptor = frameDescriptor,
-      captures = emptyList(),
+      captures = emptyArray(),
+      argumentCaptures = rootScope.argumentCaptures(),
       parentPartialFrame = null,
       isMainModuleFunction = true
     )
@@ -44,8 +45,9 @@ class ModuleReader(
 
     val frameDescriptor = functionScope.frameDescriptor()
     val captures = functionScope.captures()
+    val argumentCaptures = functionScope.argumentCaptures()
 
-    return PFunctionDefinition(paramTypes, body, frameDescriptor, captures)
+    return PFunctionDefinition(paramTypes, body, frameDescriptor, captures, argumentCaptures)
   }
 
   // TODO: Remove this once I have pattern support
@@ -76,14 +78,9 @@ class ModuleReader(
     }
 
     is ASTValue.NameReference -> {
-      val name = scope.accessName(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
+      val slot = scope.accessName(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
 
-      PReference(
-        ast.name,
-        isArgument = name.type == Name.Type.Argument,
-        name.slotOrArgumentIndex,
-        ast.location
-      )
+      PReference(ast.name, slot, ast.location)
     }
 
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)

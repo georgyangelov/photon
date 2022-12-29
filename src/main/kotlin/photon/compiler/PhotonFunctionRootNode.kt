@@ -21,7 +21,8 @@ class PhotonFunctionRootNode(
   private var body: Value,
 
   frameDescriptor: FrameDescriptor,
-  val captures: List<NameCapture>,
+  val captures: Array<NameCapture>,
+  val argumentCaptures: Array<ArgumentCapture>,
 
   // The main function of a module will not have a parent
   private val parentPartialFrame: MaterializedFrame?
@@ -46,40 +47,15 @@ class PhotonFunctionRootNode(
     val evalMode = EvalMode.Partial
 
     val language = PhotonContext.currentFor(this).language
-    val context = PartialContext(module, evalMode, evaluatedArgumentTypes)
+    val context = PartialContext(module, evalMode)
 
-//    for ((index, global) in PhotonContext.currentFor(this).globals.withIndex()) {
-//      context.localTypes[index] = global.second.type
-//    }
+    val capturedValues =
+      if (captures.isNotEmpty() && parentPartialFrame != null)
+        FrameTools.captureValuesPartial(parentPartialFrame, captures)
+      else
+        emptyArray()
 
-    // The auxiliary slots are used to store operations where needed
-    val partialFrameDescriptor = frameDescriptor.copy()
-    for (slot in 0 until (frameDescriptor.numberOfSlots + captures.size)) {
-      partialFrameDescriptor.findOrAddAuxiliarySlot(slot)
-    }
-
-    val capturedValues = arrayOfNulls<Pair<Any, Value>>(captures.size)
-    if (captures.isNotEmpty()) {
-      assert(parentPartialFrame != null)
-
-      for (i in captures.indices) {
-        // TODO: We shouldn't be getting arguments from the parent frame because there are no
-        //       auxiliary slots we can use.
-        val actualValue =
-          if (captures[i].from.type == Name.Type.Local)
-            parentPartialFrame!!.getObject(captures[i].from.slotOrArgumentIndex)
-          else
-            throw EvalError("Cannot capture parent argument in partial evaluation (yet)", null)
-
-        val partialValue =
-          if (captures[i].from.type == Name.Type.Local)
-            parentPartialFrame!!.getAuxiliarySlot(captures[i].from.slotOrArgumentIndex)
-          else
-            throw EvalError("Cannot capture parent argument in partial evaluation (yet)", null)
-
-        capturedValues[i] = Pair(actualValue, partialValue as Value)
-      }
-    }
+    val partialFrameDescriptor = FrameTools.copyOfFrameDescriptorForPartialExecution(frameDescriptor)
 
     // TODO: This can have arguments
     val partialRootNode = PhotonFunctionRootNodePartial(
@@ -88,29 +64,23 @@ class PhotonFunctionRootNode(
       partialFrameDescriptor,
       context,
       captures,
+      evaluatedArgumentTypes.toTypedArray(),
+      argumentCaptures,
       isMainModuleFunction
     )
 
-    // TODO: Add captures here
     body = partialRootNode.callTarget.call(capturedValues) as Value
   }
 
   @ExplodeLoop
   override fun execute(frame: VirtualFrame): Any {
     if (isMainModuleFunction) {
-      PhotonContext.currentFor(this).setGlobalsToFrame(frame)
+      val context = PhotonContext.currentFor(this)
+      FrameTools.applyGlobalsToFrame(frame, context)
     }
 
-    val capturedValues = frame.arguments[0] as Array<*>
-
-    CompilerAsserts.compilationConstant<Int>(capturedValues.size)
-    CompilerAsserts.compilationConstant<Int>(captures.size)
-
-    assert(capturedValues.size == captures.size)
-
-    for (i in capturedValues.indices) {
-      frame.setObject(captures[i].toSlot, capturedValues[i])
-    }
+    FrameTools.applyCapturedValuesFromFirstArgument(frame, captures)
+    FrameTools.applyArguments(frame, argumentCaptures)
 
     return body.executeCompileTimeOnly(frame)
   }
@@ -121,25 +91,20 @@ private class PhotonFunctionRootNodePartial(
   val value: Value,
   partialFrameDescriptor: FrameDescriptor,
   val context: PartialContext,
-  val captures: List<NameCapture>,
+  val captures: Array<NameCapture>,
+  val argumentTypes: Array<Type>,
+  val argumentCaptures: Array<ArgumentCapture>,
   val isMainModuleFunction: Boolean
 ): RootNode(language, partialFrameDescriptor) {
   override fun execute(frame: VirtualFrame): Any {
     if (isMainModuleFunction) {
-      PhotonContext.currentFor(this).setGlobalsToPartialFrame(frame)
+      val context = PhotonContext.currentFor(this)
+
+      FrameTools.applyGlobalsToFramePartial(frame, context)
     }
 
-    val capturedValues = frame.arguments[0] as Array<Pair<Any, Value>>
-
-    CompilerAsserts.compilationConstant<Int>(capturedValues.size)
-    CompilerAsserts.compilationConstant<Int>(captures.size)
-
-    assert(capturedValues.size == captures.size)
-
-    for (i in capturedValues.indices) {
-      frame.setObject(captures[i].toSlot, capturedValues[i].first)
-      frame.setAuxiliarySlot(captures[i].toSlot, capturedValues[i].second)
-    }
+    FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, captures)
+    FrameTools.applyArgumentsForPartialExecution(frame, argumentCaptures, argumentTypes)
 
     return value.executePartial(frame, context)
   }

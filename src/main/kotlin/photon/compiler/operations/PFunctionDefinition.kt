@@ -1,7 +1,6 @@
 package photon.compiler.operations
 
 import com.oracle.truffle.api.CompilerAsserts
-import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -15,7 +14,8 @@ class PFunctionDefinition(
   val argumentTypes: List<Value>,
   val body: Value,
   val frameDescriptor: FrameDescriptor,
-  val captures: List<NameCapture>
+  val captures: Array<NameCapture>,
+  val argumentCaptures: Array<ArgumentCapture>
 ): Operation() {
   @CompilationFinal
   private var function: PhotonFunction? = null
@@ -35,6 +35,7 @@ class PFunctionDefinition(
       frameDescriptor = frameDescriptor,
       captures = captures,
       parentPartialFrame = frame.materialize(),
+      argumentCaptures = argumentCaptures,
       isMainModuleFunction = false
     )
     val function = PhotonFunction(rootNode)
@@ -53,19 +54,8 @@ class PFunctionDefinition(
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     assert(function != null)
 
-    CompilerAsserts.compilationConstant<Int>(captures.size)
+    val capturedValues = FrameTools.captureValues(frame, captures)
 
-    val capturedValues = arrayOfNulls<Any>(captures.size)
-    for (i in capturedValues.indices) {
-      val captureFrom = captures[i].from
-
-      capturedValues[i] = if (captureFrom.type == Name.Type.Argument) {
-        frame.arguments[captureFrom.slotOrArgumentIndex]
-      } else {
-        frame.getObject(captureFrom.slotOrArgumentIndex)
-      }
-    }
-
-    return PClosure(function!!, capturedValues as Array<Any>, type)
+    return PClosure(function!!, capturedValues, type)
   }
 }

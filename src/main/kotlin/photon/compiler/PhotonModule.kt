@@ -55,16 +55,8 @@ class PhotonModule(
       partiallyEvaluated = true
     }
 
-    PhotonContext.currentFor(this).setGlobalsToFrame(frame)
+    val capturedValues = FrameTools.captureValues(frame, main.requiredCaptures)
 
-    val requiredCaptures = main.requiredCaptures
-    CompilerAsserts.compilationConstant<Int>(requiredCaptures.size)
-
-    val capturedValues = arrayOfNulls<Any>(requiredCaptures.size)
-    for (i in capturedValues.indices) {
-      capturedValues[i] = frame.getObject(requiredCaptures[i].toSlot)
-    }
-
-    return main.call(capturedValues as Array<Any>, frame.arguments)
+    return main.call(capturedValues, frame.arguments)
   }
 }

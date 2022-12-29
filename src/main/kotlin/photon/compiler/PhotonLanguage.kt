@@ -34,11 +34,11 @@ class PhotonContext(
     }
   }
 
-  fun setGlobalsToFrame(frame: VirtualFrame) {
-    for ((index, global) in globals.withIndex()) {
-      frame.setObject(index, global.second)
-    }
-  }
+//  fun setGlobalsToFrame(frame: VirtualFrame) {
+//    for ((index, global) in globals.withIndex()) {
+//      frame.setObject(index, global.second)
+//    }
+//  }
 
   fun setGlobalsToPartialFrame(frame: VirtualFrame) {
     for ((index, global) in globals.withIndex()) {

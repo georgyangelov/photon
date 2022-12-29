@@ -6,8 +6,11 @@ import photon.compiler.*
 class PhotonFunction(
   private val body: PhotonFunctionRootNode
 ) {
-  val requiredCaptures: List<NameCapture>
+  val requiredCaptures: Array<NameCapture>
     get() = body.captures
+
+  val argumentCaptures: Array<ArgumentCapture>
+    get() = body.argumentCaptures
 
   val frameDescriptor: FrameDescriptor
     get() = body.frameDescriptor
