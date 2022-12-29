@@ -13,7 +13,6 @@ object IntType: Type() {
       IntType
     )
 
-    @Suppress("UNCHECKED_CAST")
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       return target as Int + args[0] as Int
     }

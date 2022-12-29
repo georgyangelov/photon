@@ -1,6 +1,7 @@
 package photon.compiler.operations
 
 import com.oracle.truffle.api.frame.VirtualFrame
+import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.core.Location
 
@@ -10,11 +11,11 @@ class PReference(
   private val slot: Int,
   val location: Location?
 ): Operation() {
-  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
     val referencedType = if (isArgument) {
-      frame.argumentTypes[slot]
+      context.argumentTypes[slot]
     } else {
-      frame.localTypes[slot]
+      context.localTypes[slot]
     }
 
     if (referencedType == null) {

@@ -5,6 +5,7 @@ import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.library.LibraryFactory
 import com.oracle.truffle.api.nodes.ExplodeLoop
+import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.compiler.libraries.*
 import photon.core.EvalError
@@ -30,21 +31,23 @@ class PCall(
   private var method: Method? = null
 
   @ExplodeLoop
-  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
     CompilerAsserts.compilationConstant<Int>(arguments.size)
 
-    target = target.executePartial(frame, evalMode)
+    target = target.executePartial(frame, context)
 
     for (i in arguments.indices) {
-      arguments[i] = arguments[i].executePartial(frame, evalMode)
+      arguments[i] = arguments[i].executePartial(frame, context)
     }
 
     val resolvedMethod = typeLib.getMethod(target.type, name)
       // TODO: Location
-      ?: throw EvalError("Could not find method $name on $type", null)
+      ?: throw EvalError("Could not find method $name on ${target.type}", null)
 
     method = resolvedMethod
     type = resolvedMethod.signature().returnType
+
+    // TODO: Call the method if it's compile-time-only or partial
 
     return this
   }

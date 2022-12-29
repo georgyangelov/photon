@@ -4,6 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
+import photon.compiler.PartialContext
 
 sealed class EvalMode {
   // Running compile-time-only code
@@ -44,7 +45,7 @@ abstract class Value: Node() {
    *
    * The result should be a Value.
    */
-  abstract fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value
+  abstract fun executePartial(frame: VirtualFrame, context: PartialContext): Value
 
 //  abstract fun evaluateRuntime(frame: VirtualFrame): Any
 

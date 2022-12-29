@@ -3,6 +3,7 @@ package photon.compiler.core
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import photon.compiler.PartialContext
 import photon.compiler.libraries.TypeLibrary
 
 @ExportLibrary(TypeLibrary::class)
@@ -15,7 +16,7 @@ abstract class Type: Value() {
   override val type: Type
     get() = RootType
 
-  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
     return this
   }
 
