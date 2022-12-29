@@ -25,6 +25,7 @@ class PCall(
 
   @ExplodeLoop
   // TODO: Cache evalMode or different specializations for eval mode?
+  // TODO: This should cache the target type & the function to be called
   override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
     CompilerAsserts.compilationConstant<Int>(arguments.size)
 
@@ -35,6 +36,9 @@ class PCall(
       evaluatedArguments[i] = arguments[i].executeGeneric(frame, evalMode)
     }
 
+    // TODO: Instead of invoke, this should find the method given the type of the expression
+    //       Because we want to be able to execute methods even if their target values are not
+    //       yet known.
     return interop.invokeMember(evaluatedTarget, name, *evaluatedArguments)
   }
 }

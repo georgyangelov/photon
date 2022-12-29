@@ -15,6 +15,8 @@ class PObject<T : Any>(
   private val typeObject: Type
 ): Value(), TruffleObject {
   override fun isOperation(): Boolean = false
+
+  // TODO: Maybe implement this with Library
   override fun typeOf(frame: VirtualFrame): Type = typeObject
   override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any = this
 
