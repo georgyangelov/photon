@@ -25,9 +25,9 @@ class PhotonLanguage: TruffleLanguage<PhotonContext>() {
     val parser = Parser(lexer, BlankMacroHandler)
     val rootAST = parser.parseRoot()
 
-    val astToValue = ASTToValue(this)
+    val moduleReader = ModuleReader(this)
 
-    val root = astToValue.transformFunctionBody(rootAST)
+    val root = moduleReader.transformRoot(rootAST)
 
     return root.callTarget
   }

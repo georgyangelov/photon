@@ -30,11 +30,9 @@ class PCall(
 
     val evaluatedTarget = target.executeGeneric(frame, evalMode)
 
-    val evaluatedArguments = arrayOfNulls<Any>(arguments.size + 1)
-    evaluatedArguments[0] = evaluatedTarget
-
+    val evaluatedArguments = arrayOfNulls<Any>(arguments.size)
     for (i in arguments.indices) {
-      evaluatedArguments[i + 1] = arguments[i].executeGeneric(frame, evalMode)
+      evaluatedArguments[i] = arguments[i].executeGeneric(frame, evalMode)
     }
 
     return interop.invokeMember(evaluatedTarget, name, *evaluatedArguments)
