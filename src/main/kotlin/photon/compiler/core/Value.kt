@@ -1,5 +1,7 @@
 package photon.compiler.core
 
+import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 
@@ -20,11 +22,46 @@ sealed class EvalMode {
   object RunTime: EvalMode()
 }
 
+class CouldNotFullyEvaluateInCompileTimeOnlyMode: Exception()
+
 abstract class Value: Node() {
-  // TODO: Probably need to use a Library for these for performance
-  abstract fun typeOf(frame: VirtualFrame): Type
-  abstract fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any
-  abstract fun isOperation(): Boolean
+  abstract val type: Type
+
+  /**
+   * Evaluates in the compile-time-only mode.
+   *
+   * This should fully evaluate everything or result in a CouldNotFullyEvaluateInCompileTimeOnlyMode
+   * exception.
+   *
+   * The result here should never be a Value, unless the actually produced value
+   * was a Value.
+   */
+  abstract fun executeCompileTimeOnly(frame: VirtualFrame): Any
+
+  /**
+   * Evaluates in the partial mode. This has a side effect of populating
+   * the types of this and all children Operation nodes.
+   *
+   * The result should be a Value.
+   */
+  abstract fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value
+
+//  abstract fun evaluateRuntime(frame: VirtualFrame): Any
+
+  open fun isOperation(): Boolean = false
+}
+
+abstract class Operation: Value() {
+  @CompilationFinal
+  private lateinit var _type: Type
+
+  override var type: Type
+    get() = _type
+    protected set(value) {
+      CompilerDirectives.interpreterOnly { _type = value }
+    }
+
+  override fun isOperation(): Boolean = true
 }
 
 typealias ValueWrapper = (Value) -> Value

@@ -10,17 +10,29 @@ class PLet(
   @Child @JvmField var value: Value,
   @Child @JvmField var body: Value,
   val location: Location?
-): Value() {
-  override fun isOperation(): Boolean = true
+): Operation() {
+  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+    // TODO: Will this handle recursive references? Or maybe help detecting them?
+    // metadata.localTypes[slot] = valueResult.type
 
-  override fun typeOf(frame: VirtualFrame): Type = body.typeOf(frame)
+    val valueResult = value.executePartial(frame, evalMode)
 
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
-    // TODO: Support not fully evaluating everything
-    val eValue = value.executeGeneric(frame, evalMode)
+    frame.localTypes[slot] = valueResult.type
+
+    val bodyResult = body.executePartial(frame, evalMode)
+
+    value = valueResult
+    body = bodyResult
+    type = bodyResult.type
+
+    return this
+  }
+
+  override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
+    val eValue = value.executeCompileTimeOnly(frame)
     frame.setObject(slot, eValue)
 
-    val eBody = body.executeGeneric(frame, evalMode)
+    val eBody = body.executeCompileTimeOnly(frame)
 
     return eBody
   }

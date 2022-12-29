@@ -11,39 +11,46 @@ import photon.frontend.ASTValue
 class ModuleReader(
   private val language: PhotonLanguage
 ) {
-  private val functions = mutableListOf<PhotonFunction>()
+  fun transformModule(ast: ASTValue): PhotonModule {
+    val moduleBuilder = PhotonModule.Builder()
 
-  fun transformRoot(ast: ASTValue): PhotonRootNode {
-    return transformFunctionBody(emptyList(), ast)
+    val main = transformFunction(emptyList(), ast, moduleBuilder)
+
+    return moduleBuilder.main(main).build(language)
   }
 
-  private fun transformFunctionBody(params: List<String>, ast: ASTValue): PhotonRootNode {
+  private fun transformFunction(
+    params: List<String>,
+    ast: ASTValue,
+    module: PhotonModule.Builder
+  ): PhotonFunction {
     val frameBuilder = FrameDescriptor.newBuilder()
     val rootScope = LexicalScope.newRoot(params, frameBuilder)
 
-    val innerNode = transform(ast, rootScope)
+    val innerNode = transform(ast, rootScope, module)
 
     val frameDescriptor = frameBuilder.build()
+    val rootNode = PhotonFunctionRootNode(language, innerNode, frameDescriptor)
 
-    return PhotonRootNode(language, innerNode, frameDescriptor)
+    return PhotonFunction(rootNode)
   }
 
-  private fun transform(ast: ASTValue, scope: LexicalScope): Value = when (ast) {
+  private fun transform(ast: ASTValue, scope: LexicalScope, module: PhotonModule.Builder): Value = when (ast) {
     is ASTValue.Boolean -> PLiteral(ast.value, RootType, ast.location)
     is ASTValue.Int -> PLiteral(ast.value, IntType, ast.location)
     is ASTValue.Float -> PLiteral(ast.value, RootType, ast.location)
     is ASTValue.String -> PLiteral(ast.value, RootType, ast.location)
 
     is ASTValue.Call -> PCall(
-      target = transform(ast.target, scope),
+      target = transform(ast.target, scope, module),
       name = ast.name,
-      arguments = ast.arguments.positional.map { transform(it, scope) }.toTypedArray()
+      arguments = ast.arguments.positional.map { transform(it, scope, module) }.toTypedArray()
     )
 
     is ASTValue.Let -> {
       val (innerScope, slot) = scope.newChildWithName(ast.name)
-      val value = transform(ast.value, innerScope)
-      val body = transform(ast.block, innerScope)
+      val value = transform(ast.value, innerScope, module)
+      val body = transform(ast.block, innerScope, module)
 
       PLet(ast.name, slot, value, body, ast.location)
     }
@@ -56,10 +63,9 @@ class ModuleReader(
 
     is ASTValue.Function -> {
       val paramNames = ast.params.map { it.inName }
-      val body = transformFunctionBody(paramNames, ast.body)
-      val fn = PhotonFunction(body)
+      val fn = transformFunction(paramNames, ast.body, module)
 
-      functions.add(fn)
+      module.addFunction(fn)
 
       // TODO: FunctionType
       PLiteral(fn, RootType, ast.location)

@@ -12,15 +12,17 @@ abstract class Type: Value() {
   @ExportMessage
   fun getMethod(name: String): Method? = methods[name]
 
-  override fun isOperation(): Boolean = false
-  override fun typeOf(frame: VirtualFrame): Type = RootType
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any = this
+  override val type: Type
+    get() = RootType
+
+  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+    return this
+  }
+
+  override fun executeCompileTimeOnly(frame: VirtualFrame): Any = this
 }
 
 object RootType: Type() {
-  override fun typeOf(frame: VirtualFrame): Type = this
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any = this
-
   override val methods: Map<String, Method> = emptyMap()
 }
 

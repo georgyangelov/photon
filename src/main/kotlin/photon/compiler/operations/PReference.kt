@@ -9,22 +9,25 @@ class PReference(
   private val isArgument: Boolean,
   private val slot: Int,
   val location: Location?
-): Value() {
-  override fun isOperation(): Boolean = true
-
-  override fun typeOf(frame: VirtualFrame): Type {
-    // This is probably not correct as we will get a value, or it won't be assigned yet
-    val value = frame.getValue(slot)
-
-    if (value is Value) {
-      return value.typeOf(frame)
+): Operation() {
+  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+    val referencedType = if (isArgument) {
+      frame.argumentTypes[slot]
     } else {
-      throw RuntimeException("Cannot get type of non-Value object")
+      frame.localTypes[slot]
     }
+
+    if (referencedType == null) {
+      throw RuntimeException("Cannot get type of reference, metadata does not contain slot $slot (isArgument = $isArgument). $frame")
+    }
+
+    type = referencedType
+
+    // TODO: Inlining request
+    return this
   }
 
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
-    // TODO: Respect EvalMode
+  override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     return if (isArgument) {
       frame.arguments[slot]
     } else {

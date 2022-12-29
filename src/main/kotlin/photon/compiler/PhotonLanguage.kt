@@ -2,6 +2,7 @@ package photon.compiler
 
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
+import photon.compiler.core.PhotonFunction
 import photon.frontend.Lexer
 import photon.frontend.Parser
 import photon.frontend.Parser.Companion.BlankMacroHandler
@@ -26,8 +27,7 @@ class PhotonLanguage: TruffleLanguage<PhotonContext>() {
     val rootAST = parser.parseRoot()
 
     val moduleReader = ModuleReader(this)
-
-    val root = moduleReader.transformRoot(rootAST)
+    val root = moduleReader.transformModule(rootAST)
 
     return root.callTarget
   }

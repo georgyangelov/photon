@@ -1,10 +1,8 @@
 package photon.compiler.operations
 
 import com.oracle.truffle.api.CompilerAsserts
-import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.library.LibraryFactory
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
@@ -15,62 +13,58 @@ class PCall(
   @JvmField @Child var target: Value,
   @JvmField val name: String,
   @JvmField @Children var arguments: Array<Value>
-): Value() {
-  @JvmField
-  @Child
-  var interop = InteropLibrary.getFactory().createDispatched(3)
+): Operation() {
+//  @JvmField
+//  @Child
+//  var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
 
   @JvmField
   @Child
-  var typeLib = LibraryFactory.resolve(TypeLibrary::class.java).createDispatched(3)
+  var typeLib: TypeLibrary = LibraryFactory.resolve(TypeLibrary::class.java).createDispatched(3)
 
   @JvmField
   @Child
-  var methodLib = LibraryFactory.resolve(MethodLibrary::class.java).createDispatched(3)
+  var methodLib: MethodLibrary = LibraryFactory.resolve(MethodLibrary::class.java).createDispatched(3)
 
   @CompilationFinal
   private var method: Method? = null
 
-  private fun resolveMethod(frame: VirtualFrame) {
-    val type = target.typeOf(frame)
+  @ExplodeLoop
+  override fun executePartial(frame: PartialFrame, evalMode: EvalMode): Value {
+    CompilerAsserts.compilationConstant<Int>(arguments.size)
 
-    method = typeLib.getMethod(type, name)
-    if (method == null) {
+    target = target.executePartial(frame, evalMode)
+
+    for (i in arguments.indices) {
+      arguments[i] = arguments[i].executePartial(frame, evalMode)
+    }
+
+    val resolvedMethod = typeLib.getMethod(target.type, name)
       // TODO: Location
-      throw EvalError("Could not find method $name on $type", null)
-    }
-  }
+      ?: throw EvalError("Could not find method $name on $type", null)
 
-  override fun isOperation(): Boolean = true
+    method = resolvedMethod
+    type = resolvedMethod.signature().returnType
 
-  override fun typeOf(frame: VirtualFrame): Type {
-    if (method == null) {
-      resolveMethod(frame)
-    }
-
-    return method!!.signature().returnType
+    return this
   }
 
   @Suppress("UNCHECKED_CAST")
-  @ExplodeLoop
-  // TODO: Cache evalMode or different specializations for eval mode?
-  // TODO: This should cache the target type & the function to be called
-  override fun executeGeneric(frame: VirtualFrame, evalMode: EvalMode): Any {
+  override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     CompilerAsserts.compilationConstant<Int>(arguments.size)
 
-//    if (CompilerDirectives.inInterpreter()) {
-    if (method == null) {
-      resolveMethod(frame)
-    }
-//    }
-
-    val evaluatedTarget = target.executeGeneric(frame, evalMode)
+    val evaluatedTarget = target.executeCompileTimeOnly(frame)
 
     val evaluatedArguments = arrayOfNulls<Any>(arguments.size)
     for (i in arguments.indices) {
-      evaluatedArguments[i] = arguments[i].executeGeneric(frame, evalMode)
+      evaluatedArguments[i] = arguments[i].executeCompileTimeOnly(frame)
     }
 
-    return methodLib.call(method!!, evalMode, evaluatedTarget, *(evaluatedArguments as Array<Any>))
+    return methodLib.call(
+      method!!,
+      EvalMode.CompileTimeOnly,
+      evaluatedTarget,
+      *(evaluatedArguments as Array<Any>)
+    )
   }
 }
