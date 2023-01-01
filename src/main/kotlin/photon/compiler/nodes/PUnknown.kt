@@ -1,11 +1,11 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.frame.VirtualFrame
 import photon.compiler.PartialContext
 import photon.compiler.core.*
 
-class PUnknown(override val type: Type) : Value() {
+class PUnknown(override val type: Type): PhotonNode() {
   override fun isOperation(): Boolean = true
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any = this
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value = this
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode = this
 }

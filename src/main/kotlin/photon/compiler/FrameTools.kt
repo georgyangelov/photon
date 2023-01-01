@@ -5,10 +5,10 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.MaterializedFrame
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
+import photon.compiler.core.PhotonNode
 import photon.compiler.core.Type
-import photon.compiler.core.Value
-import photon.compiler.operations.PUnknown
-import photon.core.EvalError
+import photon.compiler.nodes.PLiteral
+import photon.compiler.nodes.PUnknown
 
 // TODO: May need to inline these methods at some point because of loop unrolling
 class FrameTools {
@@ -16,17 +16,19 @@ class FrameTools {
     @ExplodeLoop
     fun applyGlobalsToFrame(frame: VirtualFrame, context: PhotonContext) {
       for (i in context.globals.indices) {
-        frame.setObject(i, context.globals[i].second)
+        val literal = context.globals[i].second
+
+        frame.setObject(i, literal.value)
       }
     }
 
     @ExplodeLoop
     fun applyGlobalsToFramePartial(frame: VirtualFrame, context: PhotonContext) {
       for (i in context.globals.indices) {
-        val value = context.globals[i].second
+        val literal = context.globals[i].second
 
-        frame.setObject(i, value)
-        frame.setAuxiliarySlot(i, value)
+        frame.setObject(i, literal.value)
+        frame.setAuxiliarySlot(i, literal)
       }
     }
 
@@ -69,13 +71,13 @@ class FrameTools {
       fromFrame: MaterializedFrame,
       captures: Array<NameCapture>
     ): Array<Any> {
-      val capturedValues = arrayOfNulls<Pair<Any, Value>>(captures.size)
+      val capturedValues = arrayOfNulls<Pair<Any, PhotonNode>>(captures.size)
 
       for (i in captures.indices) {
         val actualValue = fromFrame.getObject(captures[i].fromSlot)
         val partialValue = fromFrame.getAuxiliarySlot(captures[i].fromSlot)
 
-        capturedValues[i] = Pair(actualValue, partialValue as Value)
+        capturedValues[i] = Pair(actualValue, partialValue as PhotonNode)
       }
 
       return capturedValues as Array<Any>
@@ -96,7 +98,7 @@ class FrameTools {
 
       for (i in capturedValues.indices) {
         val slot = captures[i].toSlot
-        val pair = capturedValues[i] as Pair<Any, Value>
+        val pair = capturedValues[i] as Pair<Any, PhotonNode>
 
         frame.setObject(slot, pair.first)
         frame.setAuxiliarySlot(slot, pair.second)

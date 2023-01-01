@@ -1,4 +1,4 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
@@ -8,19 +8,20 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.*
 import photon.compiler.core.*
 import photon.compiler.types.FunctionType
+import photon.compiler.values.Closure
 import photon.core.EvalError
 
 class PFunctionDefinition(
-  val argumentTypes: List<Value>,
-  val body: Value,
+  val argumentTypes: List<PhotonNode>,
+  val body: PhotonNode,
   val frameDescriptor: FrameDescriptor,
   val captures: Array<NameCapture>,
   val argumentCaptures: Array<ArgumentCapture>
-): Operation() {
+): OperationNode() {
   @CompilationFinal
   private var function: PhotonFunction? = null
 
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
     CompilerAsserts.neverPartOfCompilation()
 
     if (function != null) {
@@ -56,6 +57,6 @@ class PFunctionDefinition(
 
     val capturedValues = FrameTools.captureValues(frame, captures)
 
-    return PClosure(function!!, capturedValues, type)
+    return Closure(function!!, capturedValues, type)
   }
 }

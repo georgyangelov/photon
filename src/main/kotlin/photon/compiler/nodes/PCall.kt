@@ -1,4 +1,4 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
@@ -11,10 +11,10 @@ import photon.compiler.libraries.*
 import photon.core.EvalError
 
 class PCall(
-  @JvmField @Child var target: Value,
+  @JvmField @Child var target: PhotonNode,
   @JvmField val name: String,
-  @JvmField @Children var arguments: Array<Value>
-): Operation() {
+  @JvmField @Children var arguments: Array<PhotonNode>
+): OperationNode() {
 //  @JvmField
 //  @Child
 //  var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -31,7 +31,7 @@ class PCall(
   private var method: Method? = null
 
   @ExplodeLoop
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
     CompilerAsserts.compilationConstant<Int>(arguments.size)
 
     target = target.executePartial(frame, context)

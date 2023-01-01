@@ -3,11 +3,11 @@ package photon.compiler.libraries
 import com.oracle.truffle.api.interop.*
 import com.oracle.truffle.api.library.*
 import photon.compiler.core.EvalMode
+import photon.compiler.core.Type
 
 @GenerateLibrary
-abstract class PhotonLibrary: Library() {
-  @Throws(UnknownIdentifierException::class)
-  open fun invokeMember(receiver: Any, evalMode: EvalMode, member: String, vararg arguments: Any): Any {
+abstract class ValueLibrary: Library() {
+  open fun type(receiver: Any): Type {
     throw UnsupportedMessageException.create()
   }
 }

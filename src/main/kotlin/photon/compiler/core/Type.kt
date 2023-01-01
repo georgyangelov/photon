@@ -7,20 +7,20 @@ import photon.compiler.PartialContext
 import photon.compiler.libraries.TypeLibrary
 
 @ExportLibrary(TypeLibrary::class)
-abstract class Type: Value() {
+abstract class Type {
   abstract val methods: Map<String, Method>
 
   @ExportMessage
   fun getMethod(name: String): Method? = methods[name]
 
-  override val type: Type
-    get() = RootType
-
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
-    return this
-  }
-
-  override fun executeCompileTimeOnly(frame: VirtualFrame): Any = this
+//  override val type: Type
+//    get() = RootType
+//
+//  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
+//    return this
+//  }
+//
+//  override fun executeCompileTimeOnly(frame: VirtualFrame): Any = this
 }
 
 object RootType: Type() {

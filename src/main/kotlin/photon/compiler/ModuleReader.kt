@@ -1,7 +1,7 @@
 package photon.compiler
 
 import photon.compiler.core.*
-import photon.compiler.operations.*
+import photon.compiler.nodes.*
 import photon.compiler.types.IntType
 import photon.core.EvalError
 import photon.frontend.ASTValue
@@ -57,7 +57,7 @@ class ModuleReader(
     else -> throw EvalError("Patterns in parameter types are not supported for now", pattern.location)
   }
 
-  private fun transform(ast: ASTValue, scope: LexicalScope): Value = when (ast) {
+  private fun transform(ast: ASTValue, scope: LexicalScope): PhotonNode = when (ast) {
     is ASTValue.Boolean -> PLiteral(ast.value, RootType, ast.location)
     is ASTValue.Int -> PLiteral(ast.value, IntType, ast.location)
     is ASTValue.Float -> PLiteral(ast.value, RootType, ast.location)

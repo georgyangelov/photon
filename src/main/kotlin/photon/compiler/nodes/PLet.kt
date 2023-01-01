@@ -1,4 +1,4 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.frame.VirtualFrame
 import photon.compiler.PartialContext
@@ -8,11 +8,11 @@ import photon.core.Location
 class PLet(
   @JvmField val name: String,
   val slot: Int,
-  @Child @JvmField var value: Value,
-  @Child @JvmField var body: Value,
+  @Child @JvmField var value: PhotonNode,
+  @Child @JvmField var body: PhotonNode,
   val location: Location?
-): Operation() {
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
+): OperationNode() {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
     // TODO: Will this handle recursive references? Or maybe help detecting them?
     // metadata.localTypes[slot] = valueResult.type
 

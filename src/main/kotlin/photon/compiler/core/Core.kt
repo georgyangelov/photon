@@ -4,7 +4,7 @@ import photon.core.TypeError
 
 class Core {
   companion object {
-    fun isTypeAssignable(from: Type, to: Type): PossibleTypeError<ValueWrapper> {
+    fun isTypeAssignable(from: Type, to: Type): PossibleTypeError<NodeWrapper> {
       // TODO: resolvedType?
       if (to == AnyStatic) return PossibleTypeError.Success { it }
       else if (to == from) return PossibleTypeError.Success { it }

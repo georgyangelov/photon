@@ -1,4 +1,4 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.frame.VirtualFrame
 import photon.compiler.PartialContext
@@ -9,9 +9,9 @@ class PReference(
   val name: String,
   private val slot: Int,
   val location: Location?
-): Operation() {
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
-    val partialValue = frame.getAuxiliarySlot(slot) as Value?
+): OperationNode() {
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
+    val partialValue = frame.getAuxiliarySlot(slot) as PhotonNode?
       ?: throw RuntimeException("Cannot get type of reference, metadata does not contain slot $slot. $frame")
 
     type = partialValue.type
@@ -25,7 +25,7 @@ class PReference(
 
     // TODO: This should only be called when we have a frame for partial evaluation
     return if (value == null) {
-      val partialValue = frame.getAuxiliarySlot(slot) as Value
+      val partialValue = frame.getAuxiliarySlot(slot) as PhotonNode
       partialValue.executeCompileTimeOnly(frame)
     } else value
   }

@@ -1,7 +1,6 @@
 package photon.compiler.core
 
 import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.PartialContext
@@ -25,7 +24,7 @@ sealed class EvalMode {
 
 class CouldNotFullyEvaluateInCompileTimeOnlyMode: Exception()
 
-abstract class Value: Node() {
+abstract class PhotonNode: Node() {
   abstract val type: Type
 
   /**
@@ -45,15 +44,15 @@ abstract class Value: Node() {
    *
    * The result should be a Value.
    */
-  abstract fun executePartial(frame: VirtualFrame, context: PartialContext): Value
+  abstract fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode
 
 //  abstract fun evaluateRuntime(frame: VirtualFrame): Any
 
   open fun isOperation(): Boolean = false
 }
 
-abstract class Operation: Value() {
-  @CompilationFinal
+abstract class OperationNode: PhotonNode() {
+  @CompilerDirectives.CompilationFinal
   private lateinit var _type: Type
 
   override var type: Type
@@ -65,4 +64,4 @@ abstract class Operation: Value() {
   override fun isOperation(): Boolean = true
 }
 
-typealias ValueWrapper = (Value) -> Value
+typealias NodeWrapper = (PhotonNode) -> PhotonNode

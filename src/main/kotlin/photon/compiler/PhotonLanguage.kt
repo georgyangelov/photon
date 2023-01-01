@@ -2,10 +2,9 @@ package photon.compiler
 
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.frame.FrameDescriptor
-import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
-import photon.compiler.core.Value
+import photon.compiler.core.RootType
+import photon.compiler.nodes.PLiteral
 import photon.compiler.types.IntType
 import photon.frontend.Lexer
 import photon.frontend.Parser
@@ -22,8 +21,8 @@ class PhotonContext(
     fun currentFor(node: Node): PhotonContext = REFERENCE.get(node)
   }
 
-  val globals = listOf<Pair<String, Value>>(
-    Pair("Int", IntType)
+  val globals = listOf(
+    Pair("Int", PLiteral(IntType, RootType, null))
   )
 
   internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {
@@ -31,19 +30,6 @@ class PhotonContext(
       for ((name, _) in globals) {
         defineName(name)
       }
-    }
-  }
-
-//  fun setGlobalsToFrame(frame: VirtualFrame) {
-//    for ((index, global) in globals.withIndex()) {
-//      frame.setObject(index, global.second)
-//    }
-//  }
-
-  fun setGlobalsToPartialFrame(frame: VirtualFrame) {
-    for ((index, global) in globals.withIndex()) {
-      frame.setObject(index, global.second)
-      frame.setAuxiliarySlot(index, global.second)
     }
   }
 }

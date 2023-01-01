@@ -1,6 +1,5 @@
 package photon.compiler
 
-import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -9,16 +8,15 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.core.*
-import photon.core.EvalError
 
 class PhotonFunctionRootNode(
   language: TruffleLanguage<*>,
 
   private val isMainModuleFunction: Boolean,
-  val unevaluatedArgumentTypes: List<Value>,
+  val unevaluatedArgumentTypes: List<PhotonNode>,
 
   @CompilerDirectives.CompilationFinal
-  private var body: Value,
+  private var body: PhotonNode,
 
   frameDescriptor: FrameDescriptor,
   val captures: Array<NameCapture>,
@@ -69,7 +67,7 @@ class PhotonFunctionRootNode(
       isMainModuleFunction
     )
 
-    body = partialRootNode.callTarget.call(capturedValues) as Value
+    body = partialRootNode.callTarget.call(capturedValues) as PhotonNode
   }
 
   @ExplodeLoop
@@ -88,7 +86,7 @@ class PhotonFunctionRootNode(
 
 private class PhotonFunctionRootNodePartial(
   language: TruffleLanguage<*>,
-  val value: Value,
+  val node: PhotonNode,
   partialFrameDescriptor: FrameDescriptor,
   val context: PartialContext,
   val captures: Array<NameCapture>,
@@ -106,6 +104,6 @@ private class PhotonFunctionRootNodePartial(
     FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, captures)
     FrameTools.applyArgumentsForPartialExecution(frame, argumentCaptures, argumentTypes)
 
-    return value.executePartial(frame, context)
+    return node.executePartial(frame, context)
   }
 }

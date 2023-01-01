@@ -1,4 +1,4 @@
-package photon.compiler.operations
+package photon.compiler.nodes
 
 import com.oracle.truffle.api.frame.VirtualFrame
 import photon.compiler.PartialContext
@@ -10,9 +10,9 @@ class PLiteral(
   @JvmField val value: Any,
   override val type: Type,
   val location: Location?
-): Value() {
+): PhotonNode() {
   override fun isOperation(): Boolean = true
 
-  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value = this
+  override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode = this
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any = value
 }
