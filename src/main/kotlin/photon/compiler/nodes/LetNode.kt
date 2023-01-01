@@ -5,7 +5,7 @@ import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.core.Location
 
-class PLet(
+class LetNode(
   @JvmField val name: String,
   val slot: Int,
   @Child @JvmField var value: PhotonNode,

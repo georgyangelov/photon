@@ -5,7 +5,7 @@ import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.core.Location
 
-class PReference(
+class ReferenceNode(
   val name: String,
   private val slot: Int,
   val location: Location?

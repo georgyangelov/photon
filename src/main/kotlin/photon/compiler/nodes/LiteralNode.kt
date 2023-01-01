@@ -6,7 +6,7 @@ import photon.compiler.core.*
 import photon.core.Location
 
 // TODO: Do I want to export libraries and delegate to `value`?
-class PLiteral(
+class LiteralNode(
   @JvmField val value: Any,
   override val type: Type,
   val location: Location?

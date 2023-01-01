@@ -4,7 +4,7 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.core.RootType
-import photon.compiler.nodes.PLiteral
+import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.IntType
 import photon.frontend.Lexer
 import photon.frontend.Parser
@@ -22,7 +22,7 @@ class PhotonContext(
   }
 
   val globals = listOf(
-    Pair("Int", PLiteral(IntType, RootType, null))
+    Pair("Int", LiteralNode(IntType, RootType, null))
   )
 
   internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {

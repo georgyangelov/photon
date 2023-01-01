@@ -36,7 +36,7 @@ class ModuleReader(
     return PhotonFunction(rootNode)
   }
 
-  private fun transformFunctionDefinition(ast: ASTValue.Function, scope: LexicalScope): PFunctionDefinition {
+  private fun transformFunctionDefinition(ast: ASTValue.Function, scope: LexicalScope): FunctionDefinitionNode {
     val argumentNames = ast.params.map { it.inName }
     val functionScope = scope.newChildFunction(argumentNames)
 
@@ -47,7 +47,7 @@ class ModuleReader(
     val captures = functionScope.captures()
     val argumentCaptures = functionScope.argumentCaptures()
 
-    return PFunctionDefinition(paramTypes, body, frameDescriptor, captures, argumentCaptures)
+    return FunctionDefinitionNode(paramTypes, body, frameDescriptor, captures, argumentCaptures)
   }
 
   // TODO: Remove this once I have pattern support
@@ -58,12 +58,12 @@ class ModuleReader(
   }
 
   private fun transform(ast: ASTValue, scope: LexicalScope): PhotonNode = when (ast) {
-    is ASTValue.Boolean -> PLiteral(ast.value, RootType, ast.location)
-    is ASTValue.Int -> PLiteral(ast.value, IntType, ast.location)
-    is ASTValue.Float -> PLiteral(ast.value, RootType, ast.location)
-    is ASTValue.String -> PLiteral(ast.value, RootType, ast.location)
+    is ASTValue.Boolean -> LiteralNode(ast.value, RootType, ast.location)
+    is ASTValue.Int -> LiteralNode(ast.value, IntType, ast.location)
+    is ASTValue.Float -> LiteralNode(ast.value, RootType, ast.location)
+    is ASTValue.String -> LiteralNode(ast.value, RootType, ast.location)
 
-    is ASTValue.Call -> PCall(
+    is ASTValue.Call -> CallNode(
       target = transform(ast.target, scope),
       name = ast.name,
       arguments = ast.arguments.positional.map { transform(it, scope) }.toTypedArray()
@@ -74,13 +74,13 @@ class ModuleReader(
       val value = transform(ast.value, innerScope)
       val body = transform(ast.block, innerScope)
 
-      PLet(ast.name, slot, value, body, ast.location)
+      LetNode(ast.name, slot, value, body, ast.location)
     }
 
     is ASTValue.NameReference -> {
       val slot = scope.accessName(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
 
-      PReference(ast.name, slot, ast.location)
+      ReferenceNode(ast.name, slot, ast.location)
     }
 
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)

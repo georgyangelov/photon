@@ -10,7 +10,7 @@ import photon.compiler.core.*
 import photon.compiler.libraries.*
 import photon.core.EvalError
 
-class PCall(
+class CallNode(
   @JvmField @Child var target: PhotonNode,
   @JvmField val name: String,
   @JvmField @Children var arguments: Array<PhotonNode>

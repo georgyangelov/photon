@@ -7,8 +7,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.PhotonNode
 import photon.compiler.core.Type
-import photon.compiler.nodes.PLiteral
-import photon.compiler.nodes.PUnknown
+import photon.compiler.nodes.UnknownNode
 
 // TODO: May need to inline these methods at some point because of loop unrolling
 class FrameTools {
@@ -140,7 +139,7 @@ class FrameTools {
         // TODO: Make it possible to pass some of the arguments maybe
         // First argument should be the closure captures array
         // frame.setObject(capture.toSlot, frame.arguments[capture.argumentIndex + 1])
-        frame.setAuxiliarySlot(capture.toSlot, PUnknown(argumentTypes[capture.argumentIndex]))
+        frame.setAuxiliarySlot(capture.toSlot, UnknownNode(argumentTypes[capture.argumentIndex]))
       }
     }
   }

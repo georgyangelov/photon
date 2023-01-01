@@ -11,7 +11,7 @@ import photon.compiler.types.FunctionType
 import photon.compiler.values.Closure
 import photon.core.EvalError
 
-class PFunctionDefinition(
+class FunctionDefinitionNode(
   val argumentTypes: List<PhotonNode>,
   val body: PhotonNode,
   val frameDescriptor: FrameDescriptor,
