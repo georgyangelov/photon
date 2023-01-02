@@ -41,6 +41,11 @@ internal class CompilerTest {
     expect("val one = 1; val plusOne = (a: Int) a + one; plusOne.call(41)", 42)
   }
 
+  @Test
+  fun testNestedClosures() {
+    expect("(a:Int){ (b:Int){ a + b } }(1)(41)", 42)
+  }
+
   private fun expect(code: String, expected: Int): Unit {
     expect(Int::class.java, code, expected)
   }

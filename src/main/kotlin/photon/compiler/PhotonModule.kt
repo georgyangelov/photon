@@ -1,20 +1,16 @@
 package photon.compiler
 
-import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
-import photon.compiler.core.EvalMode
-import photon.compiler.core.PhotonFunction
-import photon.frontend.ASTValue
+import photon.compiler.core.*
 
 class PhotonModule(
   language: TruffleLanguage<*>,
-  val main: PhotonFunction
+  val main: PhotonModuleRootFunction
 ): RootNode(language, main.frameDescriptor) {
   @CompilationFinal
   private var partiallyEvaluated = false
@@ -55,8 +51,6 @@ class PhotonModule(
       partiallyEvaluated = true
     }
 
-    val capturedValues = FrameTools.captureValues(frame, main.requiredCaptures)
-
-    return main.call(capturedValues, frame.arguments)
+    return main.call(emptyArray(), frame.arguments)
   }
 }

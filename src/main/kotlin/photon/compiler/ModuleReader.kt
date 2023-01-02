@@ -16,38 +16,41 @@ class ModuleReader(
     return PhotonModule(context.language, main)
   }
 
-  private fun transformMainFunction(ast: ASTValue): PhotonFunction {
+  private fun transformMainFunction(ast: ASTValue): PhotonModuleRootFunction {
     val rootScope = context.newGlobalLexicalScope()
-
     val innerNode = transform(ast, rootScope)
-
     val frameDescriptor = rootScope.frameDescriptor()
-    val rootNode = PhotonFunctionRootNode(
-      language = context.language,
-      unevaluatedArgumentTypes = emptyList(),
-      body = innerNode,
-      frameDescriptor = frameDescriptor,
-      captures = emptyArray(),
-      argumentCaptures = rootScope.argumentCaptures(),
-      parentPartialFrame = null,
-      isMainModuleFunction = true
-    )
 
-    return PhotonFunction(rootNode)
+    return PhotonModuleRootFunction(
+      language = context.language,
+      frameDescriptor = frameDescriptor,
+      body = innerNode
+    )
   }
 
   private fun transformFunctionDefinition(ast: ASTValue.Function, scope: LexicalScope): FunctionDefinitionNode {
     val argumentNames = ast.params.map { it.inName }
     val functionScope = scope.newChildFunction(argumentNames)
 
-    val paramTypes = ast.params.map { transform(assertSpecificValue(it.typePattern), scope) }
+    val paramTypes = ast.params.map {
+      val typeNode = transform(assertSpecificValue(it.typePattern), scope)
+
+      FunctionDefinitionNode.ParameterNode(it.outName, typeNode)
+    }.toTypedArray()
+
+    val returnType =
+      if (ast.returnType != null)
+        transform(ast.returnType, scope)
+      else
+        null
+
     val body = transform(ast.body, functionScope)
 
     val frameDescriptor = functionScope.frameDescriptor()
     val captures = functionScope.captures()
     val argumentCaptures = functionScope.argumentCaptures()
 
-    return FunctionDefinitionNode(paramTypes, body, frameDescriptor, captures, argumentCaptures)
+    return FunctionDefinitionNode(paramTypes, returnType, body, frameDescriptor, captures, argumentCaptures)
   }
 
   // TODO: Remove this once I have pattern support

@@ -1,9 +1,7 @@
 package photon.compiler.core
 
-import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
-import photon.compiler.PartialContext
 import photon.compiler.libraries.TypeLibrary
 
 @ExportLibrary(TypeLibrary::class)
@@ -12,15 +10,6 @@ abstract class Type {
 
   @ExportMessage
   fun getMethod(name: String): Method? = methods[name]
-
-//  override val type: Type
-//    get() = RootType
-//
-//  override fun executePartial(frame: VirtualFrame, context: PartialContext): Value {
-//    return this
-//  }
-//
-//  override fun executeCompileTimeOnly(frame: VirtualFrame): Any = this
 }
 
 object RootType: Type() {

@@ -5,6 +5,7 @@ import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
+import com.oracle.truffle.api.nodes.Node
 import photon.compiler.*
 import photon.compiler.core.*
 import photon.compiler.types.FunctionType
@@ -12,12 +13,19 @@ import photon.compiler.values.Closure
 import photon.core.EvalError
 
 class FunctionDefinitionNode(
-  val argumentTypes: List<PhotonNode>,
-  val body: PhotonNode,
+  @Children @JvmField var argumentTypes: Array<ParameterNode>,
+  @Child @JvmField var returnType: PhotonNode?,
+  @Child @JvmField var body: PhotonNode,
+
   val frameDescriptor: FrameDescriptor,
   val captures: Array<NameCapture>,
   val argumentCaptures: Array<ArgumentCapture>
 ): OperationNode() {
+  class ParameterNode(
+    @JvmField val name: String,
+    @Child @JvmField var type: PhotonNode
+  ): Node()
+
   @CompilationFinal
   private var function: PhotonFunction? = null
 
@@ -29,23 +37,24 @@ class FunctionDefinitionNode(
       throw EvalError("Function definition is already evaluated in a partial context", null)
     }
 
-    val rootNode = PhotonFunctionRootNode(
-      language = context.module.getLanguage(PhotonLanguage::class.java),
-      unevaluatedArgumentTypes = argumentTypes,
-      body = body,
+    val function = PhotonFunction(
+      module = context.module,
       frameDescriptor = frameDescriptor,
-      captures = captures,
-      parentPartialFrame = frame.materialize(),
+
+      partialEvalFrame = frame.materialize(),
+      argumentTypes = argumentTypes.map { Pair(it.name, it.type) },
+      returnType = returnType,
+
+      requiredCaptures = captures,
       argumentCaptures = argumentCaptures,
-      isMainModuleFunction = false
+      body = body
     )
-    val function = PhotonFunction(rootNode)
+
     this.function = function
 
-    context.module.addFunction(function)
+    type = function.type
 
-    // TODO: Different function type for each function
-    type = FunctionType()
+    context.module.addFunction(function)
 
     return this
   }
