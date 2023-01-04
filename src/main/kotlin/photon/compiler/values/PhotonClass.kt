@@ -7,23 +7,26 @@ import photon.compiler.PhotonContext
 import photon.compiler.PhotonLanguage
 import photon.compiler.core.*
 import photon.compiler.libraries.ValueLibrary
+import photon.core.EvalError
 
 @ExportLibrary(ValueLibrary::class)
 class PhotonClass(
   val name: String,
-  properties: Array<Property>
+  properties: Array<Property>,
+  functions: Array<Function>
 ) {
-  private val type: Type = PhotonClassType(properties)
+  private val type: Type = PhotonClassType(properties, functions)
 
   @ExportMessage
   fun type() = type
 
   data class Property(val name: String, val type: Type)
-//data class Function(val name: String, val type: Type)
+  data class Function(val name: String, val function: Closure)
 }
 
 class PhotonClassType(
-  val properties: Array<PhotonClass.Property>
+  val properties: Array<PhotonClass.Property>,
+  val functions: Array<PhotonClass.Function>
 ): Type() {
   val instanceType = PhotonClassInstanceType(this)
 
@@ -56,7 +59,7 @@ interface PhotonStaticObjectFactory {
 }
 
 class PhotonClassInstanceType(
-  val classType: PhotonClassType
+  classType: PhotonClassType
 ): Type() {
   val shapeProperties = classType.properties.map { DefaultStaticProperty(it.name) }
 
@@ -70,7 +73,10 @@ class PhotonClassInstanceType(
   )
 
   override val methods: Map<String, Method> =
-    classType.properties.zip(shapeProperties).associate { Pair(it.first.name, methodForProperty(it.first, it.second)) }
+    classType.properties
+      .zip(shapeProperties)
+      .associate { Pair(it.first.name, methodForProperty(it.first, it.second)) } +
+    classType.functions.associate { Pair(it.name, methodForFunction(it)) }
 
   private fun methodForProperty(property: PhotonClass.Property, shapeProperty: StaticProperty): Method {
     return object: Method(MethodType.Default) {
@@ -78,6 +84,21 @@ class PhotonClassInstanceType(
 
       override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
         return shapeProperty.getObject(target)
+      }
+    }
+  }
+
+  private fun methodForFunction(function: PhotonClass.Function): Method {
+    val callMethod = function.function.type().getMethod("call")
+      ?: throw EvalError("Function is not callable", null)
+
+    // TODO: Use MethodType based on the function itself
+    return object: Method(MethodType.Default) {
+      override fun signature(): Signature = callMethod.signature()
+
+      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+        // TODO: Self argument
+        return callMethod.call(evalMode, function.function, *args)
       }
     }
   }

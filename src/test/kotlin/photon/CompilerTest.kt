@@ -47,7 +47,7 @@ internal class CompilerTest {
   }
 
   @Test
-  fun testDefiningSimpleClasses() {
+  fun testDefiningClassProperties() {
     expect(
       """
         val Person = Class.new "Person", (self: ClassBuilder): Int {
@@ -58,6 +58,23 @@ internal class CompilerTest {
 
         val ivan = Person.new(42)
         ivan.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testDefiningClassMethods() {
+    expect(
+      """
+        val Person = Class.new "Person", (self: ClassBuilder): Int {
+          define "answer", () 42
+          
+          1
+        }
+
+        val ivan = Person.new(42)
+        ivan.answer
       """.trimIndent(),
       42
     )
