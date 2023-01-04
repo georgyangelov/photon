@@ -21,6 +21,10 @@ class CallNode(
 
   @JvmField
   @Child
+  var valueLib: ValueLibrary = LibraryFactory.resolve(ValueLibrary::class.java).createDispatched(3)
+
+  @JvmField
+  @Child
   var typeLib: TypeLibrary = LibraryFactory.resolve(TypeLibrary::class.java).createDispatched(3)
 
   @JvmField
@@ -40,14 +44,20 @@ class CallNode(
       arguments[i] = arguments[i].executePartial(frame, context)
     }
 
+    // TODO: This should use the ValueLibrary to get the type
     val resolvedMethod = typeLib.getMethod(target.type, name)
       // TODO: Location
       ?: throw EvalError("Could not find method $name on ${target.type}", null)
 
     method = resolvedMethod
-    type = resolvedMethod.signature().returnType
 
-    // TODO: Call the method if it's compile-time-only or partial
+    if (resolvedMethod.methodType() == MethodType.Partial) {
+      val result = executeCompileTimeOnly(frame)
+
+      type = valueLib.type(result)
+    } else {
+      type = resolvedMethod.signature().returnType
+    }
 
     return this
   }

@@ -88,7 +88,12 @@ class ModuleReader(
 
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)
 
-    is ASTValue.Block -> TODO()
+    is ASTValue.Block -> {
+      val expressions = ast.values.map { transform(it, scope) }.toTypedArray()
+
+      BlockNode(expressions, ast.location)
+    }
+
     is ASTValue.FunctionType -> TODO()
   }
 }

@@ -1,6 +1,5 @@
 package photon.compiler.core
 
-import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.*
@@ -57,13 +56,13 @@ class PhotonFunction(
       // TODO: Some error messaging if the value is not a type
       actualReturnType = returnType.executeCompileTimeOnly(partialEvalFrame) as Type
     } else {
-      executePartial(module)
+      executePartial()
 
       actualReturnType = body.type
     }
   }
 
-  fun executePartial(module: PhotonModule) {
+  fun executePartial() {
     if (alreadyPartiallyEvaluated) {
       return
     }
@@ -81,6 +80,10 @@ class PhotonFunction(
   }
 
   fun call(captures: Array<Any>, vararg arguments: Any): Any {
+    if (!alreadyPartiallyEvaluated) {
+      executePartial()
+    }
+
     return executionNode.callTarget.call(captures, *arguments)
   }
 }

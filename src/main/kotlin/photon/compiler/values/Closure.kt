@@ -8,9 +8,8 @@ import photon.compiler.libraries.ValueLibrary
 @ExportLibrary(ValueLibrary::class)
 class Closure(
   val function: PhotonFunction,
-  val captures: Array<Any>,
-  private val type: Type
+  val captures: Array<Any>
 ) {
   @ExportMessage
-  fun type() = type
+  fun type() = function.type
 }

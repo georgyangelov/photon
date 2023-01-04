@@ -46,19 +46,36 @@ internal class CompilerTest {
     expect("(a:Int){ (b:Int){ a + b } }(1)(41)", 42)
   }
 
-  private fun expect(code: String, expected: Int): Unit {
+  @Test
+  fun testDefiningSimpleClasses() {
+    expect(
+      """
+        val Person = Class.new "Person", (self: ClassBuilder): Int {
+          define "age", Int
+          
+          1
+        }
+
+        val ivan = Person.new(42)
+        ivan.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  private fun expect(code: String, expected: Int) {
     expect(Int::class.java, code, expected)
   }
 
-  private fun expect(code: String, expected: Boolean): Unit {
+  private fun expect(code: String, expected: Boolean) {
     expect(Boolean::class.java, code, expected)
   }
 
-  private fun expect(code: String, expected: String): Unit {
+  private fun expect(code: String, expected: String) {
     expect(String::class.java, code, expected)
   }
 
-  fun <T>expect(cls: Class<T>, code: String, expected: T): Unit {
+  fun <T>expect(cls: Class<T>, code: String, expected: T) {
     val context = Context.newBuilder(PhotonLanguage.id).build()
     val source = Source.newBuilder(PhotonLanguage.id, code, "test.y").build()
     val result = context.eval(source)
