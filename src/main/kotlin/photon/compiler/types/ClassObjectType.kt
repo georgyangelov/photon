@@ -1,8 +1,7 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
-import photon.compiler.values.ClassBuilder
-import photon.compiler.values.Closure
+import photon.compiler.values.*
 
 object ClassObjectType: Type() {
   override val methods: Map<String, Method> = mapOf(
@@ -16,14 +15,7 @@ object ClassObjectType: Type() {
       val name = args[0] as String
       val builderClosure = args[1] as Closure
 
-      val builder = ClassBuilder(name)
-
-      builderClosure.function.call(
-        builderClosure.captures,
-        builder
-      )
-
-      return builder.build()
+      return PhotonClass(name, builderClosure)
     }
   }
 }

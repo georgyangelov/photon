@@ -73,7 +73,25 @@ internal class CompilerTest {
           1
         }
 
-        val ivan = Person.new(42)
+        val ivan = Person.new()
+        ivan.answer
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testClassMethodsWithSelf() {
+    expect(
+      """
+        val Person = Class.new "Person", (self: ClassBuilder): Int {
+          define "age", Int
+          define "answer", (self: Person) self.age + 1
+          
+          1
+        }
+
+        val ivan = Person.new(41)
         ivan.answer
       """.trimIndent(),
       42

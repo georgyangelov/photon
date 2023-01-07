@@ -14,8 +14,6 @@ class ClassBuilder(val name: String) {
 
   @ExportMessage
   fun type() = ClassBuilderType
-
-  fun build() = PhotonClass(name, properties.toTypedArray(), functions.toTypedArray())
 }
 
 object ClassBuilderType: Type() {
