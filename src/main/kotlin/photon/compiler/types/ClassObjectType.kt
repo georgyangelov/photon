@@ -14,8 +14,9 @@ object ClassObjectType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val name = args[0] as String
       val builderClosure = args[1] as Closure
+      val classBuilder = ClassBuilder(name, builderClosure)
 
-      return PhotonClass(name, builderClosure)
+      return PhotonClass(classBuilder)
     }
   }
 }

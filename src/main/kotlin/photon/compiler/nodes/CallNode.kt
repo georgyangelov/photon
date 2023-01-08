@@ -55,6 +55,9 @@ class CallNode(
       val result = executeCompileTimeOnly(frame)
 
       type = valueLib.type(result)
+
+      // TODO: Literal or should this become "Any"?
+      return LiteralNode(result, type, null)
     } else {
       type = resolvedMethod.signature().returnType
     }

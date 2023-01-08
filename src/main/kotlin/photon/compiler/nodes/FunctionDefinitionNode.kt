@@ -8,7 +8,6 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.*
 import photon.compiler.core.*
-import photon.compiler.types.FunctionType
 import photon.compiler.values.Closure
 import photon.core.EvalError
 
@@ -64,8 +63,8 @@ class FunctionDefinitionNode(
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     assert(function != null)
 
-    val capturedValues = FrameTools.captureValues(frame, captures)
+    // val capturedValues = FrameTools.captureValues(frame, captures)
 
-    return Closure(function!!, capturedValues)
+    return Closure(function!!, frame.materialize())
   }
 }

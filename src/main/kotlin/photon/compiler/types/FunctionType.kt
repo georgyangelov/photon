@@ -1,5 +1,6 @@
 package photon.compiler.types
 
+import photon.compiler.FrameTools
 import photon.compiler.core.*
 import photon.compiler.values.Closure
 
@@ -20,8 +21,9 @@ class FunctionType(function: PhotonFunction): Type() {
 
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val closure = target as Closure
+      val captures = FrameTools.captureValues(closure.capturedFrame, closure.function.requiredCaptures)
 
-      return closure.function.call(closure.captures, *args)
+      return closure.function.call(captures, *args)
     }
   }
 }
