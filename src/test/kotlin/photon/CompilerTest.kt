@@ -98,6 +98,43 @@ internal class CompilerTest {
     )
   }
 
+  @Test
+  fun testPartialArguments() {
+    expect(
+      """
+        val builder = (self: ClassBuilder): Int {
+          define "age", Int
+          define "answer", (self: self.selfType) self.age + 1
+          
+          1
+        }.compileTimeOnly
+        
+        val Person = Class.new "Person", builder
+        val Person2 = Class.new "Person2", builder
+
+        val ivan = Person.new(41)
+        ivan.answer
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testClassMacro() {
+    expect(
+      """
+        class Person {
+          def age: Int
+          def answer() self.age + 1
+        }
+        
+        val person = Person.new(41)
+        person.answer
+      """.trimIndent(),
+      42
+    )
+  }
+
   private fun expect(code: String, expected: Int) {
     expect(Int::class.java, code, expected)
   }

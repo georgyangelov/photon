@@ -16,7 +16,7 @@ object ClassObjectType: Type() {
       val builderClosure = args[1] as Closure
       val classBuilder = ClassBuilder(name, builderClosure)
 
-      return PhotonClass(classBuilder)
+      return classBuilder.klass
     }
   }
 }

@@ -62,6 +62,13 @@ class Parser(
     }
   }
 
+  inline fun <reified T: ASTValue>parseAST(klass: Class<T>): T {
+    when (val value = parseNext()) {
+      is T -> return value
+      else -> parseError("Read $value, expected $klass")
+    }
+  }
+
   fun parseCompleteExpression(): ASTValue {
     if (atStart) read()
 

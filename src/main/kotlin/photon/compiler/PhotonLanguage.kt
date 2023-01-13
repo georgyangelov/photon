@@ -4,12 +4,13 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.core.RootType
+import photon.compiler.macros.ClassMacro
+import photon.compiler.macros.DefMacro
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.ClassObjectType
 import photon.compiler.types.IntType
 import photon.compiler.values.ClassBuilderType
-import photon.frontend.Lexer
-import photon.frontend.Parser
+import photon.frontend.*
 import photon.frontend.Parser.Companion.BlankMacroHandler
 
 class PhotonContext(
@@ -21,6 +22,21 @@ class PhotonContext(
 
     fun current(): PhotonContext = REFERENCE.get(null)
     fun currentFor(node: Node): PhotonContext = REFERENCE.get(node)
+  }
+
+  private val macros = mapOf(
+    Pair("class", ClassMacro::classMacro),
+    Pair("object", ClassMacro::objectMacro),
+    Pair("interface", ClassMacro::interfaceMacro),
+    Pair("def", DefMacro::defMacro)
+  )
+
+  val macroHandler: MacroHandler = { keyword, parser, location ->
+    val macro = macros[keyword]
+
+    if (macro != null) {
+      macro(parser, location)
+    } else null
   }
 
   val globals = listOf(
@@ -54,10 +70,12 @@ class PhotonLanguage: TruffleLanguage<PhotonContext>() {
     val source = request.source.characters
     val lexer = Lexer("test.y", source.toString())
 
-    val parser = Parser(lexer, BlankMacroHandler)
+    val context = PhotonContext.current()
+
+    val parser = Parser(lexer, context.macroHandler)
     val rootAST = parser.parseRoot()
 
-    val moduleReader = ModuleReader(PhotonContext.current())
+    val moduleReader = ModuleReader(context)
     val root = moduleReader.read(rootAST)
 
     return root.callTarget

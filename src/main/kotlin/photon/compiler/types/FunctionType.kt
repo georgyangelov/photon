@@ -6,8 +6,9 @@ import photon.compiler.values.Closure
 
 class FunctionType(function: PhotonFunction): Type() {
   override val methods: Map<String, Method> by lazy {
-    function.resolveArgumentTypes()
-    function.resolveReturnType()
+//    function.resolveArgumentTypes()
+//    function.resolveReturnType()
+    function.executePartial()
 
     val signature = Signature.Concrete(function.actualArgumentTypes!!, function.actualReturnType!!)
 

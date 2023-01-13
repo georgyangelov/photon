@@ -30,7 +30,7 @@ class PhotonFunction(
   @CompilationFinal
   internal var actualReturnType: Type? = null
 
-  internal fun resolveArgumentTypes() {
+  internal fun resolveSignatureTypes(context: PartialContext) {
     if (actualArgumentTypes != null) {
       return
     }
@@ -41,24 +41,16 @@ class PhotonFunction(
       val (name, unevaluatedType) = it
 
       // TODO: Some error messaging if the value is not a type
-      val type = unevaluatedType.executeCompileTimeOnly(partialEvalFrame) as Type
+      val partialValue = unevaluatedType.executePartial(partialEvalFrame, context)
+      val type = partialValue.executeCompileTimeOnly(partialEvalFrame) as Type
 
       Pair(name, type)
-    }
-  }
-
-  internal fun resolveReturnType() {
-    if (actualReturnType != null) {
-      return
     }
 
     if (returnType != null) {
       // TODO: Some error messaging if the value is not a type
-      actualReturnType = returnType.executeCompileTimeOnly(partialEvalFrame) as Type
-    } else {
-      executePartial()
-
-      actualReturnType = body.type
+      val partialValue = returnType.executePartial(partialEvalFrame, context)
+      actualReturnType = partialValue.executeCompileTimeOnly(partialEvalFrame) as Type
     }
   }
 
@@ -100,13 +92,19 @@ private class PartialExecutionNode(
     val evalMode = EvalMode.Partial
     val context = PartialContext(module, evalMode)
 
-    fn.resolveArgumentTypes()
+    fn.resolveSignatureTypes(context)
     val argumentTypes = fn.actualArgumentTypes!!.map { it.second }.toTypedArray()
 
     FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, fn.requiredCaptures)
     FrameTools.applyArgumentsForPartialExecution(frame, fn.argumentCaptures, argumentTypes)
 
-    return fn.body.executePartial(frame, context)
+    val partiallyEvaluatedBody = fn.body.executePartial(frame, context)
+
+    if (fn.actualReturnType == null) {
+      fn.actualReturnType = partiallyEvaluatedBody.type
+    }
+
+    return partiallyEvaluatedBody
   }
 }
 

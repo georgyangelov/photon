@@ -34,6 +34,8 @@ class ClassBuilder(
       return _functions
     }
 
+  val klass = PhotonClass(this)
+
   @CompilationFinal
   private var alreadyBuilt = false
 
@@ -56,7 +58,8 @@ class ClassBuilder(
 
 object ClassBuilderType: Type() {
   override val methods: Map<String, Method> = mapOf(
-    Pair("define", DefineMethod)
+    Pair("define", DefineMethod),
+    Pair("selfType", SelfTypeMethod)
   )
 
   object DefineMethod: Method(MethodType.CompileTimeOnly) {
@@ -74,6 +77,15 @@ object ClassBuilderType: Type() {
 
       // TODO: Return a "Nothing" value
       return 42
+    }
+  }
+
+  object SelfTypeMethod: Method(MethodType.CompileTimeOnly) {
+    override fun signature(): Signature = Signature.Any(RootType)
+    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      val builder = target as ClassBuilder
+
+      return builder.klass
     }
   }
 }
