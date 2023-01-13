@@ -152,6 +152,24 @@ internal class CompilerTest {
     )
   }
 
+  @Test
+  fun testSelfReferencingFunctions() {
+    expect(
+      """
+        class Person {
+          def age: Int
+          def ageOfOther(other: Person) other.age 
+        }
+        
+        val a = Person.new(42)
+        val b = Person.new(1)
+        
+        b.ageOfOther(a)
+      """.trimIndent(),
+      42
+    )
+  }
+
   private fun expect(code: String, expected: Int) {
     expect(Int::class.java, code, expected)
   }
