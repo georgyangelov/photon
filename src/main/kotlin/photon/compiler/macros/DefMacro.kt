@@ -66,6 +66,7 @@ object DefMacro {
       ) + function.params,
       body = function.body,
       returnType = returnType ?: function.returnType,
+      isCompileTimeOnly = function.isCompileTimeOnly,
       location = function.location
     )
   }

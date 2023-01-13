@@ -40,6 +40,7 @@ class PhotonContext(
   }
 
   val globals = listOf(
+    Pair("Type", LiteralNode(RootType, RootType, null)),
     Pair("Int", LiteralNode(IntType, RootType, null)),
 
     // TODO: `value` should not be 1

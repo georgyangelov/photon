@@ -80,6 +80,7 @@ sealed class ASTValue {
     val params: List<ASTParameter>,
     val body: ASTValue,
     val returnType: ASTValue?,
+    val isCompileTimeOnly: kotlin.Boolean,
     override val location: Location?
   ) : ASTValue() {
     override fun inspect(): kotlin.String {

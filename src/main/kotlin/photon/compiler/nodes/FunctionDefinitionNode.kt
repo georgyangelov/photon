@@ -16,6 +16,8 @@ class FunctionDefinitionNode(
   @Child @JvmField var returnType: PhotonNode?,
   @Child @JvmField var body: PhotonNode,
 
+  val isCompileTimeOnly: Boolean,
+
   val frameDescriptor: FrameDescriptor,
   val captures: Array<NameCapture>,
   val argumentCaptures: Array<ArgumentCapture>
@@ -39,6 +41,8 @@ class FunctionDefinitionNode(
     val function = PhotonFunction(
       module = context.module,
       frameDescriptor = frameDescriptor,
+
+      isCompileTimeOnly = isCompileTimeOnly,
 
       partialEvalFrame = frame.materialize(),
       argumentTypes = argumentTypes.map { Pair(it.name, it.type) },

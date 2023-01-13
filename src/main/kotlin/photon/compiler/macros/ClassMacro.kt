@@ -42,6 +42,8 @@ object ClassMacro {
       // TODO: Nothing
       returnType = ASTValue.NameReference("Int", builderFunction.location),
 
+      isCompileTimeOnly = true,
+
       location = classDefinitionLocation
     )
 

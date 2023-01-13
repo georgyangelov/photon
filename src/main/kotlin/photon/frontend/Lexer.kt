@@ -18,6 +18,7 @@ sealed class TokenType(val name: String) {
   object CloseBracket : TokenType("CloseBracket")
   object Comma : TokenType("Comma")
   object Dot : TokenType("Dot")
+  object At : TokenType("At")
   object Colon : TokenType("Colon")
   object Dollar : TokenType("Dollar")
   object Equals : TokenType("Equals")
@@ -47,6 +48,7 @@ data class Token(
     TokenType.CloseBrace,
     TokenType.Comma,
     TokenType.Dot,
+    TokenType.At,
     TokenType.Colon,
     TokenType.Dollar,
     TokenType.Equals,
@@ -131,6 +133,7 @@ class Lexer private constructor(val fileName: String, val reader: PushbackString
       '}'.code -> singleCharToken(TokenType.CloseBrace, startLocation, hadWhitespace)
       ','.code -> singleCharToken(TokenType.Comma, startLocation, hadWhitespace)
       '.'.code -> singleCharToken(TokenType.Dot, startLocation, hadWhitespace)
+      '@'.code -> singleCharToken(TokenType.At, startLocation, hadWhitespace)
 
       '='.code, '+'.code, '-'.code, '*'.code, '/'.code, '<'.code, '>'.code -> {
         string.appendCodePoint(next())

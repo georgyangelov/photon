@@ -238,49 +238,64 @@ class Parser(
         )
       }
 
-      TokenType.OpenBrace -> parseLambdaOrLambdaType(hasLowerPriorityTarget)
+      TokenType.OpenBrace -> parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = false)
+      TokenType.At -> {
+        read() // @
+        parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = true)
+      }
 
       TokenType.UnaryOperator ->
         ASTValueOrPattern.Value(
           parseUnaryOperator(requireCallParens, hasLowerPriorityTarget)
         )
 
-      TokenType.OpenParen -> {
-        if (isOpenParenForLambda()) {
-          parseLambdaOrLambdaType(hasLowerPriorityTarget)
-        } else {
-          read() // (
-
-          val values = mutableListOf<ASTValueOrPattern>()
-          val startLocation = lastLocation
-
-          do {
-            values.add(parseExpression(requireCallParens = false, hasLowerPriorityTarget = false))
-          } while (token.tokenType != TokenType.CloseParen && newline)
-
-          if (token.tokenType != TokenType.CloseParen) {
-            parseError("Unmatched parentheses or extra expressions. Expected ')'")
-          }
-
-          val value = if (values.size == 1) {
-            values.first()
-          } else {
-            ASTValueOrPattern.Value(
-              ASTValue.Block(values.map { assertASTValue(it) }, startLocation.extendWith(token.location))
-            )
-          }
-
-          if (token.tokenType != TokenType.CloseParen) {
-            parseError("Unmatched parentheses or extra expressions. Expected ')'")
-          }
-
-          read() // )
-
-          value
-        }
+      TokenType.At -> {
+        read() // @
+        parseExpressionStartingWithOpenParen(hasLowerPriorityTarget, ifLambdaIsItCompileTimeOnly = true)
       }
 
+      TokenType.OpenParen ->
+        parseExpressionStartingWithOpenParen(hasLowerPriorityTarget, ifLambdaIsItCompileTimeOnly = false)
+
       else -> parseError()
+    }
+  }
+
+  private fun parseExpressionStartingWithOpenParen(
+    hasLowerPriorityTarget: Boolean,
+    ifLambdaIsItCompileTimeOnly: Boolean
+  ): ASTValueOrPattern {
+    if (isOpenParenForLambda()) {
+      return parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = ifLambdaIsItCompileTimeOnly)
+    } else {
+      read() // (
+
+      val values = mutableListOf<ASTValueOrPattern>()
+      val startLocation = lastLocation
+
+      do {
+        values.add(parseExpression(requireCallParens = false, hasLowerPriorityTarget = false))
+      } while (token.tokenType != TokenType.CloseParen && newline)
+
+      if (token.tokenType != TokenType.CloseParen) {
+        parseError("Unmatched parentheses or extra expressions. Expected ')'")
+      }
+
+      val value = if (values.size == 1) {
+        values.first()
+      } else {
+        ASTValueOrPattern.Value(
+          ASTValue.Block(values.map { assertASTValue(it) }, startLocation.extendWith(token.location))
+        )
+      }
+
+      if (token.tokenType != TokenType.CloseParen) {
+        parseError("Unmatched parentheses or extra expressions. Expected ')'")
+      }
+
+      read() // )
+
+      return value
     }
   }
 
@@ -321,6 +336,7 @@ class Parser(
       TokenType.CloseBracket -> false
       TokenType.Comma -> false
       TokenType.Dot -> false
+      TokenType.At -> false
       TokenType.Equals -> false
 
       // This is for return type of lambdas. For example:
@@ -549,7 +565,10 @@ class Parser(
     return ASTValue.String(token.string, token.location)
   }
 
-  private fun parseLambdaOrLambdaType(hasLowerPriorityTarget: Boolean): ASTValueOrPattern {
+  private fun parseLambdaOrLambdaType(
+    hasLowerPriorityTarget: Boolean,
+    isCompileTimeOnly: Boolean
+  ): ASTValueOrPattern {
     // This aims to fix parse of lambdas using only braces on a separate line, e.g. `{ a }`
     // Since there was a newline before, but we don't care
     newline = false
@@ -642,6 +661,7 @@ class Parser(
         parameters,
         body,
         if (returnType != null) { assertASTValue(returnType) } else null,
+        isCompileTimeOnly = isCompileTimeOnly,
         startLocation.extendWith(lastLocation)
       )
     )

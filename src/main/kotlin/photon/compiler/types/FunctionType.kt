@@ -8,16 +8,24 @@ class FunctionType(function: PhotonFunction): Type() {
   override val methods: Map<String, Method> by lazy {
 //    function.resolveArgumentTypes()
 //    function.resolveReturnType()
-    function.executePartial()
+//    function.executePartial()
+    function.resolveSignatureTypesWithInference()
 
     val signature = Signature.Concrete(function.actualArgumentTypes!!, function.actualReturnType!!)
 
+    val methodType =
+      if (function.isCompileTimeOnly) MethodType.Partial
+      else MethodType.Default
+
     mapOf(
-      Pair("call", CallMethod(signature))
+      Pair("call", CallMethod(signature, methodType))
     )
   }
 
-  class CallMethod(private val signature: Signature): Method(MethodType.Default) {
+  class CallMethod(
+    private val signature: Signature,
+    methodType: MethodType
+  ): Method(methodType) {
     override fun signature() = signature
 
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {

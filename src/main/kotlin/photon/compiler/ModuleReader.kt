@@ -50,7 +50,15 @@ class ModuleReader(
     val captures = functionScope.captures()
     val argumentCaptures = functionScope.argumentCaptures()
 
-    return FunctionDefinitionNode(paramTypes, returnType, body, frameDescriptor, captures, argumentCaptures)
+    return FunctionDefinitionNode(
+      paramTypes,
+      returnType,
+      body,
+      ast.isCompileTimeOnly,
+      frameDescriptor,
+      captures,
+      argumentCaptures
+    )
   }
 
   // TODO: Remove this once I have pattern support

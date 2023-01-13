@@ -99,15 +99,32 @@ internal class CompilerTest {
   }
 
   @Test
+  fun testFunctionsWithPartialArguments() {
+    // TODO: If possible make this `@` be a method call on the function itself
+    expect(
+      """
+        val addOfType = @(T: Type) {
+          (a: T, b: T): T { a + b } 
+        }
+        
+        val addInt = addOfType.call(Int)
+        
+        addInt.call(41, 1)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
   fun testPartialArguments() {
     expect(
       """
-        val builder = (self: ClassBuilder): Int {
+        val builder = @(self: ClassBuilder): Int {
           define "age", Int
           define "answer", (self: self.selfType) self.age + 1
           
           1
-        }.compileTimeOnly
+        }
         
         val Person = Class.new "Person", builder
         val Person2 = Class.new "Person2", builder

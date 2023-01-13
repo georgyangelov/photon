@@ -34,7 +34,9 @@ class PhotonModule(
     // We're also using the assumption that we'll only be appending to the end of the list
     var i = 0
     while (i < functions.size) {
-      functions[i].executePartial()
+      if (!functions[i].isCompileTimeOnly) {
+        functions[i].executePartial()
+      }
 
       i++
     }

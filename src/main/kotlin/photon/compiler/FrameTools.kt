@@ -131,7 +131,8 @@ class FrameTools {
     fun applyArgumentsForPartialExecution(
       frame: VirtualFrame,
       argumentCaptures: Array<ArgumentCapture>,
-      argumentTypes: Array<Type>
+      argumentTypes: Array<Type>,
+      captureActualValues: Boolean
     ) {
       for (i in argumentCaptures.indices) {
         val capture = argumentCaptures[i]
@@ -141,6 +142,11 @@ class FrameTools {
 
 //        TODO("need to pass actual arguments when partially evaluating")
 //        frame.setObject(capture.toSlot, frame.arguments[capture.argumentIndex + 1])
+
+        if (captureActualValues) {
+          frame.setObject(capture.toSlot, frame.arguments[capture.argumentIndex + 1])
+        }
+
         frame.setAuxiliarySlot(capture.toSlot, UnknownNode(argumentTypes[capture.argumentIndex]))
       }
     }

@@ -11,6 +11,8 @@ class PhotonFunction(
   private val module: PhotonModule,
   private val frameDescriptor: FrameDescriptor,
 
+  val isCompileTimeOnly: Boolean,
+
   internal val partialEvalFrame: MaterializedFrame,
   private val argumentTypes: List<Pair<String, PhotonNode>>,
   private val returnType: PhotonNode?,
@@ -30,19 +32,26 @@ class PhotonFunction(
   @CompilationFinal
   internal var actualReturnType: Type? = null
 
-  internal fun resolveSignatureTypes(context: PartialContext) {
+  internal fun resolveSignatureTypesWithoutInference() {
     if (actualArgumentTypes != null) {
       return
     }
 
     CompilerDirectives.transferToInterpreterAndInvalidate()
 
+    val evalMode =
+      if (isCompileTimeOnly) EvalMode.CompileTimeOnly
+      else EvalMode.Partial
+
+    val context = PartialContext(module, evalMode)
+
     actualArgumentTypes = argumentTypes.map {
       val (name, unevaluatedType) = it
 
       // TODO: Some error messaging if the value is not a type
       val partialValue = unevaluatedType.executePartial(partialEvalFrame, context)
-      val type = partialValue.executeCompileTimeOnly(partialEvalFrame) as Type
+      val compileTimeResult = partialValue.executeCompileTimeOnly(partialEvalFrame)
+      val type = compileTimeResult as Type
 
       Pair(name, type)
     }
@@ -51,10 +60,20 @@ class PhotonFunction(
       // TODO: Some error messaging if the value is not a type
       val partialValue = returnType.executePartial(partialEvalFrame, context)
       actualReturnType = partialValue.executeCompileTimeOnly(partialEvalFrame) as Type
+    } else if (isCompileTimeOnly) {
+      actualReturnType = AnyStatic
     }
   }
 
-  fun executePartial() {
+  fun resolveSignatureTypesWithInference() {
+    resolveSignatureTypesWithoutInference()
+
+    if (actualReturnType == null) {
+      executePartial()
+    }
+  }
+
+  fun executePartial(arguments: Array<Any> = emptyArray()) {
     if (alreadyPartiallyEvaluated) {
       return
     }
@@ -68,11 +87,14 @@ class PhotonFunction(
     val language = module.getLanguage(PhotonLanguage::class.java)
     val executionNode = PartialExecutionNode(module, language, partialFrameDescriptor, this)
 
-    executionNode.callTarget.call(capturedValues) as PhotonNode
+    executionNode.callTarget.call(capturedValues, *arguments) as PhotonNode
   }
 
   fun call(captures: Array<Any>, vararg arguments: Any): Any {
-    if (!alreadyPartiallyEvaluated) {
+    if (isCompileTimeOnly) {
+      @Suppress("UNCHECKED_CAST")
+      executePartial(arguments as Array<Any>)
+    } else if (!alreadyPartiallyEvaluated) {
       executePartial()
     }
 
@@ -92,11 +114,16 @@ private class PartialExecutionNode(
     val evalMode = EvalMode.Partial
     val context = PartialContext(module, evalMode)
 
-    fn.resolveSignatureTypes(context)
+    fn.resolveSignatureTypesWithoutInference()
     val argumentTypes = fn.actualArgumentTypes!!.map { it.second }.toTypedArray()
 
     FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, fn.requiredCaptures)
-    FrameTools.applyArgumentsForPartialExecution(frame, fn.argumentCaptures, argumentTypes)
+    FrameTools.applyArgumentsForPartialExecution(
+      frame,
+      fn.argumentCaptures,
+      argumentTypes,
+      captureActualValues = fn.isCompileTimeOnly
+    )
 
     val partiallyEvaluatedBody = fn.body.executePartial(frame, context)
 
