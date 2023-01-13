@@ -105,7 +105,11 @@ sealed class ASTValue {
         if (returnType != null) "${returnType.inspect()} "
         else ""
 
-      return "(lambda [$paramsAST] $returnTypeAST$bodyAST)"
+      val functionType =
+        if (isCompileTimeOnly) "@lambda"
+        else "lambda"
+
+      return "($functionType [$paramsAST] $returnTypeAST$bodyAST)"
     }
   }
 

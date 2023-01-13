@@ -101,7 +101,6 @@ internal class ParserTest {
   @Test
   fun testNames() {
     assertParse("test \n test_two \n test3", "test test_two test3")
-    assertParse("@test \n @test_two \n @test3", "@test @test_two @test3")
     assertParse("asdf\$test \n \$test_two", "asdf\$test \$test_two")
   }
 
@@ -376,6 +375,12 @@ internal class ParserTest {
   @Test
   fun testGenericFunctionsWithPatternsInLambdaReturnType() {
     assertParse("val fn = (a: (): val T) a(); fn(() 42)", "(let fn (lambda [(param a (Function [] (val T)))] (a self)) (fn self (lambda [] 42)))")
+  }
+
+  @Test
+  fun testCompileTimeOnlyFunctions() {
+    assertParse("@(a: Int) 42", "(@lambda [(param a Int)] 42)")
+    assertParse("@{ 42 }", "(@lambda [] 42)")
   }
 
   private fun parse(code: String): String {

@@ -239,10 +239,6 @@ class Parser(
       }
 
       TokenType.OpenBrace -> parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = false)
-      TokenType.At -> {
-        read() // @
-        parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = true)
-      }
 
       TokenType.UnaryOperator ->
         ASTValueOrPattern.Value(
@@ -251,7 +247,12 @@ class Parser(
 
       TokenType.At -> {
         read() // @
-        parseExpressionStartingWithOpenParen(hasLowerPriorityTarget, ifLambdaIsItCompileTimeOnly = true)
+
+        if (token.tokenType == TokenType.OpenBrace) {
+          parseLambdaOrLambdaType(hasLowerPriorityTarget, isCompileTimeOnly = true)
+        } else {
+          parseExpressionStartingWithOpenParen(hasLowerPriorityTarget, ifLambdaIsItCompileTimeOnly = true)
+        }
       }
 
       TokenType.OpenParen ->
