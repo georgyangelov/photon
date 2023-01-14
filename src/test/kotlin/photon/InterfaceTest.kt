@@ -67,4 +67,34 @@ internal class InterfaceTest {
       42
     )
   }
+
+  @Test
+  fun testAssigningLambdasToFunctionTypes() {
+    expect(
+      """
+        val add = (a: Int, b: Int) a + b
+        val addFn: (a: Int, b: Int): Int = add
+        
+        addFn.call(41, 1)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testAssigningCallablesToFunctionTypes() {
+    expect(
+      """
+        class Something {
+          def addedValue: Int
+          def call(a: Int, b: Int) { a + b + self.addedValue }
+        }
+        
+        val addFn: (a: Int, b: Int): Int = Something.new(1)
+        
+        addFn.call(41, 1)
+      """.trimIndent(),
+      43
+    )
+  }
 }
