@@ -89,7 +89,8 @@ class ModuleReader(
     }
 
     is ASTValue.NameReference -> {
-      val slot = scope.accessName(ast.name) ?: throw EvalError("Could not find name ${ast.name}", ast.location)
+      val slot = scope.accessName(ast.name)
+        ?: throw EvalError("Could not find name ${ast.name}", ast.location)
 
       ReferenceNode(ast.name, slot, ast.location)
     }
@@ -102,7 +103,19 @@ class ModuleReader(
       BlockNode(expressions, ast.location)
     }
 
-    is ASTValue.FunctionType -> TODO()
+    is ASTValue.FunctionType -> {
+      val parameterTypes = ast.params.map {
+        val type = transform(it.typ, scope)
+
+        FunctionTypeDefinitionNode.ParameterNode(it.name, type)
+      }.toTypedArray()
+
+      val returnType = transform(ast.returnType, scope)
+
+      FunctionTypeDefinitionNode(parameterTypes, returnType)
+    }
+
+    is ASTValue.TypeAssert -> TODO()
   }
 }
 

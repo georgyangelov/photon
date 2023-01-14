@@ -263,13 +263,13 @@ internal class ParserTest {
 
   @Test
   fun testTypeAnnotationsOnValues() {
-    assertParse("42: Int", "(typeCheck Core 42 Int)")
-    assertParse("a: Int", "(typeCheck Core a Int)")
-    assertParse("\"hello\": String", "(typeCheck Core \"hello\" String)")
-    assertParse("42: Map(String, List(Int))", "(typeCheck Core 42 (Map self String (List self Int)))")
+    assertParse("42: Int", "(typeAssert 42 Int)")
+    assertParse("a: Int", "(typeAssert a Int)")
+    assertParse("\"hello\": String", "(typeAssert \"hello\" String)")
+    assertParse("42: Map(String, List(Int))", "(typeAssert 42 (Map self String (List self Int)))")
 
     // TODO: What about this?
-    // assertParse("fn(42): Int", "(typeCheck Core (fn self 42) Int)")
+    // assertParse("fn(42): Int", "(typeAssert (fn self 42) Int)")
   }
 
   @Test
@@ -318,8 +318,8 @@ internal class ParserTest {
 
   @Test
   fun testTypeAnnotationsOnVal() {
-    assertParse("val a: Int = 42; a", "(let a (typeCheck Core 42 Int) a)")
-    assertParse("val a: Stream(Int) = 42; a", "(let a (typeCheck Core 42 (Stream self Int)) a)")
+    assertParse("val a: Int = 42; a", "(let a (typeAssert 42 Int) a)")
+    assertParse("val a: Stream(Int) = 42; a", "(let a (typeAssert 42 (Stream self Int)) a)")
   }
 
   @Test
@@ -357,8 +357,8 @@ internal class ParserTest {
 
   @Test
   fun testTypesForFunctionValues() {
-    assertParse("val a: (): Int = () 42; a", "(let a (typeCheck Core (lambda [] 42) (Function [] Int)) a)")
-    assertParse("val a: ((): Int) = () 42; a", "(let a (typeCheck Core (lambda [] 42) (Function [] Int)) a)")
+    assertParse("val a: (): Int = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int)) a)")
+    assertParse("val a: ((): Int) = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int)) a)")
   }
 
   @Test

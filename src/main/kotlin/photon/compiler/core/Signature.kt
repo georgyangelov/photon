@@ -77,14 +77,8 @@ sealed class Signature {
           }
 
           for (i in argTypes.indices) {
-            val (aName, aType) = argTypes[i]
-            val (bName, bType) = other.argTypes[i]
-
-//            TODO: Do we care?
-//            if (aName != bName) {
-//              // TODO: Location
-//              return PossibleTypeError.Error(TypeError("Different argument names", null))
-//            }
+            val (_, aType) = argTypes[i]
+            val (_, bType) = other.argTypes[i]
 
             val result = Core.isTypeAssignable(bType, aType)
             if (result is PossibleTypeError.Error<*>) {

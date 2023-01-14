@@ -7,8 +7,7 @@ import photon.compiler.core.RootType
 import photon.compiler.macros.ClassMacro
 import photon.compiler.macros.DefMacro
 import photon.compiler.nodes.LiteralNode
-import photon.compiler.types.ClassObjectType
-import photon.compiler.types.IntType
+import photon.compiler.types.*
 import photon.compiler.values.ClassBuilderType
 import photon.frontend.*
 import photon.frontend.Parser.Companion.BlankMacroHandler
@@ -43,9 +42,13 @@ class PhotonContext(
     Pair("Type", LiteralNode(RootType, RootType, null)),
     Pair("Int", LiteralNode(IntType, RootType, null)),
 
+    Pair("ClassBuilder", LiteralNode(ClassBuilderType, RootType, null)),
+
     // TODO: `value` should not be 1
     Pair("Class", LiteralNode(1, ClassObjectType, null)),
-    Pair("ClassBuilder", LiteralNode(ClassBuilderType, RootType, null))
+
+    // TODO: `value` should not be 1
+    Pair("Interface", LiteralNode(1, InterfaceObjectType, null)),
   )
 
   internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {

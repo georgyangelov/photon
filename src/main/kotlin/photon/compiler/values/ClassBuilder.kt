@@ -34,7 +34,8 @@ class ClassBuilder(
       return _functions
     }
 
-  val klass = PhotonClass(this)
+  val builtClass by lazy { PhotonClass(this) }
+  val builtInterface by lazy { PhotonInterface(this) }
 
   @CompilationFinal
   private var alreadyBuilt = false
@@ -85,7 +86,7 @@ object ClassBuilderType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val builder = target as ClassBuilder
 
-      return builder.klass
+      return builder.builtClass
     }
   }
 }

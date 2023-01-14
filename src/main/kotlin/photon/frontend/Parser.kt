@@ -62,7 +62,7 @@ class Parser(
     }
   }
 
-  inline fun <reified T: ASTValue>parseAST(klass: Class<T>): T {
+  inline fun <reified T: ASTValue> parseAST(klass: Class<T>): T {
     when (val value = parseNext()) {
       is T -> return value
       else -> parseError("Read $value, expected $klass")
@@ -115,11 +115,9 @@ class Parser(
       val location = left.location!!.extendWith(right.location!!)
 
       left = if (operator.tokenType == TokenType.Colon) {
-        ASTValueOrPattern.Value(ASTValue.Call(
-          target = ASTValue.NameReference("Core", location),
-          name = "typeCheck",
-          arguments = ASTArguments(listOf(left, right).map { assertASTValue(it) }, emptyMap()),
-          mayBeVarCall = false,
+        ASTValueOrPattern.Value(ASTValue.TypeAssert(
+          value = assertASTValue(left),
+          type = assertASTValue(right),
           location = location
         ))
       } else if (right is ASTValueOrPattern.Pattern) {
@@ -160,7 +158,7 @@ class Parser(
         ))
       }
 
-      val typ =
+      val type =
         if (token.tokenType == TokenType.Colon) {
           read() // :
 
@@ -174,14 +172,8 @@ class Parser(
 
       val value = assertASTValue(parseExpression(operatorPrecedence(equals) + 1, requireCallParens, hasLowerPriorityTarget))
 
-      val valueWithType = if (typ != null) {
-        ASTValue.Call(
-          target = ASTValue.NameReference("Core", typ.location),
-          name = "typeCheck",
-          arguments = ASTArguments(listOf(value, typ), emptyMap()),
-          mayBeVarCall = false,
-          location = typ.location
-        )
+      val valueWithType = if (type != null) {
+        ASTValue.TypeAssert(value = value, type = type, type.location)
       } else value
 
       val body = parseRestOfBlock()

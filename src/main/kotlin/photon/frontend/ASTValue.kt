@@ -51,7 +51,7 @@ sealed class ASTValue {
     override fun inspect(): kotlin.String = value.toString()
   }
 
-  data class Float(val value: kotlin.Double, override val location: Location?) : ASTValue() {
+  data class Float(val value: Double, override val location: Location?) : ASTValue() {
     override fun inspect(): kotlin.String = value.toString()
   }
 
@@ -68,10 +68,10 @@ sealed class ASTValue {
 
   data class Block(val values: List<ASTValue>, override val location: Location?) : ASTValue() {
     override fun inspect(): kotlin.String {
-      if (values.isNotEmpty()) {
-        return "{ ${values.map { it.inspect() }.joinToString(" ")} }"
+      return if (values.isNotEmpty()) {
+        "{ ${values.joinToString(" ") { it.inspect() }} }"
       } else {
-        return "{}"
+        "{}"
       }
     }
   }
@@ -85,7 +85,7 @@ sealed class ASTValue {
   ) : ASTValue() {
     override fun inspect(): kotlin.String {
       val bodyAST = body.inspect()
-      val paramsAST = params.map {
+      val paramsAST = params.joinToString(" ") {
         if (it.typePattern != null) {
           if (it.outName == it.inName) {
             "(param ${it.outName} ${it.typePattern.inspect()})"
@@ -99,7 +99,7 @@ sealed class ASTValue {
             "(param ${it.outName} ${it.inName})"
           }
         }
-      }.joinToString(" ")
+      }
 
       val returnTypeAST =
         if (returnType != null) "${returnType.inspect()} "
@@ -148,10 +148,19 @@ sealed class ASTValue {
   ) : ASTValue() {
     override fun inspect(): kotlin.String {
       val paramsAST = params
-        .map { "(param ${it.name} ${it.typ.inspect()})" }
-        .joinToString(" ")
+        .joinToString(" ") { "(param ${it.name} ${it.typ.inspect()})" }
 
       return "(Function [$paramsAST] ${returnType.inspect()})"
+    }
+  }
+
+  data class TypeAssert(
+    val value: ASTValue,
+    val type: ASTValue,
+    override val location: Location?
+  ) : ASTValue() {
+    override fun inspect(): kotlin.String {
+      return "(typeAssert ${value.inspect()} ${type.inspect()})"
     }
   }
 }

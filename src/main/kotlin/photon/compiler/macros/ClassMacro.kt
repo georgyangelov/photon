@@ -13,7 +13,7 @@ object ClassMacro {
   }
 
   fun interfaceMacro(parser: Parser, location: Location): ASTValue {
-    TODO()
+    return readDefinition("Interface", parser, location)
   }
 
   private fun readDefinition(type: String, parser: Parser, location: Location): ASTValue {

@@ -1,9 +1,10 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
-import photon.compiler.values.*
+import photon.compiler.values.ClassBuilder
+import photon.compiler.values.Closure
 
-object ClassObjectType: Type() {
+object InterfaceObjectType: Type() {
   override val methods: Map<String, Method> = mapOf(
     Pair("new", NewMethod)
   )
@@ -16,7 +17,7 @@ object ClassObjectType: Type() {
       val builderClosure = args[1] as Closure
       val classBuilder = ClassBuilder(name, builderClosure)
 
-      return classBuilder.builtClass
+      return classBuilder.builtInterface
     }
   }
 }

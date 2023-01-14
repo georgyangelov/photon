@@ -137,12 +137,6 @@ class FrameTools {
       for (i in argumentCaptures.indices) {
         val capture = argumentCaptures[i]
 
-        // TODO: Make it possible to pass some of the arguments maybe
-        // First argument should be the closure captures array
-
-//        TODO("need to pass actual arguments when partially evaluating")
-//        frame.setObject(capture.toSlot, frame.arguments[capture.argumentIndex + 1])
-
         if (captureActualValues) {
           frame.setObject(capture.toSlot, frame.arguments[capture.argumentIndex + 1])
         }
