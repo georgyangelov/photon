@@ -17,7 +17,7 @@ internal class InterfaceTest {
         }
         
         val person = Person.new(42)
-        val ageable = WithAge.of(person)
+        val ageable: WithAge = person
         
         ageable.age
       """.trimIndent(),
@@ -26,7 +26,7 @@ internal class InterfaceTest {
   }
 
   @Test
-  fun testCanAssignToInterfaceThroughTypeAsserts() {
+  fun testInterfacesWithMethods() {
     expect(
       """
         class Person {
@@ -34,7 +34,7 @@ internal class InterfaceTest {
         }
         
         interface WithAge {
-          def age: Int
+          def age(): Int
         }
         
         val person = Person.new(42)

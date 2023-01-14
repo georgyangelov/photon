@@ -115,7 +115,12 @@ class ModuleReader(
       FunctionTypeDefinitionNode(parameterTypes, returnType)
     }
 
-    is ASTValue.TypeAssert -> TODO()
+    is ASTValue.TypeAssert -> {
+      val value = transform(ast.value, scope)
+      val type = transform(ast.type, scope)
+
+      TypeAssertNode(value, type)
+    }
   }
 }
 

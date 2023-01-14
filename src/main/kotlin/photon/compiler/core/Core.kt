@@ -7,7 +7,7 @@ class Core {
     fun isTypeAssignable(from: Type, to: Type): PossibleTypeError<NodeWrapper> {
       if (to == AnyStatic) return PossibleTypeError.Success { it }
       else if (to == from) return PossibleTypeError.Success { it }
-      else if (to is Interface) return to.assignableFrom(from)
+      else if (to is Interface) return to.conversionFrom(from)
       // TODO: Location
       else return PossibleTypeError.Error(TypeError("Cannot assign type $from to $to", null))
     }

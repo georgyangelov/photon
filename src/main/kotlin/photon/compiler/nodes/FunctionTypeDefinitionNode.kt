@@ -12,8 +12,6 @@ import photon.core.EvalError
 class FunctionTypeDefinitionNode(
   @Children @JvmField var argumentTypes: Array<ParameterNode>,
   @Child @JvmField var returnType: PhotonNode,
-
-
 ): OperationNode() {
   class ParameterNode(
     @JvmField val name: String,

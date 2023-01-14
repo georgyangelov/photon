@@ -1,5 +1,5 @@
 package photon.compiler.core
 
 abstract class Interface: Type() {
-  abstract fun assignableFrom(other: Type): PossibleTypeError<NodeWrapper>
+  abstract fun conversionFrom(other: Type): PossibleTypeError<NodeWrapper>
 }
