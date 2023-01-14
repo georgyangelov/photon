@@ -22,15 +22,23 @@ class FunctionTypeDefinitionNode(
   private var functionType: PhotonFunctionalInterface? = null
 
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
-    CompilerAsserts.neverPartOfCompilation()
-
     if (functionType != null) {
       // TODO: Location
       throw EvalError("Function definition is already evaluated in a partial context", null)
     }
 
-    functionType = TODO()
-    type = TODO()
+    CompilerAsserts.neverPartOfCompilation()
+
+    // TODO: Check it's actually a Type
+    val parameters = argumentTypes.map { Pair(it.name, it.type.executeCompileTimeOnly(frame) as Type) }
+
+    // TODO: Check it's actually a Type
+    val returns = returnType.executeCompileTimeOnly(frame) as Type
+
+    val functionalInterface = PhotonFunctionalInterface(parameters, returns)
+
+    functionType = functionalInterface
+    type = functionalInterface
 
     return this
   }

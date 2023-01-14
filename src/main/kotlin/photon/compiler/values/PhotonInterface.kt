@@ -67,7 +67,7 @@ class PhotonInterface(
         val self = target as PhotonInterfaceInstance
         val method = self.methodTable[property.name]!!
 
-        return method.call(evalMode, self.value, args)
+        return method.call(evalMode, self.value, *args)
       }
     }
 
