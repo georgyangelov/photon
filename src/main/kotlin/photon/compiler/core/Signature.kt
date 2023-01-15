@@ -28,11 +28,11 @@ sealed class Signature {
   abstract fun withoutSelfArgument(): Signature
 
   // TODO: Remove named arguments here
-  abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>>
+  abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>>
   abstract fun assignableFrom(other: Signature): PossibleTypeError<CallConversion>
 
   class Any(override val returnType: Type): Signature() {
-    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>> {
+    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
       val argsWithNames = types.positional.withIndex().map { Pair("_${it.index}", it.value) }
       val signature = Concrete(argsWithNames, returnType)
       val conversions = argsWithNames.map { CallConversion.identity }
@@ -58,7 +58,7 @@ sealed class Signature {
   }
 
   class Concrete(val argTypes: List<Pair<String, Type>>, override val returnType: Type): Signature() {
-    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>> {
+    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
       if (argTypes.size != types.positional.size) {
         return PossibleTypeError.Error(TypeError(
           "Different number of arguments: expected ${argTypes.size}, got ${types.positional.size}",
@@ -118,7 +118,7 @@ sealed class Signature {
             return PossibleTypeError.Error(TypeError("Different argument counts", null))
           }
 
-          val argumentConversions = mutableListOf<ValueConvertor>()
+          val argumentConversions = mutableListOf<ValueConverter>()
 
           for (i in argTypes.indices) {
             val (_, aType) = argTypes[i]
@@ -138,13 +138,13 @@ sealed class Signature {
   }
 }
 
-typealias ValueConvertor = (value: Any) -> Any
+typealias ValueConverter = (value: Any) -> Any
 
 class CallConversion(
-  val argumentConversions: List<ValueConvertor>,
-  val returnConversion: ValueConvertor
+  val argumentConversions: List<ValueConverter>,
+  val returnConversion: ValueConverter
 ) {
   companion object {
-    val identity: ValueConvertor = { it }
+    val identity: ValueConverter = { it }
   }
 }

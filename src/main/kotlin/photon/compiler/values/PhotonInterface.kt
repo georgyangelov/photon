@@ -16,7 +16,7 @@ class PhotonInterfaceInstance(
   fun type() = iface
 }
 
-class ConvertorMethod(
+class ConverterMethod(
   val signature: Signature,
   val from: Method,
   val conversion: CallConversion
@@ -46,7 +46,7 @@ class PhotonInterface(
   @ExportMessage
   fun type() = PhotonInterfaceType(this, builder)
 
-  override fun conversionFrom(other: Type): PossibleTypeError<ValueConvertor> {
+  override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     val methodTable = methods.map { (name, interfaceMethod) ->
       val valueMethod = other.getMethod(name)
         ?: // TODO: Location
@@ -60,7 +60,7 @@ class PhotonInterface(
         is PossibleTypeError.Success -> result.value
       }
 
-      Pair(name, ConvertorMethod(interfaceMethodSignature, valueMethod, conversion))
+      Pair(name, ConverterMethod(interfaceMethodSignature, valueMethod, conversion))
     }.toMap()
 
     return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
@@ -109,7 +109,7 @@ class PhotonFunctionalInterface(
   val returnType: Type
 ): Interface() {
   // TODO: Somehow unify with the other class for interfaces?
-  override fun conversionFrom(other: Type): PossibleTypeError<ValueConvertor> {
+  override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     val originalMethod = other.getMethod("call")
       ?: // TODO: Location
       return PossibleTypeError.Error(TypeError("Type $other does not have a method named call", null))
@@ -122,10 +122,10 @@ class PhotonFunctionalInterface(
       is PossibleTypeError.Success -> result.value
     }
 
-    val convertorMethod = ConvertorMethod(interfaceMethodSignature, originalMethod, conversion)
+    val converterMethod = ConverterMethod(interfaceMethodSignature, originalMethod, conversion)
 
     val methodTable = mapOf(
-      Pair("call", convertorMethod)
+      Pair("call", converterMethod)
     )
 
     return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }

@@ -6,7 +6,7 @@ import photon.compiler.core.*
 
 class TypeConvertNode(
   override val type: Type,
-  val convertor: ValueConvertor,
+  val convertor: ValueConverter,
   @Child @JvmField var valueNode: PhotonNode
 ): PhotonNode() {
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
