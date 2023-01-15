@@ -189,4 +189,18 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testNameShadowing() {
+    expect(
+      """
+        val answer = 3
+        val answer = 7
+        val answer = 42
+        
+        answer
+      """.trimIndent(),
+      42
+    )
+  }
 }
