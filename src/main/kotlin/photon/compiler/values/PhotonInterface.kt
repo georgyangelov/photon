@@ -4,7 +4,6 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.core.*
 import photon.compiler.libraries.ValueLibrary
-import photon.compiler.nodes.ConvertToInterfaceNode
 import photon.core.TypeError
 
 @ExportLibrary(ValueLibrary::class)
@@ -17,6 +16,29 @@ class PhotonInterfaceInstance(
   fun type() = iface
 }
 
+class ConvertorMethod(
+  val signature: Signature,
+  val from: Method,
+  val conversion: CallConversion
+): Method(from.type) {
+  override fun signature(): Signature = signature
+
+  // TODO: @ExplodeLoop
+  @Suppress("UNCHECKED_CAST")
+  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    val convertedArgs = arrayOfNulls<Any>(args.size)
+
+    for (i in convertedArgs.indices) {
+      convertedArgs[i] = conversion.argumentConversions[i](args[i])
+    }
+
+    val result = from.call(evalMode, target, *(convertedArgs as Array<Any>))
+    val convertedResult = conversion.returnConversion(result)
+
+    return convertedResult
+  }
+}
+
 @ExportLibrary(ValueLibrary::class)
 class PhotonInterface(
   val builder: ClassBuilder
@@ -24,7 +46,7 @@ class PhotonInterface(
   @ExportMessage
   fun type() = PhotonInterfaceType(this, builder)
 
-  override fun conversionFrom(other: Type): PossibleTypeError<NodeWrapper> {
+  override fun conversionFrom(other: Type): PossibleTypeError<ValueConvertor> {
     val methodTable = methods.map { (name, interfaceMethod) ->
       val valueMethod = other.getMethod(name)
         ?: // TODO: Location
@@ -33,15 +55,15 @@ class PhotonInterface(
       val interfaceMethodSignature = interfaceMethod.signature()
       val valueMethodSignature = valueMethod.signature()
 
-      when (val result = interfaceMethodSignature.assignableFrom(valueMethodSignature)) {
+      val conversion = when (val result = interfaceMethodSignature.assignableFrom(valueMethodSignature)) {
         is PossibleTypeError.Error -> return PossibleTypeError.Error(result.error)
-        is PossibleTypeError.Success -> {}
+        is PossibleTypeError.Success -> result.value
       }
 
-      Pair(name, valueMethod)
+      Pair(name, ConvertorMethod(interfaceMethodSignature, valueMethod, conversion))
     }.toMap()
 
-    return PossibleTypeError.Success { value -> ConvertToInterfaceNode(other, methodTable, value) }
+    return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
   }
 
   // TODO: Support methods defined directly on the interface
@@ -87,24 +109,26 @@ class PhotonFunctionalInterface(
   val returnType: Type
 ): Interface() {
   // TODO: Somehow unify with the other class for interfaces?
-  override fun conversionFrom(other: Type): PossibleTypeError<NodeWrapper> {
-    val callMethod = other.getMethod("call")
+  override fun conversionFrom(other: Type): PossibleTypeError<ValueConvertor> {
+    val originalMethod = other.getMethod("call")
       ?: // TODO: Location
       return PossibleTypeError.Error(TypeError("Type $other does not have a method named call", null))
 
     val interfaceMethodSignature = Signature.Concrete(parameters, returnType)
-    val valueMethodSignature = callMethod.signature()
+    val valueMethodSignature = originalMethod.signature()
 
-    when (val result = interfaceMethodSignature.assignableFrom(valueMethodSignature)) {
+    val conversion = when (val result = interfaceMethodSignature.assignableFrom(valueMethodSignature)) {
       is PossibleTypeError.Error -> return PossibleTypeError.Error(result.error)
-      is PossibleTypeError.Success -> {}
+      is PossibleTypeError.Success -> result.value
     }
 
+    val convertorMethod = ConvertorMethod(interfaceMethodSignature, originalMethod, conversion)
+
     val methodTable = mapOf(
-      Pair("call", callMethod)
+      Pair("call", convertorMethod)
     )
 
-    return PossibleTypeError.Success { value -> ConvertToInterfaceNode(other, methodTable, value) }
+    return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
   }
 
   // TODO: Somehow unify with the other class for interfaces?

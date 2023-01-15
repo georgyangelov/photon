@@ -1,5 +1,6 @@
 package photon.compiler.nodes
 
+import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.library.LibraryFactory
@@ -41,31 +42,25 @@ class TypeAssertNode(
       this.evaluatedValue = evaluatedValue
       type = valueLib.type(evaluatedValue)
     } else {
-      valueNode = when (val result = Core.isTypeAssignable(valueNode.type, evaluatedType)) {
+      when (val result = Core.isTypeAssignable(valueNode.type, evaluatedType)) {
         is PossibleTypeError.Error -> throw TypeError(
           "Cannot assign ${valueNode.type} to $evaluatedType: ${result.error.message}",
           result.error.location
         )
 
-        is PossibleTypeError.Success -> result.value(valueNode)
+        is PossibleTypeError.Success ->
+          valueNode = TypeConvertNode(evaluatedType, result.value, valueNode)
       }
 
       type = evaluatedType
     }
 
-    // TODO: Return a different node which wraps the target value if the target type is an interface
-    return this
+    return valueNode
   }
 
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
-    if (evaluatedValue != null) {
-      return evaluatedValue!!
-    }
+    CompilerDirectives.shouldNotReachHere("TypeAssertNode should not be called")
 
-    val result = valueNode.executeCompileTimeOnly(frame)
-
-    evaluatedValue = result
-
-    return result
+    throw RuntimeException()
   }
 }

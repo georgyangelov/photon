@@ -97,4 +97,106 @@ internal class InterfaceTest {
       43
     )
   }
+
+  @Test
+  fun testStoringFunctionsAsValues() {
+    expect(
+      """
+        class Something {
+          def fn: (a: Int): Int
+        }
+        
+        val fn: (a: Int): Int = (a: Int) a + 1
+        val something = Something.new(fn)
+        
+        something.fn.call(41)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testStoringFunctionsAsValuesByArgumentTypeConversions() {
+    expect(
+      """
+        class Something {
+          def fn: (a: Int): Int
+        }
+        
+        val something = Something.new((a: Int) a + 1)
+        
+        something.fn.call(41)
+      """.trimIndent(),
+      42
+    )
+  }
+
+//  TODO: Handle the StackOverflow here
+//  @Test
+//  fun testConvertingParametersBetweenFunctionTypes() {
+//    expect(
+//      """
+//        class Person {
+//          def age: Int
+//          def ageOf(person: Person) person.age
+//        }
+//
+//        interface Ageable {
+//          def age: Int
+//          def ageOf(ageable: Ageable): Int
+//        }
+//
+//        val person = Person.new(42)
+//        val ageable: Ageable = person
+//
+//        # ageable.ageOf(person)
+//        # ageable.ageOf(ageable)
+//        42
+//      """.trimIndent(),
+//      42
+//    )
+//  }
+
+  @Test
+  fun testConvertingParametersBetweenFunctionTypes() {
+    expect(
+      """
+        class Person {
+          def age: Int
+          def other: Int
+        }
+        
+        interface Ageable {
+          def age: Int
+        }
+        
+        val ageOf = (ageable: Ageable) ageable.age
+        val ageOfPerson: (person: Person): Int = ageOf
+        
+        ageOfPerson.call Person.new(42, 11)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testConvertingReturnTypesBetweenFunctionTypes() {
+    expect(
+      """
+        class Person {
+          def age: Int
+        }
+        
+        interface Ageable {
+          def age: Int
+        }
+        
+        val newPerson = (age: Int) Person.new(age) 
+        val newAgeable: (age: Int): Ageable = newPerson
+        
+        newAgeable.call(42).age
+      """.trimIndent(),
+      42
+    )
+  }
 }

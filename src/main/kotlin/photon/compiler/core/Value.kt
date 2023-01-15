@@ -25,6 +25,10 @@ sealed class EvalMode {
 class CouldNotFullyEvaluateInCompileTimeOnlyMode: Exception()
 
 abstract class PhotonNode: Node() {
+  companion object {
+    val identityWrapper: NodeWrapper = { node -> node }
+  }
+
   abstract val type: Type
 
   /**

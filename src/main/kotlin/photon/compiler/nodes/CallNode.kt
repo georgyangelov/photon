@@ -9,6 +9,7 @@ import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.compiler.libraries.*
 import photon.core.EvalError
+import photon.frontend.ArgumentsWithoutSelf
 
 class CallNode(
   @JvmField @Child var target: PhotonNode,
@@ -34,22 +35,31 @@ class CallNode(
   @CompilationFinal
   private var method: Method? = null
 
+  var alreadyPartiallyExecuted = false
+
   @ExplodeLoop
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
+    if (alreadyPartiallyExecuted) {
+      return this
+    }
+    alreadyPartiallyExecuted = true
+
     CompilerAsserts.compilationConstant<Int>(arguments.size)
 
     target = target.executePartial(frame, context)
+
+    // TODO: This should use the ValueLibrary to get the type
+    val resolvedMethod = typeLib.getMethod(target.type, name)
+    // TODO: Location
+      ?: throw EvalError("Could not find method $name on ${target.type}", null)
+
+    method = resolvedMethod
 
     for (i in arguments.indices) {
       arguments[i] = arguments[i].executePartial(frame, context)
     }
 
-    // TODO: This should use the ValueLibrary to get the type
-    val resolvedMethod = typeLib.getMethod(target.type, name)
-      // TODO: Location
-      ?: throw EvalError("Could not find method $name on ${target.type}", null)
-
-    method = resolvedMethod
+    typeCheck(resolvedMethod)
 
     if (resolvedMethod.methodType() == MethodType.Partial) {
       val result = executeCompileTimeOnly(frame)
@@ -63,6 +73,21 @@ class CallNode(
     }
 
     return this
+  }
+
+  private fun typeCheck(method: Method) {
+    val givenArgumentTypes = ArgumentsWithoutSelf(
+      arguments.map { it.type },
+      emptyMap()
+    )
+    val (signature, conversions) = method.signature().instantiate(givenArgumentTypes).getOrThrowError()
+
+    for (i in arguments.indices) {
+      val targetType = signature.argTypes[i].second
+      val conversionNode = TypeConvertNode(targetType, conversions[i], arguments[i])
+
+      arguments[i] = conversionNode
+    }
   }
 
   @Suppress("UNCHECKED_CAST")

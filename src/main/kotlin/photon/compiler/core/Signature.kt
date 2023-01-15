@@ -5,13 +5,19 @@ import photon.frontend.ArgumentsWithoutSelf
 
 sealed class PossibleTypeError<T> {
   abstract fun <R>map(fn: (T) -> R): PossibleTypeError<R>
+  abstract fun mapError(fn: (TypeError) -> TypeError): PossibleTypeError<T>
+  abstract fun getOrThrowError(): T
 
   class Error<T>(val error: TypeError): PossibleTypeError<T>() {
-    override fun <R> map(fn: (T) -> R): PossibleTypeError<R> = Error(error)
+    override fun <R> map(fn: (T) -> R) = Error<R>(error)
+    override fun mapError(fn: (TypeError) -> TypeError) = Error<T>(fn(error))
+    override fun getOrThrowError(): Nothing = throw error
   }
 
   class Success<T>(val value: T): PossibleTypeError<T>() {
-    override fun <R> map(fn: (T) -> R): PossibleTypeError<R> = Success(fn(value))
+    override fun <R> map(fn: (T) -> R) = Success(fn(value))
+    override fun mapError(fn: (TypeError) -> TypeError) = this
+    override fun getOrThrowError(): T = value
   }
 }
 
@@ -21,28 +27,62 @@ sealed class Signature {
   abstract fun hasSelfArgument(): Boolean
   abstract fun withoutSelfArgument(): Signature
 
-  abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete>
-  abstract fun assignableFrom(other: Signature): PossibleTypeError<Unit>
+  // TODO: Remove named arguments here
+  abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>>
+  abstract fun assignableFrom(other: Signature): PossibleTypeError<CallConversion>
 
   class Any(override val returnType: Type): Signature() {
-    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete> {
+    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>> {
       val argsWithNames = types.positional.withIndex().map { Pair("_${it.index}", it.value) }
+      val signature = Concrete(argsWithNames, returnType)
+      val conversions = argsWithNames.map { CallConversion.identity }
 
-      return PossibleTypeError.Success(Concrete(argsWithNames, returnType))
+      return PossibleTypeError.Success(
+        Pair(signature, conversions)
+      )
     }
 
     // TODO: This is not correct, how do we handle it?
     override fun hasSelfArgument(): Boolean = true
     override fun withoutSelfArgument(): Signature = this
 
-    override fun assignableFrom(other: Signature): PossibleTypeError<Unit> = when (other) {
-      is Any -> Core.isTypeAssignable(other.returnType, returnType).map { }
-      is Concrete -> Core.isTypeAssignable(other.returnType, returnType).map { }
+    override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> = when (other) {
+      is Any ->
+        Core.isTypeAssignable(other.returnType, returnType)
+          .map { CallConversion(emptyList(), it) }
+
+      is Concrete ->
+        Core.isTypeAssignable(other.returnType, returnType)
+          .map { CallConversion(emptyList(), it) }
     }
   }
 
   class Concrete(val argTypes: List<Pair<String, Type>>, override val returnType: Type): Signature() {
-    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Concrete> = PossibleTypeError.Success(this)
+    override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConvertor>>> {
+      if (argTypes.size != types.positional.size) {
+        return PossibleTypeError.Error(TypeError(
+          "Different number of arguments: expected ${argTypes.size}, got ${types.positional.size}",
+          // TODO: Location
+          null
+        ))
+      }
+
+      val conversions = argTypes.zip(types.positional).map { (toTypeEntry, fromType) ->
+        val (name, toType) = toTypeEntry
+
+        val conversion = when (val result = Core.isTypeAssignable(fromType, toType)) {
+          is PossibleTypeError.Error -> return PossibleTypeError.Error(
+            TypeError("Incompatible types for parameter $name: ${result.error.message}", result.error.location)
+          )
+
+          is PossibleTypeError.Success -> result.value
+        }
+
+        conversion
+      }
+
+      return PossibleTypeError.Success(Pair(this, conversions))
+    }
 
     override fun hasSelfArgument(): Boolean {
       return argTypes.any { it.first == "self" }
@@ -66,9 +106,11 @@ sealed class Signature {
       return Concrete(argsWithoutName, returnType)
     }
 
-    override fun assignableFrom(other: Signature): PossibleTypeError<Unit> {
+    override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> {
       return when (other) {
-        is Any -> Core.isTypeAssignable(other.returnType, returnType).map { }
+        is Any -> Core.isTypeAssignable(other.returnType, returnType).map {
+          CallConversion(argTypes.map { CallConversion.identity }, it)
+        }
 
         is Concrete -> {
           if (argTypes.size != other.argTypes.size) {
@@ -76,19 +118,33 @@ sealed class Signature {
             return PossibleTypeError.Error(TypeError("Different argument counts", null))
           }
 
+          val argumentConversions = mutableListOf<ValueConvertor>()
+
           for (i in argTypes.indices) {
             val (_, aType) = argTypes[i]
             val (_, bType) = other.argTypes[i]
 
-            val result = Core.isTypeAssignable(bType, aType)
-            if (result is PossibleTypeError.Error<*>) {
-              return result.map { }
+            when (val result = Core.isTypeAssignable(aType, bType)) {
+              is PossibleTypeError.Error -> return PossibleTypeError.Error(result.error)
+              is PossibleTypeError.Success -> argumentConversions.add(result.value)
             }
           }
 
-          Core.isTypeAssignable(other.returnType, returnType).map { }
+          return Core.isTypeAssignable(other.returnType, returnType)
+            .map { CallConversion(argumentConversions, it) }
         }
       }
     }
+  }
+}
+
+typealias ValueConvertor = (value: Any) -> Any
+
+class CallConversion(
+  val argumentConversions: List<ValueConvertor>,
+  val returnConversion: ValueConvertor
+) {
+  companion object {
+    val identity: ValueConvertor = { it }
   }
 }
