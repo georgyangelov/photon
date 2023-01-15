@@ -48,7 +48,6 @@ object ClassMacro {
     )
 
     if (name != null) {
-      val block = parser.parseRestOfBlock()
       val letLocation = location.extendWith(parser.lastLocation)
 
       return ASTValue.Let(
@@ -66,7 +65,7 @@ object ClassMacro {
           mayBeVarCall = false,
           classDefinitionLocation
         ),
-        block = block,
+        isRecursive = true,
         location = letLocation
       )
     } else {

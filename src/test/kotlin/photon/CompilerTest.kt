@@ -81,7 +81,7 @@ internal class CompilerTest {
   fun testClassMethodsWithSelf() {
     expect(
       """
-        val Person = Class.new "Person", (self: ClassBuilder): Int {
+        recursive val Person = Class.new "Person", (self: ClassBuilder): Int {
           define "age", Int
           define "answer", (self: Person) self.age + 1
           
@@ -162,6 +162,29 @@ internal class CompilerTest {
         val b = Person.new(1)
         
         b.ageOfOther(a)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testMutuallyRecursiveClassDefinitions() {
+    expect(
+      """
+        class A {
+          def age: Int
+          def fn(b: B) b.age
+        }
+        
+        class B {
+          def age: Int
+          def fn(a: A) a.age
+        }
+        
+        val a = A.new(42)
+        val b = B.new(1)
+        
+        b.fn(a)
       """.trimIndent(),
       42
     )

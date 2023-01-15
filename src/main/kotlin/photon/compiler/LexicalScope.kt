@@ -106,7 +106,7 @@ internal sealed class LexicalScope private constructor(
   abstract fun accessName(name: String): Int?
 
   fun newChildBlock() = BlockScope(frameBuilder, this, mutableMapOf())
-  fun newChildBlockWithName(name: String): Pair<LexicalScope, Int> {
+  fun newChildBlockWithName(name: String): Pair<LexicalScope.BlockScope, Int> {
     val scope = BlockScope(frameBuilder, this, mutableMapOf())
     val slot = scope.defineName(name)
 

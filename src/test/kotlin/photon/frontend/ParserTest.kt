@@ -47,8 +47,15 @@ internal class ParserTest {
 
   @Test
   fun testAssignment() {
-    assertParse("val a = 15", "(let a 15 {})")
-    assertParse("val a = 5 * 5", "(let a (* 5 5) {})")
+    assertParse("val a = 15", "(let a 15)")
+    assertParse("val a = 5 * 5", "(let a (* 5 5))")
+  }
+
+  @Test
+  fun testRecursiveAssignment() {
+    assertParse("recursive val a = 15", "(recursive-let a 15)")
+    assertParse("recursive val a = 5 * 5", "(recursive-let a (* 5 5))")
+    assertParse("recursive val a = 1; a * 2; recursive val b = 2; a + b", "(recursive-let a 1) (* a 2) (recursive-let b 2) (+ a b)")
   }
 
   @Test
@@ -87,7 +94,7 @@ internal class ParserTest {
 
   @Test
   fun testNewlinesInExpressions() {
-    assertParse("val a =\n\n 5 * 5", "(let a (* 5 5) {})")
+    assertParse("val a =\n\n 5 * 5", "(let a (* 5 5))")
 
     assertParse("1 + 2 - 5", "(- (+ 1 2) 5)")
     assertParse("1 + 2 \n - 5", "(+ 1 2) (- 5)")
@@ -252,7 +259,7 @@ internal class ParserTest {
   @Test
   fun testLambdasUsingOnlyBraces() {
     assertParse("{ a }", "(lambda [] a)")
-    assertParse("val a = 42; { a }", "(let a 42 (lambda [] a))")
+    assertParse("val a = 42; { a }", "(let a 42) (lambda [] a)")
   }
 
   @Test
@@ -318,15 +325,15 @@ internal class ParserTest {
 
   @Test
   fun testTypeAnnotationsOnVal() {
-    assertParse("val a: Int = 42; a", "(let a (typeAssert 42 Int) a)")
-    assertParse("val a: Stream(Int) = 42; a", "(let a (typeAssert 42 (Stream self Int)) a)")
+    assertParse("val a: Int = 42; a", "(let a (typeAssert 42 Int)) a")
+    assertParse("val a: Stream(Int) = 42; a", "(let a (typeAssert 42 (Stream self Int))) a")
   }
 
   @Test
   fun testParenthesesForBlocks() {
     assertParse("(a; b)", "{ a b }")
     assertParse("(a; b) + 1", "(+ { a b } 1)")
-    assertParse("val a = 11; (val a = 42; () { a }) + a", "(let a 11 (+ (let a 42 (lambda [] a)) a))")
+    assertParse("val a = 11; (val a = 42; () { a }) + a", "(let a 11) (+ { (let a 42) (lambda [] a) } a)")
 
     assertThrows(ParseError::class.java) { parse("()") }
   }
@@ -357,8 +364,8 @@ internal class ParserTest {
 
   @Test
   fun testTypesForFunctionValues() {
-    assertParse("val a: (): Int = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int)) a)")
-    assertParse("val a: ((): Int) = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int)) a)")
+    assertParse("val a: (): Int = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int))) a")
+    assertParse("val a: ((): Int) = () 42; a", "(let a (typeAssert (lambda [] 42) (Function [] Int))) a")
   }
 
   @Test
@@ -369,12 +376,12 @@ internal class ParserTest {
 
   @Test
   fun testGenericFunctionsWithPatternsInLambdaTypes() {
-    assertParse("val fn = (a: (n: val T): T) a(42); fn((a) a)", "(let fn (lambda [(param a (Function [(param n (val T))] T))] (a self 42)) (fn self (lambda [(param a)] a)))")
+    assertParse("val fn = (a: (n: val T): T) a(42); fn((a) a)", "(let fn (lambda [(param a (Function [(param n (val T))] T))] (a self 42))) (fn self (lambda [(param a)] a))")
   }
 
   @Test
   fun testGenericFunctionsWithPatternsInLambdaReturnType() {
-    assertParse("val fn = (a: (): val T) a(); fn(() 42)", "(let fn (lambda [(param a (Function [] (val T)))] (a self)) (fn self (lambda [] 42)))")
+    assertParse("val fn = (a: (): val T) a(); fn(() 42)", "(let fn (lambda [(param a (Function [] (val T)))] (a self))) (fn self (lambda [] 42))")
   }
 
   @Test

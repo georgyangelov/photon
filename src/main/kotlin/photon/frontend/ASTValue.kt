@@ -137,8 +137,14 @@ sealed class ASTValue {
     override fun inspect(): kotlin.String = name
   }
 
-  data class Let(val name: kotlin.String, val value: ASTValue, val block: ASTValue, override val location: Location?): ASTValue() {
-    override fun inspect(): kotlin.String = "(let $name ${value.inspect()} ${block.inspect()})"
+  data class Let(
+    val name: kotlin.String,
+    val value: ASTValue,
+    val isRecursive: kotlin.Boolean,
+    override val location: Location?
+  ): ASTValue() {
+    override fun inspect(): kotlin.String =
+      "(${if (isRecursive) "recursive-let" else "let"} $name ${value.inspect()})"
   }
 
   data class FunctionType(

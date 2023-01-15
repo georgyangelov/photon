@@ -23,6 +23,7 @@ sealed class TokenType(val name: String) {
   object Dollar : TokenType("Dollar")
   object Equals : TokenType("Equals")
   object Val : TokenType("Val")
+  object Recursive : TokenType("Recursive")
   object UnaryOperator : TokenType("UnaryOperator")
   object BinaryOperator : TokenType("BinaryOperator")
   object Name : TokenType("Name")
@@ -52,7 +53,8 @@ data class Token(
     TokenType.Colon,
     TokenType.Dollar,
     TokenType.Equals,
-    TokenType.Val -> "($tokenType)"
+    TokenType.Val,
+    TokenType.Recursive -> "($tokenType)"
 
     TokenType.UnaryOperator,
     TokenType.BinaryOperator,
@@ -191,6 +193,7 @@ class Lexer private constructor(val fileName: String, val reader: PushbackString
           val name = readName()
           val tokenType = when (name) {
             "val" -> TokenType.Val
+            "recursive" -> TokenType.Recursive
             "and", "or" -> TokenType.BinaryOperator
             "true", "false" -> TokenType.BoolLiteral
             else -> TokenType.Name

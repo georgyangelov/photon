@@ -81,11 +81,7 @@ class ModuleReader(
     )
 
     is ASTValue.Let -> {
-      val (innerScope, slot) = scope.newChildBlockWithName(ast.name)
-      val value = transform(ast.value, innerScope)
-      val body = transform(ast.block, innerScope)
-
-      LetNode(ast.name, slot, value, body, ast.location)
+      throw EvalError("val definitions must be directly inside of a block", ast.location)
     }
 
     is ASTValue.NameReference -> {
@@ -98,7 +94,32 @@ class ModuleReader(
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)
 
     is ASTValue.Block -> {
-      val expressions = ast.values.map { transform(it, scope) }.toTypedArray()
+      var currentScope = scope.newChildBlock()
+
+      ast.values
+        .filter { it is ASTValue.Let && it.isRecursive }
+        .map { currentScope.defineName((it as ASTValue.Let).name) }
+
+      val expressions = ast.values.map {
+        when (it) {
+          is ASTValue.Let -> {
+            val value = transform(it.value, currentScope)
+
+            val slot = if (it.isRecursive) {
+              currentScope.accessName(it.name)!!
+            } else {
+              val (innerScope, slot) = currentScope.newChildBlockWithName(it.name)
+              currentScope = innerScope
+
+              slot
+            }
+
+            LetNode(it.name, slot, value, ast.location)
+          }
+
+          else -> transform(it, currentScope)
+        }
+      }.toTypedArray()
 
       BlockNode(expressions, ast.location)
     }
@@ -123,4 +144,3 @@ class ModuleReader(
     }
   }
 }
-

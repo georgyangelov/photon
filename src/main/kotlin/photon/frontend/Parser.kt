@@ -49,8 +49,7 @@ class Parser(
 
     return when (values.size) {
       1 -> values.first()
-      0 -> ASTValue.Block(values, startLocation.extendWith(lastLocation))
-      else -> throw RuntimeException("This should not happen")
+      else -> ASTValue.Block(values, startLocation.extendWith(lastLocation))
     }
   }
 
@@ -141,8 +140,18 @@ class Parser(
   }
 
   private fun parsePrimary(requireCallParens: Boolean, hasLowerPriorityTarget: Boolean): ASTValueOrPattern {
-    if (token.tokenType == TokenType.Val) {
+    if (token.tokenType == TokenType.Recursive || token.tokenType == TokenType.Val) {
       val startLocation = token.location
+      val isRecursive = token.tokenType == TokenType.Recursive
+
+      if (isRecursive) {
+        read() // recursive
+
+        if (token.tokenType != TokenType.Val) {
+          parseError("`recursive` needs to be followed by `val`")
+        }
+      }
+
       read() // val
 
       if (token.tokenType != TokenType.Name) {
@@ -176,14 +185,11 @@ class Parser(
         ASTValue.TypeAssert(value = value, type = type, type.location)
       } else value
 
-      val body = parseRestOfBlock()
-      val location = startLocation.extendWith(body.location!!)
-
       return ASTValueOrPattern.Value(ASTValue.Let(
         name.string,
         valueWithType,
-        body,
-        location
+        isRecursive,
+        startLocation.extendWith(lastLocation)
       ))
     }
 
@@ -340,6 +346,7 @@ class Parser(
       TokenType.Dollar -> true
       TokenType.BinaryOperator -> false
       TokenType.Val -> false
+      TokenType.Recursive -> false
       TokenType.Name -> true
       TokenType.NumberLiteral -> true
       TokenType.StringLiteral -> true
