@@ -1,9 +1,12 @@
 package photon.compiler.values
 
+import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
 import photon.compiler.libraries.ValueLibrary
+import photon.core.EvalError
 import photon.core.TypeError
 
 @ExportLibrary(ValueLibrary::class)
@@ -23,10 +26,14 @@ class ConverterMethod(
 ): Method(from.type) {
   override fun signature(): Signature = signature
 
-  // TODO: @ExplodeLoop
+  @ExplodeLoop
   @Suppress("UNCHECKED_CAST")
   override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    CompilerDirectives.isCompilationConstant(args.size)
+
     val convertedArgs = arrayOfNulls<Any>(args.size)
+
+    CompilerDirectives.isCompilationConstant(convertedArgs.size)
 
     for (i in convertedArgs.indices) {
       convertedArgs[i] = conversion.argumentConversions[i](args[i])
@@ -47,7 +54,7 @@ class PhotonInterface(
   fun type() = PhotonInterfaceType(this, builder)
 
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
-    val methodTable = methods.map { (name, interfaceMethod) ->
+    val methodTable = virtualMethods.map { (name, interfaceMethod) ->
       val valueMethod = other.getMethod(name)
         ?: // TODO: Location
         return PossibleTypeError.Error(TypeError("Type $other does not have a method named $name", null))
@@ -66,9 +73,12 @@ class PhotonInterface(
     return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
   }
 
-  // TODO: Support methods defined directly on the interface
-  override val methods: Map<String, Method> by lazy {
+  val virtualMethods by lazy {
     builder.properties.associate { methodForVirtualFunction(it) }
+  }
+
+  override val methods: Map<String, Method> by lazy {
+     virtualMethods + builder.functions.associate { methodForConcreteFunction(it) }
   }
 
   private fun methodForVirtualFunction(property: ClassBuilder.Property): Pair<String, Method> {
@@ -94,6 +104,30 @@ class PhotonInterface(
     }
 
     return Pair(property.name, method)
+  }
+
+  private fun methodForConcreteFunction(function: ClassBuilder.Function): Pair<String, Method> {
+    // TODO: Use MethodType based on the function itself
+    val method = object: Method(MethodType.Default) {
+      private val callMethod by lazy {
+        function.function.type().getMethod("call")
+          ?: throw EvalError("Function is not callable", null)
+      }
+
+      override fun signature() = callMethod.signature().withoutSelfArgument()
+
+      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+        val shouldPassSelf = callMethod.signature().hasSelfArgument()
+
+        if (shouldPassSelf) {
+          return callMethod.call(evalMode, function.function, target, *args)
+        } else {
+          return callMethod.call(evalMode, function.function, *args)
+        }
+      }
+    }
+
+    return Pair(function.name, method)
   }
 }
 

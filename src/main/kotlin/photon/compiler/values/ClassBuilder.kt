@@ -11,7 +11,8 @@ import photon.core.EvalError
 @ExportLibrary(ValueLibrary::class)
 class ClassBuilder(
   val name: String,
-  val builderClosure: Closure
+  val builderClosure: Closure,
+  val isInterface: Boolean
 ) {
   data class Property(val name: String, val type: Type)
   data class Function(val name: String, val function: Closure)
@@ -86,7 +87,10 @@ object ClassBuilderType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val builder = target as ClassBuilder
 
-      return builder.builtClass
+      return if (builder.isInterface)
+        builder.builtInterface
+      else
+        builder.builtClass
     }
   }
 }

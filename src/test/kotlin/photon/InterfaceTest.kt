@@ -199,4 +199,25 @@ internal class InterfaceTest {
       42
     )
   }
+
+  @Test
+  fun testConcreteMethodsOnInterfaces() {
+    expect(
+      """
+        class Person {
+          def age: Int
+        }
+        
+        interface Ageable {
+          def age: Int
+          def agePlus(x: Int) age + x
+        }
+        
+        val ageable: Ageable = Person.new(41)
+        
+        ageable.agePlus(1)
+      """.trimIndent(),
+      42
+    )
+  }
 }

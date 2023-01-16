@@ -15,7 +15,7 @@ object InterfaceObjectType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val name = args[0] as String
       val builderClosure = args[1] as Closure
-      val classBuilder = ClassBuilder(name, builderClosure)
+      val classBuilder = ClassBuilder(name, builderClosure, isInterface = true)
 
       return classBuilder.builtInterface
     }
