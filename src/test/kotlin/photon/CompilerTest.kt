@@ -216,4 +216,18 @@ internal class CompilerTest {
       7
     )
   }
+
+  @Test
+  fun testCanCreateSingletonObjects() {
+    expect(
+      """
+        object Math {
+          def plusOne(a: Int) a + 1
+        }
+        
+        Math.plusOne 41
+      """.trimIndent(),
+      42
+    )
+  }
 }

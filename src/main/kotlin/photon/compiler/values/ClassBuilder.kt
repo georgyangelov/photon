@@ -10,7 +10,7 @@ import photon.core.EvalError
 
 @ExportLibrary(ValueLibrary::class)
 class ClassBuilder(
-  val name: String,
+  val name: String?,
   val builderClosure: Closure,
   val isInterface: Boolean
 ) {
