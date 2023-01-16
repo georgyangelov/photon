@@ -74,11 +74,24 @@ class ModuleReader(
     is ASTValue.Float -> LiteralNode(ast.value, RootType, ast.location)
     is ASTValue.String -> LiteralNode(ast.value, RootType, ast.location)
 
-    is ASTValue.Call -> CallNode(
-      target = transform(ast.target, scope),
-      name = ast.name,
-      arguments = ast.arguments.positional.map { transform(it, scope) }.toTypedArray()
-    )
+    is ASTValue.Call -> {
+      val varCallSlot = if (ast.mayBeVarCall) scope.accessName(ast.name) else null
+      val arguments = ast.arguments.positional.map { transform(it, scope) }.toTypedArray()
+
+      if (varCallSlot != null) {
+        CallNode(
+          target = ReferenceNode(ast.name, varCallSlot, ast.location),
+          name = "call",
+          arguments = arguments
+        )
+      } else {
+        CallNode(
+          target = transform(ast.target, scope),
+          name = ast.name,
+          arguments = arguments
+        )
+      }
+    }
 
     is ASTValue.Let -> {
       throw EvalError("val definitions must be directly inside of a block", ast.location)
@@ -86,9 +99,23 @@ class ModuleReader(
 
     is ASTValue.NameReference -> {
       val slot = scope.accessName(ast.name)
-        ?: throw EvalError("Could not find name ${ast.name}", ast.location)
 
-      ReferenceNode(ast.name, slot, ast.location)
+      if (slot == null) {
+        if (ast.name == "self") {
+          throw EvalError("Could not find name ${ast.name}", ast.location)
+        } else {
+          val selfSlot = scope.accessName("self")
+            ?: throw EvalError("Could not find name ${ast.name}", ast.location)
+
+          CallNode(
+            target = ReferenceNode("self", selfSlot, ast.location),
+            name = ast.name,
+            arguments = emptyArray()
+          )
+        }
+      } else {
+        ReferenceNode(ast.name, slot, ast.location)
+      }
     }
 
     is ASTValue.Function -> transformFunctionDefinition(ast, scope)

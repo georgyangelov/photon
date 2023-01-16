@@ -25,17 +25,17 @@ internal class CompilerTest {
 
   @Test
   fun testFunctions() {
-    expect("val plusOne = (a: Int) a + 1; plusOne.call(41)", 42)
+    expect("val plusOne = (a: Int) a + 1; plusOne(41)", 42)
   }
 
   @Test
   fun testCanReassignGlobalsForFunctionTypes() {
-    expect("val myInt = Int; val plusOne = (a: myInt) a + 1; plusOne.call(41)", 42)
+    expect("val myInt = Int; val plusOne = (a: myInt) a + 1; plusOne(41)", 42)
   }
 
   @Test
   fun testClosures() {
-    expect("val one = 1; val plusOne = (a: Int) a + one; plusOne.call(41)", 42)
+    expect("val one = 1; val plusOne = (a: Int) a + one; plusOne(41)", 42)
   }
 
   @Test
@@ -83,7 +83,7 @@ internal class CompilerTest {
       """
         recursive val Person = Class.new "Person", (self: ClassBuilder): Int {
           define "age", Int
-          define "answer", (self: Person) self.age + 1
+          define "answer", (self: Person) age + 1
           
           1
         }
@@ -104,9 +104,9 @@ internal class CompilerTest {
           (a: T, b: T): T { a + b } 
         }
         
-        val addInt = addOfType.call(Int)
+        val addInt = addOfType(Int)
         
-        addInt.call(41, 1)
+        addInt(41, 1)
       """.trimIndent(),
       42
     )
@@ -118,7 +118,7 @@ internal class CompilerTest {
       """
         val builder = @(self: ClassBuilder): Int {
           define "age", Int
-          define "answer", (self: self.selfType) self.age + 1
+          define "answer", (self: self.selfType) age + 1
           
           1
         }
@@ -139,7 +139,7 @@ internal class CompilerTest {
       """
         class Person {
           def age: Int
-          def answer() self.age + 1
+          def answer() age + 1
         }
         
         val person = Person.new(41)
@@ -201,6 +201,19 @@ internal class CompilerTest {
         answer
       """.trimIndent(),
       42
+    )
+
+    expect(
+      """
+        val answer = 3
+        val answer = 7
+        val fn = () answer
+        
+        val answer = 42
+        
+        fn()
+      """.trimIndent(),
+      7
     )
   }
 }
