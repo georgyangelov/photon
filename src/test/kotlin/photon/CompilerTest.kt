@@ -230,4 +230,61 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testTemplateMethods() {
+    expect(
+      """
+        val identity = (a: val T): T a
+        
+        identity(42)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testAssignmentOfTemplateMethods() {
+    expect(
+      """
+        val identity = (a: val T): T a
+        val intIdentity: (a: Int): Int = identity
+        
+        intIdentity(42)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testTypeInferenceOfTemplateMethods() {
+    expect(
+      """
+        val identity = (a: val T) a
+        
+        identity(42)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testAssignmentOfTemplateMethodsToInterfaces() {
+    expect(
+      """
+        class Person {
+          def identity(a: val T) a
+        }
+        
+        interface Something {
+          def identity(a: Int): Int
+        }
+        
+        val something: Something = Person.new
+        
+        something.identity(42)
+      """.trimIndent(),
+      42
+    )
+  }
 }

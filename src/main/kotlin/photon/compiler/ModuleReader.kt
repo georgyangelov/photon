@@ -4,8 +4,7 @@ import photon.compiler.core.*
 import photon.compiler.nodes.*
 import photon.compiler.types.IntType
 import photon.core.EvalError
-import photon.frontend.ASTValue
-import photon.frontend.Pattern
+import photon.frontend.*
 
 class ModuleReader(
   private val context: PhotonContext
@@ -61,11 +60,122 @@ class ModuleReader(
     )
   }
 
-  // TODO: Remove this once I have pattern support
+  private fun transformTemplateFunctionDefinition(
+    ast: ASTValue.Function,
+    scope: LexicalScope
+  ): TemplateFunctionDefinitionNode {
+    val argumentNames = ast.params.map { it.inName }
+    val typeScope = scope.newChildFunction(emptyList())
+
+    // We need this to be at slot 0
+    typeScope.defineName("patternTarget")
+
+    val functionScope = scope.newChildFunction(argumentNames)
+
+    val (paramPatterns, returnType, _) = transformArgumentPatterns(ast.params, ast.returnType, typeScope)
+
+    val body = transform(ast.body, functionScope)
+
+    val typeFrameDescriptor = typeScope.frameDescriptor()
+    val executionFrameDescriptor = functionScope.frameDescriptor()
+    val captures = functionScope.captures()
+    val argumentCaptures = functionScope.argumentCaptures()
+
+    return TemplateFunctionDefinitionNode(
+      argumentPatterns = paramPatterns,
+      returnType = returnType,
+      body = body,
+
+      typeFrameDescriptor = typeFrameDescriptor,
+      executionFrameDescriptor = executionFrameDescriptor,
+      requiredCaptures = captures,
+      argumentCaptures = argumentCaptures
+    )
+  }
+
+  private fun transformArgumentPatterns(
+    parameters: List<ASTParameter>,
+    returnType: ASTValue?,
+    typeScope: LexicalScope.FunctionScope
+  ): Triple<
+      Array<TemplateFunctionDefinitionNode.ParameterNode>,
+      PhotonNode?,
+      LexicalScope
+    >
+  {
+    var scope: LexicalScope = typeScope
+
+    val paramPatterns = parameters.map {
+      val pattern = it.typePattern
+        ?: throw EvalError("Parameters need to have explicit types for now", null)
+
+      val (node, newScope) = transformPattern(pattern, scope)
+      scope = newScope
+
+      TemplateFunctionDefinitionNode.ParameterNode(it.outName, node)
+    }.toTypedArray()
+
+    val returnTypeNode =
+      if (returnType != null)
+        transform(returnType, scope)
+      else
+        null
+
+    return Triple(paramPatterns, returnTypeNode, scope)
+  }
+
+  private fun transformPattern(
+    pattern: Pattern,
+    scope: LexicalScope
+  ): Pair<PatternNode, LexicalScope> = when (pattern) {
+    is Pattern.SpecificValue -> {
+      val node = PatternNode.SpecificValue(transform(pattern.value, scope))
+
+      Pair(node, scope)
+    }
+
+    is Pattern.Binding -> {
+      val (newScope, slot) = scope.newChildBlockWithName(pattern.name)
+      val node = PatternNode.Binding(pattern.name, slot)
+
+      Pair(node, newScope)
+    }
+
+    is Pattern.Call -> {
+      val varCallSlot = if (pattern.mayBeVarCall) scope.accessName(pattern.name) else null
+      var newScope = scope
+
+      val arguments = pattern.arguments.positional.map {
+        val (node, innerScope) = transformPattern(it, newScope)
+        newScope = innerScope
+
+        node
+      }
+
+      val node = if (varCallSlot != null) {
+        PatternNode.Call(
+          target = ReferenceNode(pattern.name, varCallSlot, pattern.location),
+          name = "call",
+          arguments = arguments
+        )
+      } else {
+        PatternNode.Call(
+          target = transform(pattern.target, scope),
+          name = pattern.name,
+          arguments = arguments
+        )
+      }
+
+      Pair(node, newScope)
+    }
+
+    is Pattern.FunctionType -> TODO()
+  }
+
   private fun assertSpecificValue(pattern: Pattern?) = when (pattern) {
     is Pattern.SpecificValue -> pattern.value
-    null -> throw EvalError("Parameters need to have explicit parameters for now", null)
-    else -> throw EvalError("Patterns in parameter types are not supported for now", pattern.location)
+    null -> throw EvalError("Parameters need to have explicit types for now", null)
+    else -> throw RuntimeException("This should not happen - regular function has template parameter")
   }
 
   private fun transform(ast: ASTValue, scope: LexicalScope): PhotonNode = when (ast) {
@@ -118,7 +228,21 @@ class ModuleReader(
       }
     }
 
-    is ASTValue.Function -> transformFunctionDefinition(ast, scope)
+    is ASTValue.Function -> {
+      val isTemplateFunction = ast.params.any {
+        when (it.typePattern) {
+          is Pattern.SpecificValue -> false
+          null -> throw EvalError("Parameters need to have explicit types for now", null)
+          else -> true
+        }
+      }
+
+      if (isTemplateFunction) {
+        transformTemplateFunctionDefinition(ast, scope)
+      } else {
+        transformFunctionDefinition(ast, scope)
+      }
+    }
 
     is ASTValue.Block -> {
       var currentScope = scope.newChildBlock()

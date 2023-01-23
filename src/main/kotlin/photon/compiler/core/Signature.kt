@@ -1,5 +1,9 @@
 package photon.compiler.core
 
+import com.oracle.truffle.api.frame.*
+import com.oracle.truffle.api.nodes.RootNode
+import photon.compiler.PhotonLanguage
+import photon.compiler.nodes.PatternNode
 import photon.core.TypeError
 import photon.frontend.ArgumentsWithoutSelf
 
@@ -22,16 +26,14 @@ sealed class PossibleTypeError<T> {
 }
 
 sealed class Signature {
-  abstract val returnType: Type
-
   abstract fun hasSelfArgument(): Boolean
-  abstract fun withoutSelfArgument(): Signature
+  abstract fun withoutSelfArgument(selfType: Type): Signature
 
   // TODO: Remove named arguments here
   abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>>
   abstract fun assignableFrom(other: Signature): PossibleTypeError<CallConversion>
 
-  class Any(override val returnType: Type): Signature() {
+  class Any(val returnType: Type): Signature() {
     override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
       val argsWithNames = types.positional.withIndex().map { Pair("_${it.index}", it.value) }
       val signature = Concrete(argsWithNames, returnType)
@@ -44,7 +46,7 @@ sealed class Signature {
 
     // TODO: This is not correct, how do we handle it?
     override fun hasSelfArgument(): Boolean = true
-    override fun withoutSelfArgument(): Signature = this
+    override fun withoutSelfArgument(selfType: Type): Signature = this
 
     override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> = when (other) {
       is Any ->
@@ -57,7 +59,7 @@ sealed class Signature {
     }
   }
 
-  class Concrete(val argTypes: List<Pair<String, Type>>, override val returnType: Type): Signature() {
+  class Concrete(val argTypes: List<Pair<String, Type>>, val returnType: Type): Signature() {
     override fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
       if (argTypes.size != types.positional.size) {
         return PossibleTypeError.Error(TypeError(
@@ -88,7 +90,7 @@ sealed class Signature {
       return argTypes.any { it.first == "self" }
     }
 
-    override fun withoutSelfArgument(): Signature {
+    override fun withoutSelfArgument(selfType: Type): Signature {
       val argsWithoutName = mutableListOf<Pair<String, Type>>()
       var foundArgument = false
 
@@ -134,6 +136,31 @@ sealed class Signature {
             .map { CallConversion(argumentConversions, it) }
         }
       }
+    }
+  }
+
+  class Template(
+    val fn: PhotonTemplateFunction,
+    val selfType: Type?
+  ): Signature() {
+    override fun hasSelfArgument(): Boolean {
+      return fn.argumentPatterns.any { it.first == "self" }
+    }
+
+    override fun withoutSelfArgument(selfType: Type) = Template(fn, selfType)
+
+    override fun instantiate(
+      types: ArgumentsWithoutSelf<Type>
+    ): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
+      val typesWithSelf = if (selfType != null) {
+        listOf(selfType) + types.positional
+      } else types.positional
+
+      fn.specialize(typesWithSelf)
+    }
+
+    override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> {
+      TODO("Not yet implemented")
     }
   }
 }

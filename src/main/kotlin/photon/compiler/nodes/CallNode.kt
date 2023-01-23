@@ -59,7 +59,7 @@ class CallNode(
       arguments[i] = arguments[i].executePartial(frame, context)
     }
 
-    typeCheck(resolvedMethod)
+    type = typeCheck(resolvedMethod)
 
     if (resolvedMethod.methodType() == MethodType.Partial) {
       val result = executeCompileTimeOnly(frame)
@@ -68,14 +68,12 @@ class CallNode(
 
       // TODO: Literal or should this become "Any"?
       return LiteralNode(result, type, null)
-    } else {
-      type = resolvedMethod.signature().returnType
     }
 
     return this
   }
 
-  private fun typeCheck(method: Method) {
+  private fun typeCheck(method: Method): Type {
     val givenArgumentTypes = ArgumentsWithoutSelf(
       arguments.map { it.type },
       emptyMap()
@@ -88,6 +86,8 @@ class CallNode(
 
       arguments[i] = conversionNode
     }
+
+    return signature.returnType
   }
 
   @Suppress("UNCHECKED_CAST")
