@@ -4,30 +4,34 @@ import com.oracle.truffle.api.frame.*
 import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.PhotonLanguage
 import photon.compiler.nodes.PatternNode
+import photon.core.Location
 import photon.core.TypeError
 import photon.frontend.ArgumentsWithoutSelf
 
 sealed class PossibleTypeError<T> {
   abstract fun <R>map(fn: (T) -> R): PossibleTypeError<R>
   abstract fun mapError(fn: (TypeError) -> TypeError): PossibleTypeError<T>
+  abstract fun wrapError(message: String, location: Location?): PossibleTypeError<T>
   abstract fun getOrThrowError(): T
 
   class Error<T>(val error: TypeError): PossibleTypeError<T>() {
     override fun <R> map(fn: (T) -> R) = Error<R>(error)
     override fun mapError(fn: (TypeError) -> TypeError) = Error<T>(fn(error))
+    override fun wrapError(message: String, location: Location?) = Error<T>(error.wrap(message, location))
     override fun getOrThrowError(): Nothing = throw error
   }
 
   class Success<T>(val value: T): PossibleTypeError<T>() {
     override fun <R> map(fn: (T) -> R) = Success(fn(value))
     override fun mapError(fn: (TypeError) -> TypeError) = this
+    override fun wrapError(message: String, location: Location?) = this
     override fun getOrThrowError(): T = value
   }
 }
 
 sealed class Signature {
   abstract fun hasSelfArgument(): Boolean
-  abstract fun withoutSelfArgument(selfType: Type): Signature
+  abstract fun withoutSelfArgument(): Signature
 
   // TODO: Remove named arguments here
   abstract fun instantiate(types: ArgumentsWithoutSelf<Type>): PossibleTypeError<Pair<Concrete, List<ValueConverter>>>
@@ -46,7 +50,7 @@ sealed class Signature {
 
     // TODO: This is not correct, how do we handle it?
     override fun hasSelfArgument(): Boolean = true
-    override fun withoutSelfArgument(selfType: Type): Signature = this
+    override fun withoutSelfArgument(): Signature = this
 
     override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> = when (other) {
       is Any ->
@@ -90,7 +94,7 @@ sealed class Signature {
       return argTypes.any { it.first == "self" }
     }
 
-    override fun withoutSelfArgument(selfType: Type): Signature {
+    override fun withoutSelfArgument(): Signature {
       val argsWithoutName = mutableListOf<Pair<String, Type>>()
       var foundArgument = false
 
@@ -136,31 +140,6 @@ sealed class Signature {
             .map { CallConversion(argumentConversions, it) }
         }
       }
-    }
-  }
-
-  class Template(
-    val fn: PhotonTemplateFunction,
-    val selfType: Type?
-  ): Signature() {
-    override fun hasSelfArgument(): Boolean {
-      return fn.argumentPatterns.any { it.first == "self" }
-    }
-
-    override fun withoutSelfArgument(selfType: Type) = Template(fn, selfType)
-
-    override fun instantiate(
-      types: ArgumentsWithoutSelf<Type>
-    ): PossibleTypeError<Pair<Concrete, List<ValueConverter>>> {
-      val typesWithSelf = if (selfType != null) {
-        listOf(selfType) + types.positional
-      } else types.positional
-
-      fn.specialize(typesWithSelf)
-    }
-
-    override fun assignableFrom(other: Signature): PossibleTypeError<CallConversion> {
-      TODO("Not yet implemented")
     }
   }
 }

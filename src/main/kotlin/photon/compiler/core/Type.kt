@@ -9,7 +9,7 @@ abstract class Type {
   abstract val methods: Map<String, Method>
 
   @ExportMessage
-  open fun getMethod(name: String, argTypes: List<Type>? = null): Method? = methods[name]
+  open fun getMethod(name: String, argTypes: List<Type>?): Method? = methods[name]
 }
 
 object RootType: Type() {

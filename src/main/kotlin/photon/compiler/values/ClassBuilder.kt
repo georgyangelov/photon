@@ -47,7 +47,7 @@ class ClassBuilder(
     }
     alreadyBuilt = true
 
-    val builderMethod = builderClosure.function.type.getMethod("call")
+    val builderMethod = builderClosure.type().getMethod("call", null)
       ?: throw EvalError("Class builder must be callable", null)
 
     builderMethod.call(

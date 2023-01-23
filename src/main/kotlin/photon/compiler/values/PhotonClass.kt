@@ -6,6 +6,7 @@ import com.oracle.truffle.api.staticobject.*
 import photon.compiler.PhotonContext
 import photon.compiler.core.*
 import photon.compiler.libraries.ValueLibrary
+import photon.compiler.types.TemplateFunctionType
 import photon.core.EvalError
 
 @ExportLibrary(ValueLibrary::class)
@@ -19,8 +20,10 @@ class PhotonClass(
     PhotonClassInstanceType(builder)
   }
 
-  override val methods: Map<String, Method> by lazy {
-    instanceType.methods
+  override val methods = emptyMap<String, Method>()
+
+  override fun getMethod(name: String, argTypes: List<Type>?): Method? {
+    return instanceType.getMethod(name, argTypes)
   }
 }
 
@@ -82,15 +85,41 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
     )
   }
 
+  val templateFunctions by lazy {
+    builder.functions
+      .filter { it.function._type is TemplateFunctionType }
+      .associate { Pair(it.name, it.function) }
+  }
+
   override val methods: Map<String, Method> by lazy {
     val getters = builder.properties
       .zip(shapeProperties)
       .associate { Pair(it.first.name, methodForProperty(it.first, it.second)) }
 
     val functions = builder.functions
+      .filterNot { it.function._type is TemplateFunctionType }
       .associate { Pair(it.name, methodForFunction(it)) }
 
     getters + functions
+  }
+
+  override fun getMethod(name: String, argTypes: List<Type>?): Method? {
+    val templateFunctionClosure = templateFunctions[name]
+
+    if (templateFunctionClosure != null) {
+      if (argTypes == null) {
+        // TODO: Location
+        throw EvalError("Cannot specialize template function $name without argTypes", null)
+      }
+
+      val callMethod = templateFunctionClosure.type().getMethod("call", listOf(this) + argTypes)
+        // TODO: Location
+        ?: throw EvalError("Cannot find `call` method on template function", null)
+
+      return SelfPassingMethod(templateFunctionClosure, callMethod)
+    }
+
+    return super.getMethod(name, argTypes)
   }
 
   private fun methodForProperty(property: ClassBuilder.Property, shapeProperty: StaticProperty): Method {
@@ -105,22 +134,36 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
 
   private fun methodForFunction(function: ClassBuilder.Function): Method {
     // TODO: Use MethodType based on the function itself
+    // TODO: Cache and instantiate through `getMethod` instead of doing this lazy proxy
     return object: Method(MethodType.Default) {
       private val callMethod by lazy {
-        function.function.type().getMethod("call")
+        val original = function.function.type().getMethod("call", null)
           ?: throw EvalError("Function is not callable", null)
+
+        SelfPassingMethod(function.function, original)
       }
 
-      override fun signature() = callMethod.signature().withoutSelfArgument()
+      override fun signature() = callMethod.signature()
 
       override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-        val shouldPassSelf = callMethod.signature().hasSelfArgument()
+        return callMethod.call(evalMode, target, *args)
+      }
+    }
+  }
 
-        if (shouldPassSelf) {
-          return callMethod.call(evalMode, function.function, target, *args)
-        } else {
-          return callMethod.call(evalMode, function.function, *args)
-        }
+  // TODO: Use this in `methodForFunction` as well?
+  class SelfPassingMethod(
+    val self: Any,
+    val method: Method
+  ): Method(method.type) {
+    override fun signature(): Signature = method.signature().withoutSelfArgument()
+    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      val shouldPassSelf = method.signature().hasSelfArgument()
+
+      if (shouldPassSelf) {
+        return method.call(evalMode, self, target, *args)
+      } else {
+        return method.call(evalMode, self, *args)
       }
     }
   }

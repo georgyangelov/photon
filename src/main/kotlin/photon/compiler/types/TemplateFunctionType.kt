@@ -1,23 +1,22 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
+import photon.core.EvalError
 
-class TemplateFunctionType(function: PhotonTemplateFunction): Type() {
-  override val methods = mapOf(
-    Pair("call", CallMethod)
-  )
+class TemplateFunctionType(val function: PhotonTemplateFunction): Type() {
+  override val methods = emptyMap<String, Method>()
 
-  class CallMethod(
-    private val function: PhotonTemplateFunction,
-    methodType: MethodType
-  ): Method(methodType) {
-    private val methodSignature by lazy {
-      Signature.
+  override fun getMethod(name: String, argTypes: List<Type>?): Method? {
+    if (name == "call") {
+      if (argTypes == null) {
+        throw EvalError("Cannot get `call` method of a template function without providing expected types", null)
+      }
+
+      val concreteFunction = function.specialize(argTypes)
+
+      return concreteFunction.type.getMethod("call", argTypes)
     }
 
-    override fun signature() = methodSignature
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-      TODO("Not yet implemented")
-    }
+    return super.getMethod(name, argTypes)
   }
 }

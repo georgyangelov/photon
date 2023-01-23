@@ -10,11 +10,12 @@ import photon.compiler.PhotonLanguage
 import photon.compiler.core.*
 
 sealed class PatternNode: OperationNode() {
-  data class SpecificValue(val value: PhotonNode): PatternNode() {
+  data class SpecificValue(@Child @JvmField var value: PhotonNode): PatternNode() {
     override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
+      value = value.executePartial(frame, context)
       type = value.type
 
-      return value.executePartial(frame, context)
+      return value
     }
 
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
@@ -33,6 +34,8 @@ sealed class PatternNode: OperationNode() {
         is PhotonNode -> value.type
         else -> throw RuntimeException("Cannot get type of reference, metadata does not contain slot $slot. $frame")
       }
+
+      frame.setAuxiliarySlot(slot, value)
 
       return this
     }

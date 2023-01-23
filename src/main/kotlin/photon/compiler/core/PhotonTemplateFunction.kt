@@ -6,6 +6,8 @@ import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.*
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.nodes.PatternNode
+import photon.compiler.types.TemplateFunctionType
+import photon.core.EvalError
 
 class PhotonTemplateFunction(
   private val module: PhotonModule,
@@ -18,12 +20,13 @@ class PhotonTemplateFunction(
   val argumentPatterns: List<Pair<String, PatternNode>>,
   val returnType: PhotonNode?,
 
+  private val typeRequiredCaptures: Array<NameCapture>,
+
   private val requiredCaptures: Array<NameCapture>,
   private val argumentCaptures: Array<ArgumentCapture>,
   private val body: PhotonNode
 ) {
-  val type: Type
-    get() = TODO()
+  val type = TemplateFunctionType(this)
 
   private val executionNode = PatternExecutionNode(
     module = module,
@@ -32,10 +35,17 @@ class PhotonTemplateFunction(
   )
 
   fun specialize(argumentTypes: List<Type>): PhotonFunction {
-    val (expectedArgTypes, returnType) = executionNode.callTarget.call(argumentTypes.toTypedArray())
+    if (argumentTypes.size != argumentPatterns.size) {
+      // TODO: Location
+      throw EvalError("Cannot specialize template function, requires ${argumentPatterns.size} types, given ${argumentTypes.size} types", null)
+    }
+
+    val captures = FrameTools.captureValuesPartial(partialEvalFrame, typeRequiredCaptures)
+
+    val (expectedArgTypes, returnType) = executionNode.callTarget.call(captures, *argumentTypes.toTypedArray())
       as Pair<Array<Type>, Type?>
 
-    return PhotonFunction(
+    val concreteFunction = PhotonFunction(
       module = module,
       frameDescriptor = executionFrameDescriptor,
       isCompileTimeOnly = false,
@@ -52,6 +62,10 @@ class PhotonTemplateFunction(
       argumentCaptures = argumentCaptures,
       body = body
     )
+
+    module.addFunction(concreteFunction)
+
+    return concreteFunction
   }
 
   private class PatternExecutionNode(
@@ -66,10 +80,12 @@ class PhotonTemplateFunction(
       // TODO: Add auxiliary slots to the frame
       val partialContext = PartialContext(module, EvalMode.Partial)
 
+      FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, fn.typeRequiredCaptures)
+
       for (i in fn.argumentPatterns.indices) {
-        // TODO: Define slot 0 in the frame descriptor
-        frame.setAuxiliarySlot(0, LiteralNode(frame.arguments[i], RootType, null))
-        frame.setObject(0, frame.arguments[i])
+        // First argument is for captures
+        frame.setAuxiliarySlot(0, LiteralNode(frame.arguments[i + 1], RootType, null))
+        frame.setObject(0, frame.arguments[i + 1])
 
         val partialResult = fn.argumentPatterns[i].second.executePartial(frame, partialContext)
 

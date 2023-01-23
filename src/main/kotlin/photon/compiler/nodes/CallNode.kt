@@ -48,16 +48,16 @@ class CallNode(
 
     target = target.executePartial(frame, context)
 
+    for (i in arguments.indices) {
+      arguments[i] = arguments[i].executePartial(frame, context)
+    }
+
     // TODO: This should use the ValueLibrary to get the type
-    val resolvedMethod = typeLib.getMethod(target.type, name)
+    val resolvedMethod = typeLib.getMethod(target.type, name, arguments.map { it.type })
     // TODO: Location
       ?: throw EvalError("Could not find method $name on ${target.type}", null)
 
     method = resolvedMethod
-
-    for (i in arguments.indices) {
-      arguments[i] = arguments[i].executePartial(frame, context)
-    }
 
     type = typeCheck(resolvedMethod)
 

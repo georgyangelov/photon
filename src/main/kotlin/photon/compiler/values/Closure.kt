@@ -8,9 +8,9 @@ import photon.compiler.libraries.ValueLibrary
 
 @ExportLibrary(ValueLibrary::class)
 class Closure(
-  val function: PhotonFunction,
+  val _type: Type,
   val capturedFrame: MaterializedFrame
 ) {
   @ExportMessage
-  fun type() = function.type
+  fun type() = _type
 }

@@ -77,6 +77,7 @@ class ModuleReader(
     val body = transform(ast.body, functionScope)
 
     val typeFrameDescriptor = typeScope.frameDescriptor()
+    val typeCaptures = typeScope.captures()
     val executionFrameDescriptor = functionScope.frameDescriptor()
     val captures = functionScope.captures()
     val argumentCaptures = functionScope.argumentCaptures()
@@ -87,6 +88,8 @@ class ModuleReader(
       body = body,
 
       typeFrameDescriptor = typeFrameDescriptor,
+      typeRequiredCaptures = typeCaptures,
+
       executionFrameDescriptor = executionFrameDescriptor,
       requiredCaptures = captures,
       argumentCaptures = argumentCaptures

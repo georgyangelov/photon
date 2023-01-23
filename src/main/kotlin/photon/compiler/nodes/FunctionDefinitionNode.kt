@@ -69,6 +69,6 @@ class FunctionDefinitionNode(
 
     // val capturedValues = FrameTools.captureValues(frame, captures)
 
-    return Closure(function!!, frame.materialize())
+    return Closure(function!!.type, frame.materialize())
   }
 }

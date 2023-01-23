@@ -4,7 +4,7 @@ import photon.compiler.FrameTools
 import photon.compiler.core.*
 import photon.compiler.values.Closure
 
-class FunctionType(function: PhotonFunction): Type() {
+class FunctionType(val function: PhotonFunction): Type() {
   override val methods: Map<String, Method> by lazy {
     function.resolveSignatureTypesWithInference()
 
@@ -15,11 +15,12 @@ class FunctionType(function: PhotonFunction): Type() {
       else MethodType.Default
 
     mapOf(
-      Pair("call", CallMethod(signature, methodType))
+      Pair("call", CallMethod(function, signature, methodType))
     )
   }
 
   class CallMethod(
+    private val function: PhotonFunction,
     private val signature: Signature,
     methodType: MethodType
   ): Method(methodType) {
@@ -27,9 +28,9 @@ class FunctionType(function: PhotonFunction): Type() {
 
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val closure = target as Closure
-      val captures = FrameTools.captureValues(closure.capturedFrame, closure.function.requiredCaptures)
+      val captures = FrameTools.captureValues(closure.capturedFrame, function.requiredCaptures)
 
-      return closure.function.call(captures, *args)
+      return function.call(captures, *args)
     }
   }
 }

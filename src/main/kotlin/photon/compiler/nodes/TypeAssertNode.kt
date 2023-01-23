@@ -43,8 +43,8 @@ class TypeAssertNode(
       type = valueLib.type(evaluatedValue)
     } else {
       when (val result = Core.isTypeAssignable(valueNode.type, evaluatedType)) {
-        is PossibleTypeError.Error -> throw TypeError(
-          "Cannot assign ${valueNode.type} to $evaluatedType: ${result.error.message}",
+        is PossibleTypeError.Error -> throw result.error.wrap(
+          "Cannot assign ${valueNode.type} to $evaluatedType",
           result.error.location
         )
 

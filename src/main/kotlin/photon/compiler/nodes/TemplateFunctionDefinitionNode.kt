@@ -7,6 +7,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.*
 import photon.compiler.core.*
+import photon.compiler.values.Closure
 import photon.core.EvalError
 
 class TemplateFunctionDefinitionNode(
@@ -15,6 +16,7 @@ class TemplateFunctionDefinitionNode(
   @Child @JvmField var body: PhotonNode,
 
   private val typeFrameDescriptor: FrameDescriptor,
+  private val typeRequiredCaptures: Array<NameCapture>,
   private val executionFrameDescriptor: FrameDescriptor,
   private val requiredCaptures: Array<NameCapture>,
   private val argumentCaptures: Array<ArgumentCapture>
@@ -44,6 +46,8 @@ class TemplateFunctionDefinitionNode(
       argumentPatterns = argumentPatterns.map { Pair(it.name, it.pattern) },
       returnType = returnType,
 
+      typeRequiredCaptures = typeRequiredCaptures,
+
       requiredCaptures = requiredCaptures,
       argumentCaptures = argumentCaptures,
       body = body
@@ -57,6 +61,8 @@ class TemplateFunctionDefinitionNode(
   }
 
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
-    TODO("Not yet implemented")
+    assert(function != null)
+
+    return Closure(function!!.type, frame.materialize())
   }
 }

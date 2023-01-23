@@ -40,9 +40,8 @@ class ConverterMethod(
     }
 
     val result = from.call(evalMode, target, *(convertedArgs as Array<Any>))
-    val convertedResult = conversion.returnConversion(result)
 
-    return convertedResult
+    return conversion.returnConversion(result)
   }
 }
 
@@ -55,7 +54,7 @@ class PhotonInterface(
 
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     val methodTable = virtualMethods.map { (name, interfaceMethod) ->
-      val valueMethod = other.getMethod(name)
+      val valueMethod = other.getMethod(name, interfaceMethod.argumentTypes)
         ?: // TODO: Location
         return PossibleTypeError.Error(TypeError("Type $other does not have a method named $name", null))
 
@@ -63,7 +62,8 @@ class PhotonInterface(
       val valueMethodSignature = valueMethod.signature()
 
       val conversion = when (val result = interfaceMethodSignature.assignableFrom(valueMethodSignature)) {
-        is PossibleTypeError.Error -> return PossibleTypeError.Error(result.error)
+        // TODO: Location
+        is PossibleTypeError.Error -> return PossibleTypeError.Error(result.error.wrap("Incompatible method $name", null))
         is PossibleTypeError.Success -> result.value
       }
 
@@ -81,27 +81,8 @@ class PhotonInterface(
      virtualMethods + builder.functions.associate { methodForConcreteFunction(it) }
   }
 
-  private fun methodForVirtualFunction(property: ClassBuilder.Property): Pair<String, Method> {
-    // TODO: Support other method types?
-    val method = object: Method(MethodType.Default) {
-      override fun signature(): Signature {
-        val type = property.type
-
-        return if (type is PhotonFunctionalInterface) {
-          Signature.Concrete(type.parameters, type.returnType)
-        } else {
-          // Property getter
-          Signature.Concrete(emptyList(), type)
-        }
-      }
-
-      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-        val self = target as PhotonInterfaceInstance
-        val method = self.methodTable[property.name]!!
-
-        return method.call(evalMode, self.value, *args)
-      }
-    }
+  private fun methodForVirtualFunction(property: ClassBuilder.Property): Pair<String, VirtualMethod> {
+    val method = VirtualMethod(property)
 
     return Pair(property.name, method)
   }
@@ -110,7 +91,7 @@ class PhotonInterface(
     // TODO: Use MethodType based on the function itself
     val method = object: Method(MethodType.Default) {
       private val callMethod by lazy {
-        function.function.type().getMethod("call")
+        function.function.type().getMethod("call", null)
           ?: throw EvalError("Function is not callable", null)
       }
 
@@ -119,15 +100,49 @@ class PhotonInterface(
       override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
         val shouldPassSelf = callMethod.signature().hasSelfArgument()
 
-        if (shouldPassSelf) {
-          return callMethod.call(evalMode, function.function, target, *args)
+        return if (shouldPassSelf) {
+          callMethod.call(evalMode, function.function, target, *args)
         } else {
-          return callMethod.call(evalMode, function.function, *args)
+          callMethod.call(evalMode, function.function, *args)
         }
       }
     }
 
     return Pair(function.name, method)
+  }
+
+  // TODO: Support other method types?
+  class VirtualMethod(
+    private val property: ClassBuilder.Property
+  ): Method(MethodType.Default) {
+    val argumentTypes by lazy {
+      val type = property.type
+
+      if (type is PhotonFunctionalInterface) {
+        type.parameters.map { it.second }
+      } else {
+        // Property getter
+        emptyList()
+      }
+    }
+
+    override fun signature(): Signature {
+      val type = property.type
+
+      return if (type is PhotonFunctionalInterface) {
+        Signature.Concrete(type.parameters, type.returnType)
+      } else {
+        // Property getter
+        Signature.Concrete(emptyList(), type)
+      }
+    }
+
+    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      val self = target as PhotonInterfaceInstance
+      val method = self.methodTable[property.name]!!
+
+      return method.call(evalMode, self.value, *args)
+    }
   }
 }
 
@@ -144,7 +159,7 @@ class PhotonFunctionalInterface(
 ): Interface() {
   // TODO: Somehow unify with the other class for interfaces?
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
-    val originalMethod = other.getMethod("call")
+    val originalMethod = other.getMethod("call", parameters.map { it.second })
       ?: // TODO: Location
       return PossibleTypeError.Error(TypeError("Type $other does not have a method named call", null))
 
