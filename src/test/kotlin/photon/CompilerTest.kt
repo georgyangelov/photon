@@ -330,4 +330,27 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testConvertingParametersOfFunctionTemplateTypes() {
+    expect(
+      """
+        class Person {
+          def age: Int
+        }
+        
+        interface Ageable {
+          def age: Int
+        }
+        
+        val person = Person.new(41)
+        
+        val agePlus = (a: Ageable, b: Int) a.age + b
+        val agePlusOne = (fn: (a: Person, b: val T): T, person: Person): T fn(person, 1)
+        
+        agePlusOne agePlus, person
+      """.trimIndent(),
+      42
+    )
+  }
 }
