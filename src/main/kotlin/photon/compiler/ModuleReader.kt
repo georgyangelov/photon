@@ -172,7 +172,22 @@ class ModuleReader(
       Pair(node, newScope)
     }
 
-    is Pattern.FunctionType -> TODO()
+    is Pattern.FunctionType -> {
+      var newScope = scope
+
+      val params = pattern.params.map {
+        val (node, innerScope) = transformPattern(it.typ, newScope)
+        newScope = innerScope
+
+        Pair(it.name, node)
+      }
+
+      val (returnType, innerScope) = transformPattern(pattern.returnType, newScope)
+
+      val node = PatternNode.FunctionType(params, returnType)
+
+      Pair(node, innerScope)
+    }
   }
 
   private fun assertSpecificValue(pattern: Pattern?) = when (pattern) {

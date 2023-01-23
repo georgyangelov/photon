@@ -76,8 +76,6 @@ class PhotonTemplateFunction(
   ): RootNode(module.getLanguage(PhotonLanguage::class.java), frameDescriptor) {
     override fun execute(frame: VirtualFrame): Any {
       val argTypes = arrayOfNulls<Type>(fn.argumentPatterns.size)
-
-      // TODO: Add auxiliary slots to the frame
       val partialContext = PartialContext(module, EvalMode.Partial)
 
       FrameTools.applyCapturedValuesFromFirstArgumentPartial(frame, fn.typeRequiredCaptures)

@@ -287,4 +287,47 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testAssigningConcreteFunctionsToFunctionTemplateTypes() {
+    expect(
+      """
+        val intIdentity = (a: Int) a
+        val applyIdentity = (fn: (a: val T): T, value: T): T fn(value)
+        
+        applyIdentity intIdentity, 42
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testAssigningFunctionInterfacesToFunctionTemplateTypes() {
+    expect(
+      """
+        val intIdentity: (a: Int): Int = (a: Int) a
+        val applyIdentity = (fn: (a: val T): T, value: T): T fn(value)
+        
+        applyIdentity intIdentity, 42
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testAssigningInterfacesToFunctionTemplateTypes() {
+    expect(
+      """
+        interface IntIdentity {
+          def call(a: Int) a
+        }
+        
+        val intIdentity: IntIdentity = (a: Int) a
+        val applyIdentity = (fn: (a: val T): T, value: T): T fn(value)
+        
+        applyIdentity intIdentity, 42
+      """.trimIndent(),
+      42
+    )
+  }
 }

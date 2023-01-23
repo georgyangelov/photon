@@ -5,9 +5,11 @@ import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
-import photon.compiler.PartialContext
-import photon.compiler.PhotonLanguage
+import photon.compiler.*
 import photon.compiler.core.*
+import photon.compiler.types.FunctionType
+import photon.compiler.values.PhotonFunctionalInterface
+import photon.core.EvalError
 
 sealed class PatternNode: OperationNode() {
   data class SpecificValue(@Child @JvmField var value: PhotonNode): PatternNode() {
@@ -32,7 +34,7 @@ sealed class PatternNode: OperationNode() {
 
       type = when (value) {
         is PhotonNode -> value.type
-        else -> throw RuntimeException("Cannot get type of reference, metadata does not contain slot $slot. $frame")
+        else -> throw RuntimeException("Cannot get type of reference, metadata does not contain slot 0. $frame")
       }
 
       frame.setAuxiliarySlot(slot, value)
@@ -67,12 +69,76 @@ sealed class PatternNode: OperationNode() {
     val params: List<Pair<String, PatternNode>>,
     val returnType: PatternNode
   ): PatternNode() {
+    var module: PhotonModule? = null
+
     override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
-      TODO("Not yet implemented")
+      val givenFunctionType = frame.getAuxiliarySlot(0)
+
+      type = when (givenFunctionType) {
+        is PhotonNode -> givenFunctionType.type
+        else -> throw RuntimeException("Cannot get type of function type, metadata does not contain slot 0. $frame")
+      }
+      module = context.module
+
+      return this
     }
 
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
-      TODO("Not yet implemented")
+      val partialContext = PartialContext(module!!, EvalMode.Partial)
+
+      val (givenArguments, givenReturnType) = when (val givenType = frame.getObject(0)) {
+        is photon.compiler.types.FunctionType -> {
+          givenType.function.resolveSignatureTypesWithInference()
+
+          Pair(givenType.function.actualArgumentTypes!!, givenType.function.actualReturnType!!)
+        }
+
+        is PhotonFunctionalInterface -> Pair(givenType.parameters, givenType.returnType)
+
+        is Interface -> {
+          val callMethod = givenType.getMethod("call", null)
+            // TODO: Location
+            ?: throw EvalError("Cannot assign $givenType to a function type template, no `call` method", null)
+
+          when (val signature = callMethod.signature()) {
+            is Signature.Concrete -> Pair(signature.argTypes, signature.returnType)
+
+            // TODO: Location
+            is Signature.Any -> throw EvalError("Cannot assign Any signature to function type template", null)
+          }
+        }
+
+        // TODO: Location
+        else -> throw EvalError("Cannot assign $givenType to a function type template", null)
+      }
+
+      if (givenArguments.size != params.size) {
+        // TODO: Location
+        throw EvalError("Different argument counts. Expected ${params.size}, given ${givenArguments.size}", null)
+      }
+
+      val parameterTypes = params.zip(givenArguments).map { (expected, given) ->
+        Pair(expected.first, evaluatePattern(frame, partialContext, expected.second, given.second))
+      }
+
+      val returnType = evaluatePattern(frame, partialContext, returnType, givenReturnType)
+
+      return PhotonFunctionalInterface(parameterTypes, returnType)
+    }
+
+    private fun evaluatePattern(
+      frame: VirtualFrame,
+      partialContext: PartialContext,
+      expected: PatternNode,
+      given: Type
+    ): Type {
+      frame.setAuxiliarySlot(0, LiteralNode(given, RootType, null))
+      frame.setObject(0, given)
+
+      val partialResult = expected.executePartial(frame, partialContext)
+
+      // TODO: Verify it's actually a Type
+      return partialResult.executeCompileTimeOnly(frame) as Type
     }
   }
 }
