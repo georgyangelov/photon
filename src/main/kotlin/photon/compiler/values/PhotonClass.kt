@@ -11,10 +11,14 @@ import photon.core.EvalError
 
 @ExportLibrary(ValueLibrary::class)
 class PhotonClass(
-  private val builder: ClassBuilder
+  private val builder: ClassBuilder,
+  private val staticInstanceFor: PhotonClass? = null
 ): Type() {
   @ExportMessage
-  fun type() = PhotonClassType(this, builder)
+  fun type(): Type = builder.staticBuiltValue
+
+  internal val properties
+    get() = builder.properties
 
   internal val instanceType by lazy {
     PhotonClassInstanceType(builder)
@@ -23,38 +27,44 @@ class PhotonClass(
   override val methods = emptyMap<String, Method>()
 
   override fun getMethod(name: String, argTypes: List<Type>?): Method? {
+    // TODO: Move to `methods`
+    if (staticInstanceFor != null && name == "new") return NewObjectMethod(staticInstanceFor)
+
     return instanceType.getMethod(name, argTypes)
   }
 }
 
 class PhotonClassType(
-  val klass: PhotonClass,
-  val builder: ClassBuilder
+  val klass: PhotonClass
 ): Type() {
   override val methods: Map<String, Method> by lazy {
     mapOf(
       // Person.new
-      Pair("new", object: Method(MethodType.Default) {
-        override fun signature(): Signature {
-          return Signature.Concrete(
-            builder.properties.map { Pair(it.name, it.type) },
-            klass
-          )
-        }
-
-        override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-          // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
-          val newObject = klass.instanceType.shape.factory.create()
-
-          klass.instanceType.shapeProperties.withIndex().forEach {
-            // TODO: Type-check
-            it.value.setObject(newObject, args[it.index])
-          }
-
-          return newObject
-        }
-      })
+      Pair("new", NewObjectMethod(klass))
     )
+  }
+}
+
+class NewObjectMethod(
+  private val klass: PhotonClass
+): Method(MethodType.Default) {
+  override fun signature(): Signature {
+    return Signature.Concrete(
+      klass.properties.map { Pair(it.name, it.type) },
+      klass
+    )
+  }
+
+  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
+    val newObject = klass.instanceType.shape.factory.create()
+
+    klass.instanceType.shapeProperties.withIndex().forEach {
+      // TODO: Type-check
+      it.value.setObject(newObject, args[it.index])
+    }
+
+    return newObject
   }
 }
 

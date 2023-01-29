@@ -353,4 +353,60 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testCompanionObjects() {
+    expect(
+      """
+        class Person {
+          self.static @(self: ClassBuilder) {
+            def answer() 42
+          }
+
+          def age: Int
+        }
+
+        val person = Person.new(Person.answer)
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testCompanionObjectsWithMacro() {
+    expect(
+      """
+        class Person {
+          static {
+            def answer() 42
+          }
+
+          def age: Int
+        }
+
+        val person = Person.new(Person.answer)
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+//  @Test
+//  fun testMatchInVals() {
+//    expect(
+//      """
+//        class Person {
+//          def age: Int
+//        }
+//
+//        val ageOfPerson = (person: Person) List.new(person.age)
+//
+//        ageOfPerson(val age) = Person.new(42)
+//
+//        age
+//      """.trimIndent(),
+//      42
+//    )
+//  }
 }

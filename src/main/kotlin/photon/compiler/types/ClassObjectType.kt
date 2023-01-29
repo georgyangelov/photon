@@ -17,9 +17,9 @@ object ClassObjectType: Type() {
         else -> Pair(null, arg0 as Closure)
       }
 
-      val classBuilder = ClassBuilder(name, builderClosure, isInterface = false)
+      val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.BuildType.Class)
 
-      return classBuilder.builtClass
+      return classBuilder.builtValue
     }
   }
 }

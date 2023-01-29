@@ -11,9 +11,15 @@ import photon.core.EvalError
 @ExportLibrary(ValueLibrary::class)
 class ClassBuilder(
   val name: String?,
-  val builderClosure: Closure,
-  val isInterface: Boolean
+  private val builderClosure: Closure,
+  val type: BuildType,
+  private val instanceBuilder: ClassBuilder? = null
 ) {
+  enum class BuildType {
+    Class,
+    Interface
+  }
+
   data class Property(val name: String, val type: Type)
   data class Function(val name: String, val function: Closure)
 
@@ -35,11 +41,53 @@ class ClassBuilder(
       return _functions
     }
 
-  val builtClass by lazy { PhotonClass(this) }
-  val builtInterface by lazy { PhotonInterface(this) }
+  val builtValue: Type by lazy {
+    when (type) {
+      BuildType.Class -> PhotonClass(
+        this,
+        staticInstanceFor =
+          if (instanceBuilder != null) instanceBuilder.builtValue as PhotonClass
+          else null
+      )
+      BuildType.Interface -> PhotonInterface(this)
+    }
+  }
+
+  val staticBuiltValue by lazy {
+    build()
+
+    if (instanceBuilder != null) {
+      // We are the static builder
+      RootType
+    } else if (staticBuilder != null) {
+      // We are the instance builder and there are static definitions
+      staticBuilder!!.builtValue
+    } else {
+      // We are the instance builder and there are no static definitions
+      when (type) {
+        BuildType.Class -> PhotonClassType(builtValue as PhotonClass)
+        BuildType.Interface -> RootType
+      }
+    }
+  }
 
   @CompilationFinal
   private var alreadyBuilt = false
+
+  var staticBuilder: ClassBuilder? = null
+
+  fun defineStaticType(builderClosure: Closure): ClassBuilder {
+    if (staticBuilder == null) {
+      staticBuilder = ClassBuilder(
+        name?.plus("$"),
+        builderClosure,
+        type = type,
+        instanceBuilder = this
+      )
+    }
+
+    return staticBuilder!!
+  }
 
   private fun build() {
     if (alreadyBuilt) {
@@ -61,7 +109,8 @@ class ClassBuilder(
 object ClassBuilderType: Type() {
   override val methods: Map<String, Method> = mapOf(
     Pair("define", DefineMethod),
-    Pair("selfType", SelfTypeMethod)
+    Pair("selfType", SelfTypeMethod),
+    Pair("static", StaticMethod)
   )
 
   object DefineMethod: Method(MethodType.CompileTimeOnly) {
@@ -87,10 +136,20 @@ object ClassBuilderType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val builder = target as ClassBuilder
 
-      return if (builder.isInterface)
-        builder.builtInterface
-      else
-        builder.builtClass
+      return builder.builtValue
+    }
+  }
+
+  object StaticMethod: Method(MethodType.CompileTimeOnly) {
+    override fun signature(): Signature = Signature.Any(IntType)
+    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      val builder = target as ClassBuilder
+      val closure = args[0] as Closure
+
+      builder.defineStaticType(closure)
+
+      // TODO: Return a "Nothing" value
+      return 42
     }
   }
 }
