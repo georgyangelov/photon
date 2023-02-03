@@ -4,8 +4,7 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.core.RootType
-import photon.compiler.macros.ClassMacro
-import photon.compiler.macros.DefMacro
+import photon.compiler.macros.*
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.*
 import photon.compiler.values.classes.DefinitionsType
@@ -26,7 +25,8 @@ class PhotonContext(
     Pair("class", ClassMacro::classMacro),
     Pair("object", ClassMacro::objectMacro),
     Pair("interface", ClassMacro::interfaceMacro),
-    Pair("def", DefMacro::defMacro)
+    Pair("def", DefMacro::defMacro),
+    Pair("static", StaticMacro::staticMacro)
   )
 
   val macroHandler: MacroHandler = { keyword, parser, location ->

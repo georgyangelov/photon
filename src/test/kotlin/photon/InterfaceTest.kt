@@ -220,4 +220,20 @@ internal class InterfaceTest {
       42
     )
   }
+
+  @Test
+  fun testStaticMethodsOnInterfaces() {
+    expect(
+      """
+        interface Something {
+          static {
+            def answer() 42
+          }
+        }
+        
+        Something.answer
+      """.trimIndent(),
+      42
+    )
+  }
 }
