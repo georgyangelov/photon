@@ -2,6 +2,7 @@ package photon.compiler.types
 
 import photon.compiler.core.*
 import photon.compiler.values.*
+import photon.compiler.values.classes.ClassBuilder
 
 object ClassObjectType: Type() {
   override val methods: Map<String, Method> = mapOf(
@@ -17,9 +18,9 @@ object ClassObjectType: Type() {
         else -> Pair(null, arg0 as Closure)
       }
 
-      val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.BuildType.Class)
+      val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.Type.Class)
 
-      return classBuilder.builtValue
+      return classBuilder.result
     }
   }
 }

@@ -8,9 +8,8 @@ import photon.compiler.macros.ClassMacro
 import photon.compiler.macros.DefMacro
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.*
-import photon.compiler.values.ClassBuilderType
+import photon.compiler.values.classes.DefinitionsType
 import photon.frontend.*
-import photon.frontend.Parser.Companion.BlankMacroHandler
 
 class PhotonContext(
   val language: PhotonLanguage
@@ -42,7 +41,7 @@ class PhotonContext(
     Pair("Type", LiteralNode(RootType, RootType, null)),
     Pair("Int", LiteralNode(IntType, RootType, null)),
 
-    Pair("ClassBuilder", LiteralNode(ClassBuilderType, RootType, null)),
+    Pair("ClassBuilder", LiteralNode(DefinitionsType, RootType, null)),
 
     // TODO: `value` should not be 1
     Pair("Class", LiteralNode(1, ClassObjectType, null)),

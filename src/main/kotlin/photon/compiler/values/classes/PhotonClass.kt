@@ -7,80 +7,25 @@ import photon.compiler.PhotonContext
 import photon.compiler.core.*
 import photon.compiler.libraries.ValueLibrary
 import photon.compiler.types.TemplateFunctionType
+import photon.compiler.values.classes.*
 import photon.core.EvalError
 
 @ExportLibrary(ValueLibrary::class)
 class PhotonClass(
-  private val builder: ClassBuilder,
-  private val staticInstanceFor: PhotonClass? = null
+  val name: String?,
+  internal val properties: Lazy<List<Definitions.Property>>,
+  internal val functions: Lazy<List<Definitions.Function>>,
+  internal val metaClass: Lazy<Type>,
+  private val canCreateInstancesOf: Lazy<PhotonClass>? = null
 ): Type() {
   @ExportMessage
-  fun type(): Type = builder.staticBuiltValue
+  fun type(): Type = metaClass.value
 
-  internal val properties
-    get() = builder.properties
-
-  internal val instanceType by lazy {
-    PhotonClassInstanceType(builder)
+  val shapeProperties by lazy {
+    properties.value.map { DefaultStaticProperty(it.name) }
   }
 
-  override val methods = emptyMap<String, Method>()
-
-  override fun getMethod(name: String, argTypes: List<Type>?): Method? {
-    // TODO: Move to `methods`
-    if (staticInstanceFor != null && name == "new") return NewObjectMethod(staticInstanceFor)
-
-    return instanceType.getMethod(name, argTypes)
-  }
-}
-
-class PhotonClassType(
-  val klass: PhotonClass
-): Type() {
-  override val methods: Map<String, Method> by lazy {
-    mapOf(
-      // Person.new
-      Pair("new", NewObjectMethod(klass))
-    )
-  }
-}
-
-class NewObjectMethod(
-  private val klass: PhotonClass
-): Method(MethodType.Default) {
-  override fun signature(): Signature {
-    return Signature.Concrete(
-      klass.properties.map { Pair(it.name, it.type) },
-      klass
-    )
-  }
-
-  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-    // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
-    val newObject = klass.instanceType.shape.factory.create()
-
-    klass.instanceType.shapeProperties.withIndex().forEach {
-      // TODO: Type-check
-      it.value.setObject(newObject, args[it.index])
-    }
-
-    return newObject
-  }
-}
-
-abstract class ObjectInstance
-
-interface PhotonStaticObjectFactory {
-  fun create(): Any
-}
-
-// person = Person.new
-class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
-  internal val shapeProperties by lazy {
-    builder.properties.map { DefaultStaticProperty(it.name) }
-  }
-
-  internal val shape by lazy {
+  val shape: StaticShape<PhotonStaticObjectFactory> by lazy {
     val shapeBuilder = StaticShape.newBuilder(
       PhotonContext.current().language,
     )
@@ -95,27 +40,35 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
     )
   }
 
-  val templateFunctions by lazy {
-    builder.functions
+  private val templateFunctions by lazy {
+    functions.value
       .filter { it.function._type is TemplateFunctionType }
       .associate { Pair(it.name, it.function) }
   }
 
   override val methods: Map<String, Method> by lazy {
-    val getters = builder.properties
+    val getters = properties.value
       .zip(shapeProperties)
       .associate { Pair(it.first.name, methodForProperty(it.first, it.second)) }
 
-    val functions = builder.functions
+    val functions = functions.value
       .filterNot { it.function._type is TemplateFunctionType }
       .associate { Pair(it.name, methodForFunction(it)) }
 
-    getters + functions
+    val newMethod = if (canCreateInstancesOf != null) {
+      mapOf(Pair("new", NewObjectMethod(canCreateInstancesOf.value)))
+    } else emptyMap<String, Method>()
+
+    getters + functions + newMethod
   }
 
   override fun getMethod(name: String, argTypes: List<Type>?): Method? {
-    val templateFunctionClosure = templateFunctions[name]
+    // TODO: Move to `methods`
+    // if (staticInstanceFor != null && name == "new") return NewObjectMethod(staticInstanceFor)
+    //
+    // return instanceType.getMethod(name, argTypes)
 
+    val templateFunctionClosure = templateFunctions[name]
     if (templateFunctionClosure != null) {
       if (argTypes == null) {
         // TODO: Location
@@ -132,7 +85,7 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
     return super.getMethod(name, argTypes)
   }
 
-  private fun methodForProperty(property: ClassBuilder.Property, shapeProperty: StaticProperty): Method {
+  private fun methodForProperty(property: Definitions.Property, shapeProperty: StaticProperty): Method {
     return object: Method(MethodType.Default) {
       override fun signature() = Signature.Concrete(emptyList(), property.type)
 
@@ -142,7 +95,7 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
     }
   }
 
-  private fun methodForFunction(function: ClassBuilder.Function): Method {
+  private fun methodForFunction(function: Definitions.Function): Method {
     // TODO: Use MethodType based on the function itself
     // TODO: Cache and instantiate through `getMethod` instead of doing this lazy proxy
     return object: Method(MethodType.Default) {
@@ -170,11 +123,40 @@ class PhotonClassInstanceType(val builder: ClassBuilder): Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val shouldPassSelf = method.signature().hasSelfArgument()
 
-      if (shouldPassSelf) {
-        return method.call(evalMode, self, target, *args)
+      return if (shouldPassSelf) {
+        method.call(evalMode, self, target, *args)
       } else {
-        return method.call(evalMode, self, *args)
+        method.call(evalMode, self, *args)
       }
     }
+  }
+}
+
+abstract class ObjectInstance
+
+interface PhotonStaticObjectFactory {
+  fun create(): Any
+}
+
+class NewObjectMethod(
+  private val klass: PhotonClass
+): Method(MethodType.Default) {
+  override fun signature(): Signature {
+    return Signature.Concrete(
+      klass.properties.value.map { Pair(it.name, it.type) },
+      klass
+    )
+  }
+
+  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
+    val newObject = klass.shape.factory.create()
+
+    klass.shapeProperties.withIndex().forEach {
+      // TODO: Type-check
+      it.value.setObject(newObject, args[it.index])
+    }
+
+    return newObject
   }
 }

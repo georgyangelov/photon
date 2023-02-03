@@ -1,4 +1,4 @@
-package photon.compiler.values
+package photon.compiler.values.classes
 
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.library.ExportLibrary
@@ -47,10 +47,13 @@ class ConverterMethod(
 
 @ExportLibrary(ValueLibrary::class)
 class PhotonInterface(
-  val builder: ClassBuilder
+  val name: String?,
+  val properties: Lazy<List<Definitions.Property>>,
+  val functions: Lazy<List<Definitions.Function>>,
+  val metaClass: Lazy<Type>
 ): Interface() {
   @ExportMessage
-  fun type() = PhotonInterfaceType(this, builder)
+  fun type() = metaClass.value
 
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     val methodTable = virtualMethods.map { (name, interfaceMethod) ->
@@ -74,20 +77,20 @@ class PhotonInterface(
   }
 
   val virtualMethods by lazy {
-    builder.properties.associate { methodForVirtualFunction(it) }
+    properties.value.associate { methodForVirtualFunction(it) }
   }
 
   override val methods: Map<String, Method> by lazy {
-     virtualMethods + builder.functions.associate { methodForConcreteFunction(it) }
+     virtualMethods + functions.value.associate { methodForConcreteFunction(it) }
   }
 
-  private fun methodForVirtualFunction(property: ClassBuilder.Property): Pair<String, VirtualMethod> {
+  private fun methodForVirtualFunction(property: Definitions.Property): Pair<String, VirtualMethod> {
     val method = VirtualMethod(property)
 
     return Pair(property.name, method)
   }
 
-  private fun methodForConcreteFunction(function: ClassBuilder.Function): Pair<String, Method> {
+  private fun methodForConcreteFunction(function: Definitions.Function): Pair<String, Method> {
     // TODO: Use MethodType based on the function itself
     val method = object: Method(MethodType.Default) {
       private val callMethod by lazy {
@@ -113,7 +116,7 @@ class PhotonInterface(
 
   // TODO: Support other method types?
   class VirtualMethod(
-    private val property: ClassBuilder.Property
+    private val property: Definitions.Property
   ): Method(MethodType.Default) {
     val argumentTypes by lazy {
       val type = property.type
@@ -144,13 +147,6 @@ class PhotonInterface(
       return method.call(evalMode, self.value, *args)
     }
   }
-}
-
-class PhotonInterfaceType(
-  val iface: PhotonInterface,
-  val builder: ClassBuilder
-): Type() {
-  override val methods: Map<String, Method> = emptyMap()
 }
 
 class PhotonFunctionalInterface(

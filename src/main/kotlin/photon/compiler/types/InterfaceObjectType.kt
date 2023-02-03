@@ -1,7 +1,7 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
-import photon.compiler.values.ClassBuilder
+import photon.compiler.values.classes.ClassBuilder
 import photon.compiler.values.Closure
 
 object InterfaceObjectType: Type() {
@@ -15,9 +15,9 @@ object InterfaceObjectType: Type() {
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
       val name = args[0] as String
       val builderClosure = args[1] as Closure
-      val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.BuildType.Interface)
+      val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.Type.Interface)
 
-      return classBuilder.builtValue
+      return classBuilder.result
     }
   }
 }

@@ -47,7 +47,7 @@ internal class CompilerTest {
   fun testDefiningClassProperties() {
     expect(
       """
-        val Person = Class.new "Person", (self: ClassBuilder): Int {
+        val Person = Class.new "Person", @(self: ClassBuilder): Int {
           define "age", Int
           
           1
@@ -64,7 +64,7 @@ internal class CompilerTest {
   fun testDefiningClassMethods() {
     expect(
       """
-        val Person = Class.new "Person", (self: ClassBuilder): Int {
+        val Person = Class.new "Person", @(self: ClassBuilder): Int {
           define "answer", () 42
           
           1
@@ -81,7 +81,7 @@ internal class CompilerTest {
   fun testClassMethodsWithSelf() {
     expect(
       """
-        recursive val Person = Class.new "Person", (self: ClassBuilder): Int {
+        recursive val Person = Class.new "Person", @(self: ClassBuilder): Int {
           define "age", Int
           define "answer", (self: Person) age + 1
           

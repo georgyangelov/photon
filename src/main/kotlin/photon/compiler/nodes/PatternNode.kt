@@ -1,14 +1,10 @@
 package photon.compiler.nodes
 
 import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
-import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.*
 import photon.compiler.core.*
-import photon.compiler.types.FunctionType
-import photon.compiler.values.PhotonFunctionalInterface
+import photon.compiler.values.classes.PhotonFunctionalInterface
 import photon.core.EvalError
 
 sealed class PatternNode: OperationNode() {

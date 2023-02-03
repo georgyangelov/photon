@@ -6,7 +6,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import photon.compiler.PartialContext
 import photon.compiler.core.*
-import photon.compiler.values.PhotonFunctionalInterface
+import photon.compiler.values.classes.PhotonFunctionalInterface
 import photon.core.EvalError
 
 class FunctionTypeDefinitionNode(
