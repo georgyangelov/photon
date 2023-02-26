@@ -392,6 +392,170 @@ internal class CompilerTest {
     )
   }
 
+  @Test
+  fun testCompanionObjectFactories() {
+    expect(
+      """
+        class Person {
+          static {
+            def create(age: Int) Person.new(age)
+          }
+
+          def age: Int
+        }
+
+        val person = Person.create(42)
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testCapturesOfCompileTimeOnlyLambdas() {
+    expect(
+      """
+        val value = 42
+        val staticFn = @{ { value } }
+        val fn = staticFn()
+
+        fn()
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testCapturesOfOtherClasses() {
+    expect(
+      """
+        class A {
+          static { def answer() 42 }
+        }
+
+        class B {
+          static { def answer() A.answer }
+        }
+
+        B.answer()
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testCapturesOfMethods() {
+    expect(
+      """
+        val answer = () 42
+        
+        class Person {
+          def age() answer()
+        }
+
+        val person = Person.new
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testMethodsReferencingStaticMethods() {
+    expect(
+      """
+        class Person {
+          static {
+            def answer() 42
+          }
+          
+          def age() Person.answer
+        }
+        
+        val person = Person.new
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testSelfInCompanionObjects() {
+    expect(
+      """
+        class Person {
+          static {
+            def create(age: Int) new(age)
+          }
+
+          def age: Int
+        }
+
+        val person = Person.create(42)
+        person.age
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testRecursiveReferenceToTypeInCompanionObjects() {
+    expect(
+      """
+        class Person {
+          static {
+            def ageOf(person: Person) person.age
+          }
+
+          def age: Int
+        }
+
+        val person = Person.new(42)
+        Person.ageOf(person)
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testThrowsErrorWhenPartialOnlyFunctionCapturesDynamicValues() {
+    expectError(
+      """
+        val fnA = () 42
+        val answer = fnA()
+        
+        val capture = @() answer
+        capture()
+      """.trimIndent(),
+      "Partial-only function captures dynamic value"
+    )
+  }
+
+  @Test
+  fun testDoesNotThrowAnErrorWhenPartialOnlyFunctionReferencesItself() {
+    expect(
+      """
+        recursive val fn = @() fn()
+        
+        42
+      """.trimIndent(),
+      42
+    )
+  }
+
+  @Test
+  fun testDoesNotThrowAnErrorForMutuallyRecursivePartialFunctions() {
+    expect(
+      """
+        val fnA = @() fnB()
+        recursive val fnB = @() fnA()
+
+        42
+      """.trimIndent(),
+      42
+    )
+  }
+
 //  @Test
 //  fun testMatchInVals() {
 //    expect(

@@ -53,6 +53,8 @@ abstract class PhotonNode: Node() {
 //  abstract fun evaluateRuntime(frame: VirtualFrame): Any
 
   open fun isOperation(): Boolean = false
+
+  abstract fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean
 }
 
 abstract class OperationNode: PhotonNode() {

@@ -1,8 +1,12 @@
 package photon.lib
 
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
+import org.junit.jupiter.api.assertThrows
 import photon.compiler.PhotonLanguage
+import photon.core.PhotonError
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 fun expect(code: String, expected: Int) {
@@ -24,4 +28,13 @@ fun <T>expect(cls: Class<T>, code: String, expected: T) {
   val resultOfType = result.`as`(cls)
 
   assertEquals(resultOfType, expected)
+}
+
+fun expectError(code: String, errorMessageSubstring: String) {
+  val context = Context.newBuilder(PhotonLanguage.id).build()
+  val source = Source.newBuilder(PhotonLanguage.id, code, "test.y").build()
+
+  val error = assertThrows<PolyglotException> { context.eval(source) }
+
+  assertContains(error.message ?: "<no error message>", errorMessageSubstring)
 }

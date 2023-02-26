@@ -58,6 +58,12 @@ class TypeAssertNode(
     return valueNode
   }
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean {
+    CompilerDirectives.shouldNotReachHere("TypeAssertNode should not have `canBeCapturedDuringPartialEvaluation` called")
+
+    throw RuntimeException()
+  }
+
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     CompilerDirectives.shouldNotReachHere("TypeAssertNode should not be called")
 

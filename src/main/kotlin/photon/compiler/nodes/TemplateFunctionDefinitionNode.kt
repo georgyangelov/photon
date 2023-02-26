@@ -60,6 +60,14 @@ class TemplateFunctionDefinitionNode(
     return this
   }
 
+  // TODO: This should probably do the same as `FunctionDefinitionNode` but make sure that we have a test first
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = false
+
+//  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean {
+//    // This returning `true` means that it's ok for this closure to be captured at partial time
+//    return requiredCaptures.all { frame.getObject(it.fromSlot) != null }
+//  }
+
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     assert(function != null)
 

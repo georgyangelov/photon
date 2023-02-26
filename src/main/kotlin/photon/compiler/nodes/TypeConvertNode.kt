@@ -13,6 +13,9 @@ class TypeConvertNode(
     return this
   }
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean =
+    valueNode.canBeCapturedDuringPartialEvaluation(frame)
+
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     val value = valueNode.executeCompileTimeOnly(frame)
     val converted = convertor(value)

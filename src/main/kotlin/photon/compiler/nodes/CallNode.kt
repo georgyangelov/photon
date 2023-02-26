@@ -73,6 +73,12 @@ class CallNode(
     return this
   }
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean {
+    // Reaching this means that the `executePartial` function above did not return a concrete value,
+    // meaning there is still work to be done when calling this compile-time
+    return false
+  }
+
   private fun typeCheck(method: Method): Type {
     val givenArgumentTypes = ArgumentsWithoutSelf(
       arguments.map { it.type },

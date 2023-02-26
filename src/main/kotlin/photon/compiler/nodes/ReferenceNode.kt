@@ -20,6 +20,9 @@ class ReferenceNode(
     return this
   }
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean =
+    frame.getObject(slot) != null
+
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     val value = frame.getObject(slot)
 

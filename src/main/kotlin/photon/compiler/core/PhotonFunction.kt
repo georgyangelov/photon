@@ -6,6 +6,7 @@ import com.oracle.truffle.api.frame.*
 import com.oracle.truffle.api.nodes.RootNode
 import photon.compiler.*
 import photon.compiler.types.FunctionType
+import photon.core.EvalError
 
 class PhotonFunction(
   private val module: PhotonModule,
@@ -143,6 +144,19 @@ private class ExecutionNode(
 ): RootNode(language, frameDescriptor) {
   override fun execute(frame: VirtualFrame): Any {
     FrameTools.applyCapturedValuesFromFirstArgument(frame, fn.requiredCaptures)
+
+    if (fn.isCompileTimeOnly) {
+      val missingCaptures = fn.requiredCaptures.filter { frame.getObject(it.toSlot) == null }
+
+      if (missingCaptures.isNotEmpty()) {
+        val missingCaptureNames = missingCaptures
+          .joinToString(", ") { frame.frameDescriptor.getSlotName(it.toSlot).toString() }
+
+        // TODO: Location
+        throw EvalError("Partial-only function captures dynamic value: $missingCaptureNames", null)
+      }
+    }
+
     FrameTools.applyArguments(frame, fn.argumentCaptures)
 
     return fn.body.executeCompileTimeOnly(frame)

@@ -11,15 +11,22 @@ class LetNode(
   @Child @JvmField var value: PhotonNode,
   val location: Location?
 ): OperationNode() {
+//  companion object {
+//    val RECURSIVE_DEFINITION_TOKEN = "recursive"
+//  }
+
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
+    // TODO: Not sure if this is 100% correct, but using it so that the
+    //       `canBeCapturedDuringPartialEvaluation` function can ignore recursive references of
+    //       partial-only functions
+    // frame.setAuxiliarySlot(slot, RECURSIVE_DEFINITION_TOKEN)
+
     val valueResult = value.executePartial(frame, context)
 
     frame.setAuxiliarySlot(slot, valueResult)
 
-    if (!valueResult.isOperation()) {
-      frame.setObject(slot, valueResult)
-    } else {
-      frame.setAuxiliarySlot(slot, valueResult)
+    if (valueResult.canBeCapturedDuringPartialEvaluation(frame)) {
+      frame.setObject(slot, valueResult.executeCompileTimeOnly(frame))
     }
 
     value = valueResult
@@ -27,6 +34,9 @@ class LetNode(
 
     return this
   }
+
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean =
+    value.canBeCapturedDuringPartialEvaluation(frame)
 
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     val eValue = value.executeCompileTimeOnly(frame)

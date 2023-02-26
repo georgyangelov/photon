@@ -43,6 +43,8 @@ class FunctionTypeDefinitionNode(
     return this
   }
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = true
+
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     assert(functionType != null)
 

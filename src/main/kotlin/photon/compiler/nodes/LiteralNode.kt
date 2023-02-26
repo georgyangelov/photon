@@ -11,8 +11,8 @@ class LiteralNode(
   override val type: Type,
   val location: Location?
 ): PhotonNode() {
-  override fun isOperation(): Boolean = true
-
+  override fun isOperation(): Boolean = false
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = true
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode = this
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any = value
 }

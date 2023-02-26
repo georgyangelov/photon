@@ -30,6 +30,17 @@ class FunctionDefinitionNode(
   @CompilationFinal
   private var function: PhotonFunction? = null
 
+  override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean {
+    // This returning `true` means that it's ok for this closure to be captured at partial time
+    return captures.all {
+      val hasActualValue = frame.getObject(it.fromSlot) != null
+      // TODO: Currently partial-only functions cannot call recursive functions. Support that
+//      val isRecursiveReference = frame.getAuxiliarySlot(it.fromSlot) == LetNode.RECURSIVE_DEFINITION_TOKEN
+
+      hasActualValue // || isRecursiveReference
+    }
+  }
+
   override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
     CompilerAsserts.neverPartOfCompilation()
 
@@ -66,8 +77,6 @@ class FunctionDefinitionNode(
   @ExplodeLoop
   override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
     assert(function != null)
-
-    // val capturedValues = FrameTools.captureValues(frame, captures)
 
     return Closure(function!!.type, frame.materialize())
   }

@@ -16,6 +16,11 @@ sealed class PatternNode: OperationNode() {
       return value
     }
 
+    override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean {
+      CompilerDirectives.shouldNotReachHere()
+      throw RuntimeException("This shouldn't happen - canBeCapturedDuringPartialEvaluation on PatternNode.SpecificValue")
+    }
+
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
       CompilerDirectives.shouldNotReachHere()
       throw RuntimeException("This shouldn't happen - executeCompileTimeOnly on PatternNode.SpecificValue")
@@ -38,6 +43,9 @@ sealed class PatternNode: OperationNode() {
       return this
     }
 
+    // TODO: Not sure how this should behave
+    override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = false
+
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
       val value = frame.getObject(0)
 
@@ -55,6 +63,9 @@ sealed class PatternNode: OperationNode() {
     override fun executePartial(frame: VirtualFrame, context: PartialContext): PhotonNode {
       TODO("Not yet implemented")
     }
+
+    // TODO: Not sure how this should behave
+    override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = false
 
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
       TODO("Not yet implemented")
@@ -78,6 +89,9 @@ sealed class PatternNode: OperationNode() {
 
       return this
     }
+
+    // TODO: Not sure how this should behave
+    override fun canBeCapturedDuringPartialEvaluation(frame: VirtualFrame): Boolean = false
 
     override fun executeCompileTimeOnly(frame: VirtualFrame): Any {
       val partialContext = PartialContext(module!!, EvalMode.Partial)
