@@ -38,3 +38,14 @@ fun expectError(code: String, errorMessageSubstring: String) {
 
   assertContains(error.message ?: "<no error message>", errorMessageSubstring)
 }
+
+fun eval(code: String): org.graalvm.polyglot.Value {
+  return eval<org.graalvm.polyglot.Value>(code)
+}
+
+inline fun <reified T>eval(code: String): T {
+  val context = Context.newBuilder(PhotonLanguage.id).allowAllAccess(true).build()
+  val source = Source.newBuilder(PhotonLanguage.id, code, "test.y").build()
+
+  return context.eval(source).`as`(T::class.java)
+}

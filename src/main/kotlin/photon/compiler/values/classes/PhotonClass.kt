@@ -35,7 +35,7 @@ class PhotonClass(
     }
 
     shapeBuilder.build(
-      ObjectInstance::class.java,
+      PhotonClassInstance::class.java,
       PhotonStaticObjectFactory::class.java
     )
   }
@@ -132,12 +132,6 @@ class PhotonClass(
   }
 }
 
-abstract class ObjectInstance
-
-interface PhotonStaticObjectFactory {
-  fun create(): Any
-}
-
 class NewObjectMethod(
   private val klass: PhotonClass
 ): Method(MethodType.Default) {
@@ -150,7 +144,7 @@ class NewObjectMethod(
 
   override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
     // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
-    val newObject = klass.shape.factory.create()
+    val newObject = klass.shape.factory.create(klass)
 
     klass.shapeProperties.withIndex().forEach {
       // TODO: Type-check
