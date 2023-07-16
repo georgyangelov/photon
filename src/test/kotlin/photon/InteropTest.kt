@@ -2,6 +2,8 @@ package photon
 
 import org.junit.Test
 import photon.lib.eval
+import java.util.function.Function
+import java.util.function.Supplier
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -44,4 +46,35 @@ internal class InteropTest {
 
     assertEquals(42, result.age())
   }
+
+  @Test
+  fun testCallingPhotonFunctions() {
+    val result = eval<Supplier<Int>>(
+      """
+        () 42
+      """.trimIndent()
+    )
+
+    assertEquals(42, result.get())
+  }
+
+  @Test
+  fun testCallingPhotonFunctionsWithArguments() {
+    val result = eval<Function<Int, Int>>(
+      """
+        (a: Int) a + 1
+      """.trimIndent()
+    )
+
+    assertEquals(42, result.apply(41))
+  }
+
+//  @Test
+//  fun testCallingJavaMethodsInPhoton() {
+//    val person = object {
+//      fun age() = 42
+//    }
+//
+//
+//  }
 }
