@@ -1,15 +1,15 @@
 package photon.compiler.values.classes
 
 import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.library.ExportLibrary
-import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.library.*
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
-import photon.compiler.libraries.ValueLibrary
+import photon.compiler.libraries.*
 import photon.core.EvalError
 import photon.core.TypeError
 
 @ExportLibrary(ValueLibrary::class)
+@ExportLibrary(PhotonValueLibrary::class)
 class PhotonInterfaceInstance(
   val iface: Type,
   val value: Any,
@@ -17,6 +17,12 @@ class PhotonInterfaceInstance(
 ) {
   @ExportMessage
   fun type() = iface
+
+  @ExportMessage
+  fun isPhotonValue() = true
+
+  @ExportMessage
+  fun getMethod(name: String, argTypes: List<Type>?): Method? = methodTable[name]
 }
 
 class ConverterMethod(
@@ -118,6 +124,8 @@ class PhotonInterface(
   class VirtualMethod(
     private val property: Definitions.Property
   ): Method(MethodType.Default) {
+    var valueLib: PhotonValueLibrary = LibraryFactory.resolve(PhotonValueLibrary::class.java).createDispatched(3)
+
     val argumentTypes by lazy {
       val type = property.type
 
@@ -141,10 +149,10 @@ class PhotonInterface(
     }
 
     override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-      val self = target as PhotonInterfaceInstance
-      val method = self.methodTable[property.name]!!
+      // TODO: Provide correct argTypes?
+      val method = valueLib.getMethod(target, property.name, null)!!
 
-      return method.call(evalMode, self.value, *args)
+      return method.call(evalMode, target, *args)
     }
   }
 }

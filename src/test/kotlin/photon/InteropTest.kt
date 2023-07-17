@@ -69,12 +69,22 @@ internal class InteropTest {
     assertEquals(42, result.apply(41))
   }
 
-//  @Test
-//  fun testCallingJavaMethodsInPhoton() {
-//    val person = object {
-//      fun age() = 42
-//    }
-//
-//
-//  }
+  @Test
+  fun testCallingJavaMethodsInPhoton() {
+    val result = eval<Function<WithAge, Int>>(
+      """
+        interface Person {
+          def age(): Int
+        }
+
+        (arg: Person) { arg.age + 1 }
+      """.trimIndent()
+    )
+
+    val person = object: WithAge {
+      override fun age() = 41
+    }
+
+    assertEquals(42, result.apply(person))
+  }
 }
