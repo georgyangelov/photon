@@ -1,14 +1,8 @@
 package photon.compiler.core
 
-import com.oracle.truffle.api.library.ExportLibrary
-import com.oracle.truffle.api.library.ExportMessage
-import photon.compiler.libraries.TypeLibrary
-
-@ExportLibrary(TypeLibrary::class)
-abstract class Type {
+abstract class Type(metaType: Type? = null): PhotonObject(metaType) {
   abstract val methods: Map<String, Method>
 
-  @ExportMessage
   open fun getMethod(name: String, argTypes: List<Type>?): Method? = methods[name]
 }
 

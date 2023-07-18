@@ -27,6 +27,9 @@ class FrameTools {
         val literal = context.globals[i].second
 
         frame.setObject(i, literal.value)
+
+        // TODO: Do I need the auxiliary slots now that every value contains its type
+        //       and it can be accessed through PhotonValueLibrary#type?
         frame.setAuxiliarySlot(i, literal)
       }
     }

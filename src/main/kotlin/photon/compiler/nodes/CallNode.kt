@@ -3,6 +3,7 @@ package photon.compiler.nodes
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.library.LibraryFactory
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.PartialContext
@@ -16,21 +17,13 @@ class CallNode(
   @JvmField val name: String,
   @JvmField @Children var arguments: Array<PhotonNode>
 ): OperationNode() {
-//  @JvmField
-//  @Child
-//  var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
+  @JvmField
+  @Child
+  var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
 
   @JvmField
   @Child
-  var valueLib: ValueLibrary = LibraryFactory.resolve(ValueLibrary::class.java).createDispatched(3)
-
-  @JvmField
-  @Child
-  var typeLib: TypeLibrary = LibraryFactory.resolve(TypeLibrary::class.java).createDispatched(3)
-
-  @JvmField
-  @Child
-  var methodLib: MethodLibrary = LibraryFactory.resolve(MethodLibrary::class.java).createDispatched(3)
+  var valueLib: PhotonValueLibrary = LibraryFactory.resolve(PhotonValueLibrary::class.java).createDispatched(3)
 
   @CompilationFinal
   private var method: Method? = null
@@ -52,8 +45,7 @@ class CallNode(
       arguments[i] = arguments[i].executePartial(frame, context)
     }
 
-    // TODO: This should use the ValueLibrary to get the type
-    val resolvedMethod = typeLib.getMethod(target.type, name, arguments.map { it.type })
+    val resolvedMethod = target.type.getMethod(name, arguments.map { it.type })
     // TODO: Location
       ?: throw EvalError("Could not find method $name on ${target.type}", null)
 
@@ -107,11 +99,6 @@ class CallNode(
       evaluatedArguments[i] = arguments[i].executeCompileTimeOnly(frame)
     }
 
-    return methodLib.call(
-      method!!,
-      EvalMode.CompileTimeOnly,
-      evaluatedTarget,
-      *(evaluatedArguments as Array<Any>)
-    )
+    return method!!.call(evaluatedTarget, *(evaluatedArguments as Array<Any>))
   }
 }

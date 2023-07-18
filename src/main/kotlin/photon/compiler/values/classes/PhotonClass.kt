@@ -5,12 +5,11 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.staticobject.*
 import photon.compiler.PhotonContext
 import photon.compiler.core.*
-import photon.compiler.libraries.ValueLibrary
+import photon.compiler.libraries.PhotonValueLibrary
 import photon.compiler.types.TemplateFunctionType
 import photon.compiler.values.classes.*
 import photon.core.EvalError
 
-@ExportLibrary(ValueLibrary::class)
 class PhotonClass(
   val name: String?,
   internal val properties: Lazy<List<Definitions.Property>>,
@@ -18,8 +17,7 @@ class PhotonClass(
   internal val metaClass: Lazy<Type>,
   private val canCreateInstancesOf: Lazy<PhotonClass>? = null
 ): Type() {
-  @ExportMessage
-  fun type(): Type = metaClass.value
+  override fun type(): Type = metaClass.value
 
   val shapeProperties by lazy {
     properties.value.map { DefaultStaticProperty(it.name) }
@@ -89,7 +87,7 @@ class PhotonClass(
     return object: Method(MethodType.Default) {
       override fun signature() = Signature.Concrete(emptyList(), property.type)
 
-      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      override fun call(target: Any, vararg args: Any): Any {
         return shapeProperty.getObject(target)
       }
     }
@@ -108,8 +106,8 @@ class PhotonClass(
 
       override fun signature() = callMethod.signature()
 
-      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-        return callMethod.call(evalMode, target, *args)
+      override fun call(target: Any, vararg args: Any): Any {
+        return callMethod.call(target, *args)
       }
     }
   }
@@ -120,13 +118,13 @@ class PhotonClass(
     val method: Method
   ): Method(method.type) {
     override fun signature(): Signature = method.signature().withoutSelfArgument()
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val shouldPassSelf = method.signature().hasSelfArgument()
 
       return if (shouldPassSelf) {
-        method.call(evalMode, self, target, *args)
+        method.call(self, target, *args)
       } else {
-        method.call(evalMode, self, *args)
+        method.call(self, *args)
       }
     }
   }
@@ -142,7 +140,7 @@ class NewObjectMethod(
     )
   }
 
-  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+  override fun call(target: Any, vararg args: Any): Any {
     // TODO: `AllocationReporter` from `SLNewObjectBuiltin`
     val newObject = klass.shape.factory.create(klass)
 

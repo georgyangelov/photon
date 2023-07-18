@@ -7,6 +7,7 @@ import photon.compiler.core.RootType
 import photon.compiler.macros.*
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.*
+import photon.compiler.values.TypeObject
 import photon.compiler.values.classes.DefinitionsType
 import photon.frontend.*
 
@@ -43,11 +44,8 @@ class PhotonContext(
 
     Pair("ClassBuilder", LiteralNode(DefinitionsType, RootType, null)),
 
-    // TODO: `value` should not be 1
-    Pair("Class", LiteralNode(1, ClassObjectType, null)),
-
-    // TODO: `value` should not be 1
-    Pair("Interface", LiteralNode(1, InterfaceObjectType, null)),
+    Pair("Class", LiteralNode(TypeObject(ClassObjectType), ClassObjectType, null)),
+    Pair("Interface", LiteralNode(TypeObject(InterfaceObjectType), InterfaceObjectType, null)),
   )
 
   internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {

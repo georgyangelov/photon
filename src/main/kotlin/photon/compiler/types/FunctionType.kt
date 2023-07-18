@@ -26,7 +26,7 @@ class FunctionType(val function: PhotonFunction): Type() {
   ): Method(methodType) {
     override fun signature() = signature
 
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val closure = target as Closure
       val captures = FrameTools.captureValues(closure.capturedFrame, function.requiredCaptures)
 

@@ -1,6 +1,8 @@
 package photon.compiler.values.classes
 
 import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.*
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
@@ -8,21 +10,36 @@ import photon.compiler.libraries.*
 import photon.core.EvalError
 import photon.core.TypeError
 
-@ExportLibrary(ValueLibrary::class)
 @ExportLibrary(PhotonValueLibrary::class)
+@ExportLibrary(InteropLibrary::class)
 class PhotonInterfaceInstance(
   val iface: Type,
   val value: Any,
+  // TODO: Can this happen without this being a per-instance value?
   val methodTable: Map<String, Method>
-) {
-  @ExportMessage
-  fun type() = iface
-
+): TruffleObject {
   @ExportMessage
   fun isPhotonValue() = true
 
   @ExportMessage
-  fun getMethod(name: String, argTypes: List<Type>?): Method? = methodTable[name]
+  fun type() = iface
+
+  @ExportMessage
+  fun hasMembers() = true
+
+  @ExportMessage
+  fun getMembers(includeInternal: Boolean): Any {
+    return iface.methods.keys.sorted()
+  }
+
+  @ExportMessage
+  fun isMemberInvocable(member: String): Boolean = methodTable.containsKey(member)
+
+  @ExportMessage
+  fun invokeMember(member: String, vararg arguments: Any): Any {
+    // TODO: Throw error if method is missing
+    return methodTable[member]!!.call(value, *arguments)
+  }
 }
 
 class ConverterMethod(
@@ -34,7 +51,7 @@ class ConverterMethod(
 
   @ExplodeLoop
   @Suppress("UNCHECKED_CAST")
-  override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+  override fun call(target: Any, vararg args: Any): Any {
     CompilerDirectives.isCompilationConstant(args.size)
 
     val convertedArgs = arrayOfNulls<Any>(args.size)
@@ -45,21 +62,19 @@ class ConverterMethod(
       convertedArgs[i] = conversion.argumentConversions[i](args[i])
     }
 
-    val result = from.call(evalMode, target, *(convertedArgs as Array<Any>))
+    val result = from.call(target, *(convertedArgs as Array<Any>))
 
     return conversion.returnConversion(result)
   }
 }
 
-@ExportLibrary(ValueLibrary::class)
 class PhotonInterface(
   val name: String?,
   val properties: Lazy<List<Definitions.Property>>,
   val functions: Lazy<List<Definitions.Function>>,
   val metaClass: Lazy<Type>
 ): Interface() {
-  @ExportMessage
-  fun type() = metaClass.value
+  override fun type() = metaClass.value
 
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     val methodTable = virtualMethods.map { (name, interfaceMethod) ->
@@ -106,13 +121,13 @@ class PhotonInterface(
 
       override fun signature() = callMethod.signature().withoutSelfArgument()
 
-      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      override fun call(target: Any, vararg args: Any): Any {
         val shouldPassSelf = callMethod.signature().hasSelfArgument()
 
         return if (shouldPassSelf) {
-          callMethod.call(evalMode, function.function, target, *args)
+          callMethod.call(function.function, target, *args)
         } else {
-          callMethod.call(evalMode, function.function, *args)
+          callMethod.call(function.function, *args)
         }
       }
     }
@@ -124,8 +139,6 @@ class PhotonInterface(
   class VirtualMethod(
     private val property: Definitions.Property
   ): Method(MethodType.Default) {
-    var valueLib: PhotonValueLibrary = LibraryFactory.resolve(PhotonValueLibrary::class.java).createDispatched(3)
-
     val argumentTypes by lazy {
       val type = property.type
 
@@ -148,11 +161,8 @@ class PhotonInterface(
       }
     }
 
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
-      // TODO: Provide correct argTypes?
-      val method = valueLib.getMethod(target, property.name, null)!!
-
-      return method.call(evalMode, target, *args)
+    override fun call(target: Any, vararg args: Any): Any {
+      return InteropLibrary.getUncached().invokeMember(target, property.name, *args)
     }
   }
 }
@@ -188,12 +198,12 @@ class PhotonFunctionalInterface(
   override val methods: Map<String, Method> = mapOf(
     Pair("call", object: Method(MethodType.Default) {
       override fun signature(): Signature = Signature.Concrete(parameters, returnType)
-      override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+      override fun call(target: Any, vararg args: Any): Any {
         val self = target as PhotonInterfaceInstance
 
         val method = self.methodTable["call"]!!
 
-        return method.call(evalMode, self.value, *args)
+        return method.call(self.value, *args)
       }
     })
   )

@@ -6,14 +6,17 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.core.*
-import photon.compiler.libraries.ValueLibrary
+import photon.compiler.libraries.PhotonValueLibrary
 
-@ExportLibrary(ValueLibrary::class)
+@ExportLibrary(PhotonValueLibrary::class)
 @ExportLibrary(InteropLibrary::class)
 class Closure(
   val _type: Type,
   val capturedFrame: MaterializedFrame
 ): TruffleObject {
+  @ExportMessage
+  fun isPhotonValue() = true
+
   @ExportMessage
   fun type() = _type
 
@@ -24,6 +27,6 @@ class Closure(
   fun execute(vararg arguments: Any): Any {
     // TODO: Specify correct EvalMode
     // TODO: Support template functions by specifying the argTypes
-    return _type.getMethod("call", null)!!.call(EvalMode.CompileTimeOnly, this, *arguments)
+    return _type.getMethod("call", null)!!.call(this, *arguments)
   }
 }

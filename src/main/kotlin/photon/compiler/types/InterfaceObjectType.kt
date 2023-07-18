@@ -12,7 +12,7 @@ object InterfaceObjectType: Type() {
   object NewMethod: Method(MethodType.Partial) {
     override fun signature(): Signature = Signature.Any(AnyStatic)
 
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val name = args[0] as String
       val builderClosure = args[1] as Closure
       val classBuilder = ClassBuilder(name, builderClosure, ClassBuilder.Type.Interface)

@@ -6,8 +6,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.library.LibraryFactory
 import photon.compiler.PartialContext
 import photon.compiler.core.*
-import photon.compiler.libraries.ValueLibrary
-import photon.core.TypeError
+import photon.compiler.libraries.PhotonValueLibrary
 
 class TypeAssertNode(
   @Child @JvmField var valueNode: PhotonNode,
@@ -15,7 +14,7 @@ class TypeAssertNode(
 ): OperationNode() {
   @JvmField
   @Child
-  var valueLib: ValueLibrary = LibraryFactory.resolve(ValueLibrary::class.java).createDispatched(3)
+  var valueLib: PhotonValueLibrary = LibraryFactory.resolve(PhotonValueLibrary::class.java).createDispatched(3)
 
   @CompilationFinal
   private var alreadyPartiallyEvaluated = false

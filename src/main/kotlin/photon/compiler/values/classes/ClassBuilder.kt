@@ -4,7 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.core.*
-import photon.compiler.libraries.ValueLibrary
+import photon.compiler.libraries.PhotonValueLibrary
 import photon.compiler.types.IntType
 import photon.compiler.values.*
 import photon.core.EvalError
@@ -84,7 +84,7 @@ class ClassBuilder(
   }
 }
 
-@ExportLibrary(ValueLibrary::class)
+@ExportLibrary(PhotonValueLibrary::class)
 class Definitions(
   val closure: Closure,
   val builder: ClassBuilder,
@@ -95,6 +95,9 @@ class Definitions(
 
   val properties = mutableListOf<Property>()
   val functions = mutableListOf<Function>()
+
+  @ExportMessage
+  fun isPhotonValue() = true
 
   @ExportMessage
   fun type() = DefinitionsType
@@ -111,7 +114,7 @@ class Definitions(
     val builderMethod = closure.type().getMethod("call", null)
       ?: throw EvalError("Class builder must be callable", null)
 
-    builderMethod.call(EvalMode.CompileTimeOnly, closure, this)
+    builderMethod.call(closure, this)
   }
 }
 
@@ -124,7 +127,7 @@ object DefinitionsType: Type() {
 
   object DefineMethod: Method(MethodType.CompileTimeOnly) {
     override fun signature(): Signature = Signature.Any(IntType)
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val definitions = target as Definitions
       val name = args[0] as String
 
@@ -142,7 +145,7 @@ object DefinitionsType: Type() {
 
   object SelfTypeMethod: Method(MethodType.CompileTimeOnly) {
     override fun signature(): Signature = Signature.Any(RootType)
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val definitions = target as Definitions
 
       return if (definitions.isForStaticType) {
@@ -155,7 +158,7 @@ object DefinitionsType: Type() {
 
   object StaticMethod: Method(MethodType.CompileTimeOnly) {
     override fun signature(): Signature = Signature.Any(IntType)
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       val definitions = target as Definitions
       val closure = args[0] as Closure
 

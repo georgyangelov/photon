@@ -1,5 +1,6 @@
 package photon
 
+import photon.compiler.types.IntType
 import photon.lib.*
 import kotlin.test.*
 
@@ -555,6 +556,30 @@ internal class CompilerTest {
       42
     )
   }
+
+  @Test
+  fun testAnyStaticForPrimitives() {
+    expect(
+      """
+        val fn = @() { 42 }
+        
+        fn()
+      """.trimIndent(),
+      42
+    )
+  }
+
+//  @Test
+//  fun testAnyStaticForTypeObjects() {
+//    expect(
+//      """
+//        val fn = @() { Int }
+//
+//        fn()
+//      """.trimIndent(),
+//      IntType
+//    )
+//  }
 
 //  @Test
 //  fun testMatchInVals() {

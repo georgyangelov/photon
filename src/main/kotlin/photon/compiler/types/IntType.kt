@@ -1,6 +1,20 @@
 package photon.compiler.types
 
+import com.oracle.truffle.api.library.*
 import photon.compiler.core.*
+import photon.compiler.libraries.PhotonValueLibrary
+
+@Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+@ExportLibrary(PhotonValueLibrary::class, receiverType = Integer::class)
+object IntTypeDefaultLibraryExports {
+  @JvmStatic
+  @ExportMessage
+  fun isPhotonValue(receiver: Integer) = true
+
+  @JvmStatic
+  @ExportMessage
+  fun type(receiver: Integer) = IntType
+}
 
 object IntType: Type() {
   override val methods = mapOf(
@@ -13,7 +27,7 @@ object IntType: Type() {
       IntType
     )
 
-    override fun call(evalMode: EvalMode, target: Any, vararg args: Any): Any {
+    override fun call(target: Any, vararg args: Any): Any {
       return target as Int + args[0] as Int
     }
   }
