@@ -144,7 +144,7 @@ class PhotonInterface(
 
     override fun call(target: Any, vararg args: Any): Any {
       if (target is PhotonInterfaceInstance) {
-        return target.type.methods[property.name]!!.call(target.value, *args)
+        return target.type().methods[property.name]!!.call(target.value, *args)
       }
 
       // TODO: Support cached?
@@ -192,7 +192,7 @@ class PhotonFunctionalInterface(
       override fun signature(): Signature = Signature.Concrete(parameters, returnType)
       override fun call(target: Any, vararg args: Any): Any {
         if (target is PhotonInterfaceInstance) {
-          return target.type.methods["call"]!!.call(target.value, *args)
+          return target.type().methods["call"]!!.call(target.value, *args)
         }
 
         // TODO: Support cached?

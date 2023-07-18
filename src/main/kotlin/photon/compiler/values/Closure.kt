@@ -6,18 +6,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.core.*
 
-@ExportLibrary(InteropLibrary::class)
 class Closure(
-  val type: Type,
+  type: Type,
   val capturedFrame: MaterializedFrame
-): PhotonObject(type) {
-  @ExportMessage
-  fun isExecutable() = true
-
-  @ExportMessage
-  fun execute(vararg arguments: Any): Any {
-    // TODO: Specify correct EvalMode
-    // TODO: Support template functions by specifying the argTypes
-    return type.getMethod("call", null)!!.call(this, *arguments)
-  }
-}
+): PhotonObject(type)

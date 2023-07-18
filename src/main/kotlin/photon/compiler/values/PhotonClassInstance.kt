@@ -1,6 +1,6 @@
 package photon.compiler.values
 
-import photon.compiler.core.PhotonObject
+import photon.compiler.core.*
 import photon.compiler.types.classes.PhotonClass
 
 abstract class PhotonClassInstance(type: PhotonClass): PhotonObject(type)

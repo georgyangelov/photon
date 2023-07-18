@@ -1,6 +1,5 @@
 package photon.compiler.values
 
-import photon.compiler.core.PhotonObject
-import photon.compiler.core.Type
+import photon.compiler.core.*
 
 class TypeObject(type: Type): PhotonObject(type)

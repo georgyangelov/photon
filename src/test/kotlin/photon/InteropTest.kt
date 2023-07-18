@@ -87,4 +87,17 @@ internal class InteropTest {
 
     assertEquals(42, result.apply(person))
   }
+
+  @Test
+  fun testCallingPhotonObjectsWithCallMethodFromJava() {
+    val result = eval<Supplier<Int>>(
+      """
+        object {
+          def call() 42
+        }
+      """.trimIndent()
+    )
+
+    assertEquals(42, result.get())
+  }
 }

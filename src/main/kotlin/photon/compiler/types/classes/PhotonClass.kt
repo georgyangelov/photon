@@ -38,7 +38,7 @@ class PhotonClass(
 
   private val templateFunctions by lazy {
     functions.value
-      .filter { it.function.type is TemplateFunctionType }
+      .filter { it.function.type() is TemplateFunctionType }
       .associate { Pair(it.name, it.function) }
   }
 
@@ -48,7 +48,7 @@ class PhotonClass(
       .associate { Pair(it.first.name, methodForProperty(it.first, it.second)) }
 
     val functions = functions.value
-      .filterNot { it.function.type is TemplateFunctionType }
+      .filterNot { it.function.type() is TemplateFunctionType }
       .associate { Pair(it.name, methodForFunction(it)) }
 
     val newMethod = if (canCreateInstancesOf != null) {
