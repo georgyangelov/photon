@@ -2,24 +2,15 @@ package photon.compiler.values
 
 import com.oracle.truffle.api.frame.MaterializedFrame
 import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import photon.compiler.core.*
-import photon.compiler.libraries.PhotonValueLibrary
 
-@ExportLibrary(PhotonValueLibrary::class)
 @ExportLibrary(InteropLibrary::class)
 class Closure(
   val _type: Type,
   val capturedFrame: MaterializedFrame
-): TruffleObject {
-  @ExportMessage
-  fun isPhotonValue() = true
-
-  @ExportMessage
-  fun type() = _type
-
+): PhotonObject(_type) {
   @ExportMessage
   fun isExecutable() = true
 

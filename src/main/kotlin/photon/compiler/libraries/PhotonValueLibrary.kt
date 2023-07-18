@@ -7,8 +7,6 @@ import com.oracle.truffle.api.library.Library
 import photon.compiler.core.Type
 import photon.compiler.types.IntTypeDefaultLibraryExports
 
-// TODO: Every value that has exported PhotonValueLibrary should export InteropLibrary as well
-//       and vice-versa
 @GenerateLibrary
 @GenerateLibrary.DefaultExport(IntTypeDefaultLibraryExports::class)
 abstract class PhotonValueLibrary: Library() {
