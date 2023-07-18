@@ -1,7 +1,7 @@
 package photon.compiler.types
 
 import photon.compiler.core.*
-import photon.compiler.values.classes.ClassBuilder
+import photon.compiler.types.classes.ClassBuilder
 import photon.compiler.values.Closure
 
 object InterfaceObjectType: Type() {

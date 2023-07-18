@@ -2,7 +2,7 @@ package photon.compiler.types
 
 import photon.compiler.core.*
 import photon.compiler.values.*
-import photon.compiler.values.classes.ClassBuilder
+import photon.compiler.types.classes.ClassBuilder
 
 object ClassObjectType: Type() {
   override val methods: Map<String, Method> = mapOf(

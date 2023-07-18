@@ -24,14 +24,14 @@ abstract class PhotonObject(private val type: Type?): TruffleObject {
   }
 
   @ExportMessage
-  fun isMemberInvocable(member: String): Boolean {
+  open fun isMemberInvocable(member: String): Boolean {
     val method = type().getMethod(member, null)
 
     return method != null
   }
 
   @ExportMessage
-  fun invokeMember(member: String, vararg arguments: Any): Any {
+  open fun invokeMember(member: String, vararg arguments: Any): Any {
     // TODO: Correct argTypes
     val method = type().getMethod(member, null)
     // TODO: Correct error for `invokeMember`

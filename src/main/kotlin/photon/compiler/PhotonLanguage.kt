@@ -8,7 +8,7 @@ import photon.compiler.macros.*
 import photon.compiler.nodes.LiteralNode
 import photon.compiler.types.*
 import photon.compiler.values.TypeObject
-import photon.compiler.values.classes.DefinitionsType
+import photon.compiler.types.classes.DefinitionsType
 import photon.frontend.*
 
 class PhotonContext(

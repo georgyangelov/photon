@@ -1,4 +1,4 @@
-package photon.compiler.values.classes
+package photon.compiler.types.classes
 
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.library.ExportLibrary

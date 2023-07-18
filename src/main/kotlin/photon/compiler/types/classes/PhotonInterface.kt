@@ -1,4 +1,4 @@
-package photon.compiler.values.classes
+package photon.compiler.types.classes
 
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -7,40 +7,9 @@ import com.oracle.truffle.api.library.*
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
 import photon.compiler.libraries.*
+import photon.compiler.values.PhotonInterfaceInstance
 import photon.core.EvalError
 import photon.core.TypeError
-
-@ExportLibrary(PhotonValueLibrary::class)
-@ExportLibrary(InteropLibrary::class)
-class PhotonInterfaceInstance(
-  val iface: Type,
-  val value: Any,
-  // TODO: Can this happen without this being a per-instance value?
-  val methodTable: Map<String, Method>
-): TruffleObject {
-  @ExportMessage
-  fun isPhotonValue() = true
-
-  @ExportMessage
-  fun type() = iface
-
-  @ExportMessage
-  fun hasMembers() = true
-
-  @ExportMessage
-  fun getMembers(includeInternal: Boolean): Any {
-    return iface.methods.keys.sorted()
-  }
-
-  @ExportMessage
-  fun isMemberInvocable(member: String): Boolean = methodTable.containsKey(member)
-
-  @ExportMessage
-  fun invokeMember(member: String, vararg arguments: Any): Any {
-    // TODO: Throw error if method is missing
-    return methodTable[member]!!.call(value, *arguments)
-  }
-}
 
 class ConverterMethod(
   val signature: Signature,
@@ -68,6 +37,12 @@ class ConverterMethod(
   }
 }
 
+class PhotonConcreteInterfaceType(
+  val interfaceType: Interface,
+  val fromType: Type,
+  override val methods: Map<String, Method>
+): Type()
+
 class PhotonInterface(
   val name: String?,
   val properties: Lazy<List<Definitions.Property>>,
@@ -77,6 +52,10 @@ class PhotonInterface(
   override fun type() = metaClass.value
 
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
+    if (other is PhotonConcreteInterfaceType && other.fromType == other) {
+      return PossibleTypeError.Success { PhotonInterfaceInstance(other, it) }
+    }
+
     val methodTable = virtualMethods.map { (name, interfaceMethod) ->
       val valueMethod = other.getMethod(name, interfaceMethod.argumentTypes)
         ?: // TODO: Location
@@ -94,7 +73,9 @@ class PhotonInterface(
       Pair(name, ConverterMethod(interfaceMethodSignature, valueMethod, conversion))
     }.toMap()
 
-    return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
+    val concreteInterfaceType = PhotonConcreteInterfaceType(this, other, methodTable)
+
+    return PossibleTypeError.Success { PhotonInterfaceInstance(concreteInterfaceType, it) }
   }
 
   val virtualMethods by lazy {
@@ -162,6 +143,11 @@ class PhotonInterface(
     }
 
     override fun call(target: Any, vararg args: Any): Any {
+      if (target is PhotonInterfaceInstance) {
+        return target.type.methods[property.name]!!.call(target.value, *args)
+      }
+
+      // TODO: Support cached?
       return InteropLibrary.getUncached().invokeMember(target, property.name, *args)
     }
   }
@@ -173,6 +159,10 @@ class PhotonFunctionalInterface(
 ): Interface() {
   // TODO: Somehow unify with the other class for interfaces?
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
+    if (other is PhotonConcreteInterfaceType && other.fromType == other) {
+      return PossibleTypeError.Success { PhotonInterfaceInstance(other, it) }
+    }
+
     val originalMethod = other.getMethod("call", parameters.map { it.second })
       ?: // TODO: Location
       return PossibleTypeError.Error(TypeError("Type $other does not have a method named call", null))
@@ -191,7 +181,9 @@ class PhotonFunctionalInterface(
       Pair("call", converterMethod)
     )
 
-    return PossibleTypeError.Success { PhotonInterfaceInstance(this, it, methodTable) }
+    val concreteInterfaceType = PhotonConcreteInterfaceType(this, other, methodTable)
+
+    return PossibleTypeError.Success { PhotonInterfaceInstance(concreteInterfaceType, it) }
   }
 
   // TODO: Somehow unify with the other class for interfaces?
@@ -199,11 +191,13 @@ class PhotonFunctionalInterface(
     Pair("call", object: Method(MethodType.Default) {
       override fun signature(): Signature = Signature.Concrete(parameters, returnType)
       override fun call(target: Any, vararg args: Any): Any {
-        val self = target as PhotonInterfaceInstance
+        if (target is PhotonInterfaceInstance) {
+          return target.type.methods["call"]!!.call(target.value, *args)
+        }
 
-        val method = self.methodTable["call"]!!
-
-        return method.call(self.value, *args)
+        // TODO: Support cached?
+        // TODO: Throw error if not executable
+        return InteropLibrary.getUncached().execute(target, *args)
       }
     })
   )

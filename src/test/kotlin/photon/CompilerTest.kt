@@ -570,6 +570,60 @@ internal class CompilerTest {
   }
 
 //  @Test
+//  fun testPartialFunctionCanCaptureObjectInstances() {
+//    expect(
+//      """
+//        class Person {
+//          def age: Int
+//        }
+//        interface WithAge { def age(): Int }
+//
+//        val concreteInterfaceInstance: WithAge = Person.new(42)
+//        val fn = @() concreteInterfaceInstance
+//        val value = fn()
+//
+//        value.age()
+//      """.trimIndent(),
+//      42
+//    )
+//  }
+
+//  @Test
+//  fun testPartialFunctionCanCaptureObjectInstancesThroughObjectLiteral() {
+//    expect(
+//      """
+//        interface WithAge { def age(): Int }
+//
+//        val concreteInterfaceInstance: WithAge = object { def age() 42 }
+//        val fn = @() concreteInterfaceInstance
+//        val value = fn()
+//
+//        value.age()
+//      """.trimIndent(),
+//      42
+//    )
+//  }
+
+  @Test
+  fun testAnyStaticForInterfaceInstances() {
+    expect(
+      """
+        interface WithAge { def age(): Int } 
+        
+        val fn = @() {
+          val concreteInterfaceInstance: WithAge = object { def age() 42 }
+          concreteInterfaceInstance
+        }
+        
+        val value: WithAge = fn()
+        
+        value.age()
+      """.trimIndent(),
+      42
+    )
+  }
+
+//  @Test
 //  fun testAnyStaticForTypeObjects() {
 //    expect(
 //      """

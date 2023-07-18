@@ -4,7 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.frame.VirtualFrame
 import photon.compiler.*
 import photon.compiler.core.*
-import photon.compiler.values.classes.PhotonFunctionalInterface
+import photon.compiler.types.classes.PhotonFunctionalInterface
 import photon.core.EvalError
 
 sealed class PatternNode: OperationNode() {

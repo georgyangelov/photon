@@ -1,13 +1,11 @@
-package photon.compiler.values
+package photon.compiler.types.classes
 
-import com.oracle.truffle.api.library.ExportLibrary
-import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.staticobject.*
 import photon.compiler.PhotonContext
 import photon.compiler.core.*
-import photon.compiler.libraries.PhotonValueLibrary
 import photon.compiler.types.TemplateFunctionType
-import photon.compiler.values.classes.*
+import photon.compiler.values.PhotonClassInstance
+import photon.compiler.values.PhotonStaticObjectFactory
 import photon.core.EvalError
 
 class PhotonClass(
@@ -40,7 +38,7 @@ class PhotonClass(
 
   private val templateFunctions by lazy {
     functions.value
-      .filter { it.function._type is TemplateFunctionType }
+      .filter { it.function.type is TemplateFunctionType }
       .associate { Pair(it.name, it.function) }
   }
 
@@ -50,7 +48,7 @@ class PhotonClass(
       .associate { Pair(it.first.name, methodForProperty(it.first, it.second)) }
 
     val functions = functions.value
-      .filterNot { it.function._type is TemplateFunctionType }
+      .filterNot { it.function.type is TemplateFunctionType }
       .associate { Pair(it.name, methodForFunction(it)) }
 
     val newMethod = if (canCreateInstancesOf != null) {

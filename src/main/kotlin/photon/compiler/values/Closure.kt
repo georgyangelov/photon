@@ -8,9 +8,9 @@ import photon.compiler.core.*
 
 @ExportLibrary(InteropLibrary::class)
 class Closure(
-  val _type: Type,
+  val type: Type,
   val capturedFrame: MaterializedFrame
-): PhotonObject(_type) {
+): PhotonObject(type) {
   @ExportMessage
   fun isExecutable() = true
 
@@ -18,6 +18,6 @@ class Closure(
   fun execute(vararg arguments: Any): Any {
     // TODO: Specify correct EvalMode
     // TODO: Support template functions by specifying the argTypes
-    return _type.getMethod("call", null)!!.call(this, *arguments)
+    return type.getMethod("call", null)!!.call(this, *arguments)
   }
 }
