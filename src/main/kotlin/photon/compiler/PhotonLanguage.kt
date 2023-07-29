@@ -39,13 +39,18 @@ class PhotonContext(
   }
 
   val globals = listOf(
+    Pair("Any", LiteralNode(AnyType, RootType, null)),
+
     Pair("Type", LiteralNode(RootType, RootType, null)),
     Pair("Int", LiteralNode(IntType, RootType, null)),
+    Pair("String", LiteralNode(StringType, RootType, null)),
 
     Pair("ClassBuilder", LiteralNode(DefinitionsType, RootType, null)),
 
     Pair("Class", LiteralNode(TypeObject(ClassObjectType), ClassObjectType, null)),
     Pair("Interface", LiteralNode(TypeObject(InterfaceObjectType), InterfaceObjectType, null)),
+
+    Pair("Interop", LiteralNode(TypeObject(InteropMetaType), InteropMetaType, null))
   )
 
   internal fun newGlobalLexicalScope(params: List<String> = emptyList()): LexicalScope.FunctionScope {

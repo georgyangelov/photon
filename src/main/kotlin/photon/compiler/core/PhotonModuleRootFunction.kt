@@ -12,8 +12,6 @@ class PhotonModuleRootFunction(
 
   internal val body: PhotonNode
 ) {
-  private val executionNode = RootFunctionExecutionNode(language, frameDescriptor, this)
-
   fun executePartial(module: PhotonModule) {
     CompilerDirectives.transferToInterpreter()
 
@@ -25,6 +23,8 @@ class PhotonModuleRootFunction(
   }
 
   fun call(captures: Array<Any>, vararg arguments: Any): Any {
+    val executionNode = RootFunctionExecutionNode(language, frameDescriptor, this)
+
     return executionNode.callTarget.call(captures, *arguments)
   }
 }
@@ -34,8 +34,10 @@ private class RootFunctionPartialExecutionNode(
   language: PhotonLanguage,
   frameDescriptor: FrameDescriptor,
 
-  val fn: PhotonModuleRootFunction
+  fn: PhotonModuleRootFunction
 ): RootNode(language, frameDescriptor) {
+  @Child var fnBody = fn.body
+
   override fun execute(frame: VirtualFrame): Any {
     val evalMode = EvalMode.Partial
     val context = PartialContext(module, evalMode)
@@ -43,7 +45,7 @@ private class RootFunctionPartialExecutionNode(
     val languageContext = PhotonContext.currentFor(this)
     FrameTools.applyGlobalsToFramePartial(frame, languageContext)
 
-    return fn.body.executePartial(frame, context)
+    return fnBody.executePartial(frame, context)
   }
 }
 
@@ -51,12 +53,14 @@ private class RootFunctionExecutionNode(
   language: PhotonLanguage,
   frameDescriptor: FrameDescriptor,
 
-  val fn: PhotonModuleRootFunction
+  fn: PhotonModuleRootFunction
 ): RootNode(language, frameDescriptor) {
+  @Child var fnBody = fn.body
+
   override fun execute(frame: VirtualFrame): Any {
     val languageContext = PhotonContext.currentFor(this)
     FrameTools.applyGlobalsToFrame(frame, languageContext)
 
-    return fn.body.executeCompileTimeOnly(frame)
+    return fnBody.executeCompileTimeOnly(frame)
   }
 }

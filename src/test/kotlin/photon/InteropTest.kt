@@ -7,6 +7,14 @@ import java.util.function.Supplier
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+interface WithAge {
+  fun age(): Int
+}
+
+class Person(val name: String, val age: java.lang.Integer) {
+  fun agePlus(num: java.lang.Integer) = age.toInt() + num.toInt()
+}
+
 internal class InteropTest {
   @Test
   fun testIntLiterals() {
@@ -28,10 +36,6 @@ internal class InteropTest {
 
     assertTrue(result.canInvokeMember("age"))
     assertEquals(42, result.invokeMember("age").asInt())
-  }
-
-  interface WithAge {
-    fun age(): Int
   }
 
   @Test
@@ -99,5 +103,40 @@ internal class InteropTest {
     )
 
     assertEquals(42, result.get())
+  }
+
+  @Test
+  fun testJavaInterop() {
+    val result = eval<Int>(
+      """
+        Interop.answer
+      """.trimIndent()
+    )
+
+    assertEquals(42, result)
+  }
+
+  @Test
+  fun testLoadingJavaClassesDirectly() {
+    val result = eval<Int>(
+      """
+        interface Person {
+          def name: String
+          def age: Int
+          def agePlus(num: Int): Int
+        }
+
+        val PersonClass = Interop.loadClass("photon.Person")
+
+        val person: Person = PersonClass.getConstructor(
+        	Interop.loadClass("java.lang.String"),
+          Interop.loadClass("java.lang.Integer")
+        ).newInstance("Ivan", 42)
+        
+        person.agePlus(1)
+      """.trimIndent()
+    )
+
+    assertEquals(43, result)
   }
 }

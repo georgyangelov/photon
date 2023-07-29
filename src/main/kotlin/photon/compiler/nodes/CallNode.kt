@@ -9,6 +9,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.PartialContext
 import photon.compiler.core.*
 import photon.compiler.libraries.*
+import photon.compiler.types.AnyType
 import photon.core.EvalError
 import photon.frontend.ArgumentsWithoutSelf
 
@@ -43,6 +44,11 @@ class CallNode(
 
     for (i in arguments.indices) {
       arguments[i] = arguments[i].executePartial(frame, context)
+    }
+
+    if (target.type == AnyType) {
+      type = AnyType
+      return this
     }
 
     val resolvedMethod = target.type.getMethod(name, arguments.map { it.type })
@@ -97,6 +103,11 @@ class CallNode(
     val evaluatedArguments = arrayOfNulls<Any>(arguments.size)
     for (i in arguments.indices) {
       evaluatedArguments[i] = arguments[i].executeCompileTimeOnly(frame)
+    }
+
+    if (type == AnyType) {
+      // TODO: Check and throw error if not invokable
+      return interop.invokeMember(evaluatedTarget, name, *evaluatedArguments)
     }
 
     return method!!.call(evaluatedTarget, *(evaluatedArguments as Array<Any>))

@@ -3,6 +3,7 @@ package photon.compiler.types
 import com.oracle.truffle.api.library.*
 import photon.compiler.core.*
 import photon.compiler.libraries.PhotonValueLibrary
+import kotlin.Any
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 @ExportLibrary(PhotonValueLibrary::class, receiverType = Integer::class)

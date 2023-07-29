@@ -5,6 +5,7 @@ import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.assertThrows
 import photon.compiler.PhotonLanguage
+import photon.compiler.types.InteropNative
 import photon.core.PhotonError
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -45,6 +46,13 @@ fun eval(code: String): org.graalvm.polyglot.Value {
 
 inline fun <reified T>eval(code: String): T {
   val context = Context.newBuilder(PhotonLanguage.id).allowAllAccess(true).build()
+  context.eval(
+    PhotonLanguage.id,
+    """
+      (value: Any) Interop.setNativeValue(value)
+    """.trimIndent()
+  ).executeVoid(InteropNative)
+
   val source = Source.newBuilder(PhotonLanguage.id, code, "test.y").build()
 
   return context.eval(source).`as`(T::class.java)

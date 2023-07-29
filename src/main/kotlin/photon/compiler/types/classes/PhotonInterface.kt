@@ -7,6 +7,7 @@ import com.oracle.truffle.api.library.*
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import photon.compiler.core.*
 import photon.compiler.libraries.*
+import photon.compiler.types.AnyType
 import photon.compiler.values.PhotonInterfaceInstance
 import photon.core.EvalError
 import photon.core.TypeError
@@ -54,6 +55,10 @@ class PhotonInterface(
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     if (other is PhotonConcreteInterfaceType && other.fromType == other) {
       return PossibleTypeError.Success { PhotonInterfaceInstance(other, it) }
+    }
+
+    if (other == AnyType) {
+      return PossibleTypeError.Success { it }
     }
 
     val methodTable = virtualMethods.map { (name, interfaceMethod) ->
@@ -161,6 +166,10 @@ class PhotonFunctionalInterface(
   override fun conversionFrom(other: Type): PossibleTypeError<ValueConverter> {
     if (other is PhotonConcreteInterfaceType && other.fromType == other) {
       return PossibleTypeError.Success { PhotonInterfaceInstance(other, it) }
+    }
+
+    if (other == AnyType) {
+      return PossibleTypeError.Success { it }
     }
 
     val originalMethod = other.getMethod("call", parameters.map { it.second })

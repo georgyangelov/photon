@@ -3,6 +3,7 @@ package photon.compiler.types
 import photon.compiler.core.*
 import photon.compiler.types.classes.ClassBuilder
 import photon.compiler.values.Closure
+import kotlin.Any
 
 object InterfaceObjectType: Type() {
   override val methods: Map<String, Method> = mapOf(

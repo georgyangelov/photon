@@ -3,6 +3,7 @@ package photon.compiler
 import photon.compiler.core.*
 import photon.compiler.nodes.*
 import photon.compiler.types.IntType
+import photon.compiler.types.StringType
 import photon.core.EvalError
 import photon.frontend.*
 
@@ -200,7 +201,7 @@ class ModuleReader(
     is ASTValue.Boolean -> LiteralNode(ast.value, RootType, ast.location)
     is ASTValue.Int -> LiteralNode(ast.value, IntType, ast.location)
     is ASTValue.Float -> LiteralNode(ast.value, RootType, ast.location)
-    is ASTValue.String -> LiteralNode(ast.value, RootType, ast.location)
+    is ASTValue.String -> LiteralNode(ast.value, StringType, ast.location)
 
     is ASTValue.Call -> {
       val varCallSlot = if (ast.mayBeVarCall) scope.accessName(ast.name) else null

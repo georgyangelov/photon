@@ -3,6 +3,7 @@ package photon.compiler.types
 import photon.compiler.FrameTools
 import photon.compiler.core.*
 import photon.compiler.values.Closure
+import kotlin.Any
 
 class FunctionType(val function: PhotonFunction): Type() {
   override val methods: Map<String, Method> by lazy {

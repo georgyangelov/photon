@@ -37,7 +37,7 @@ abstract class PhotonObject(private val type: Type?): TruffleObject {
     // TODO: Correct error for `invokeMember`
       ?: throw RuntimeException("Cannot invoke member $member as it's missing")
 
-    return method.call(this, arguments)
+    return method.call(this, *arguments)
   }
 
   // TODO: Support template functions by specifying the argTypes
