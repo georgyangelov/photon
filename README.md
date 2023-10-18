@@ -76,7 +76,7 @@ function. The `<T, R>` here are like parameters in the type-language and `<code>
 
 In Photon, you can match on types, so you can do:
 
-```
+```ruby
 def map(array: Array(val T), fn: (item: T) => val R): R {
   <code>
 }
@@ -87,7 +87,7 @@ like you would do for a value if `Array` was a struct/enum.
 
 Since types are values themselves, you could also pass them as parameters:
 
-```
+```ruby
 def filter(T: Type, array: Array(T), fn: (item: T) => Bool): Array(T)
 ```
 
@@ -110,7 +110,7 @@ I can't explain it better than https://vorpus.org/blog/notes-on-structured-concu
 
 What I can give is some usage examples:
 
-```
+```ruby
 # Async finishes execution once all calls have finished, 
 # or fails if any of the runs fail
 async (self) {
@@ -120,7 +120,7 @@ async (self) {
 }
 ```
 
-```
+```ruby
 # We can also use a stream with an `async` operator
 Stream.of(
   "http://example.com",
@@ -141,7 +141,7 @@ so it's essentially an rx-like `Observable` as well.
 
 # Syntax
 
-```
+```ruby
 # Primitives
 true
 false
